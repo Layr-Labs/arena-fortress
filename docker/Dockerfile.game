@@ -1,0 +1,24 @@
+# The season-0 game server image (docs/GAME-API.md §2: the `game` service): the DF image plus gameapi/ and an
+# entrypoint that starts the server, which resets DF headless (reset_fort.sh -> docker/start_df.sh) with the task's
+# settings and serves the API on 8090. docker/Dockerfile is unchanged; build it first from the same tree.
+# Build:
+#   docker buildx build --platform linux/amd64 --build-context dl=$HOME/df-dl --build-context harness=. \
+#     -f docker/Dockerfile -t yukon-df:53.16 --load docker
+#   docker buildx build --platform linux/amd64 --build-context harness=. --build-arg BASE=yukon-df:53.16 \
+#     -f docker/Dockerfile.game -t yukon-df:game --load docker
+# Run (one game):
+#   docker run -d --init --name game1 --platform linux/amd64 --security-opt seccomp=unconfined --memory 2500m \
+#     -p 127.0.0.1:8090:8090 -e GAMEAPI_TASK=scenarios/start-year.json yukon-df:game
+ARG BASE=yukon-df:53.16
+FROM --platform=linux/amd64 ${BASE}
+# gameapi/ and the key again, so a rebuild of this layer alone picks up server changes
+COPY --from=harness gameapi /root/dfprobe/gameapi
+COPY --from=harness bench/key.py /root/dfprobe/bench/key.py
+COPY --from=harness gateway/prices.json /root/dfprobe/gateway/prices.json
+COPY game_entrypoint.sh /root/dfprobe/docker/game_entrypoint.sh
+RUN chmod +x /root/dfprobe/docker/game_entrypoint.sh && find /root/dfprobe/gameapi -name __pycache__ -prune -exec rm -rf {} + \
+    && mkdir -p /root/dfprobe/df/save
+ENV GAMEAPI_PORT=8090 GAMEAPI_OUT=/root/dfprobe/runs/game PYTHONUNBUFFERED=1
+EXPOSE 8090
+HEALTHCHECK --interval=10s --timeout=5s --start-period=120s CMD python3 -c "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=4)" || exit 1
+ENTRYPOINT ["/root/dfprobe/docker/game_entrypoint.sh"]

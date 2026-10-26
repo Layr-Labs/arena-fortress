@@ -1,0 +1,39 @@
+# runner/ci/actions/unseal-games: fetch the sealed per-job game bundles of this run (and, for an organiser re-run of
+# single games, of an earlier run) from the organiser-only store (release run-<run id> of the ops repo), unseal them
+# and merge into one run dir: for each game the best attempt (ok over infra, this run over the earlier one, then the
+# latest attempt). runner/ci/bin/collect.py merge. Prints counts only.
+name: unseal-games
+description: Fetch, unseal and merge dfbench game bundles
+inputs:
+  pattern: {required: true, description: "asset glob, e.g. games-s1-*"}
+  seal-key: {required: true}
+  ops-repo: {required: true}
+  ops-token: {required: true}
+  merge-from-run: {required: false, default: ""}
+  out: {required: true}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SEAL_KEY: ${{ inputs.seal-key }}
+        OUT: ${{ inputs.out }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        OPS_REPO: ${{ inputs.ops-repo }}
+        PATTERN: ${{ inputs.pattern }}
+        PREV: ${{ inputs.merge-from-run }}
+      run: |
+        set -euo pipefail
+        B=$RUNNER_TEMP/bundles; mkdir -p "$B/cur-enc" "$B/prev-enc"
+        gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p "$PATTERN.tgz.enc" -D "$B/cur-enc" || true
+        [ -z "$PREV" ] || gh release download "run-$PREV" -R "$OPS_REPO" -p "$PATTERN.tgz.enc" -D "$B/prev-enc"
+        kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+        for side in cur prev; do
+          find "$B/$side-enc" -name '*.tgz.enc' | while read -r f; do
+            name=$(basename "$f" .tgz.enc); d="$B/$side/$name"; mkdir -p "$d"
+            bash runner/ci/bin/seal.sh open "$f" "$d.tgz" "$kf" && tar -xzf "$d.tgz" -C "$d" && rm -f "$d.tgz"
+          done
+        done
+        rm -f "$kf"; rm -rf "$B"/*-enc
+        mkdir -p "$B/cur" "$B/prev"
+        python3 -I runner/ci/bin/collect.py merge "$B" "$OUT"

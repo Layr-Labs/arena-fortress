@@ -1,0 +1,83 @@
+{
+ "id": "LT01-drought",
+ "name": "lt01-drought-s0",
+ "season": "s0",
+ "split": "test-public",
+ "family": "drink",
+ "snapshot_pool": [
+  "scenarios/snapshots/fort-worked-y1-2001",
+  "scenarios/snapshots/fort-worked-y1-2002",
+  "scenarios/snapshots/fort-worked-y1-2005"
+ ],
+ "snapshot_pool_private": [
+  "@pool:LT01/0",
+  "@pool:LT01/1",
+  "@pool:LT01/2",
+  "@pool:LT01/3"
+ ],
+ "fort": {
+  "recipe": "embark/forts/worked-y1.json",
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "docker/task_forts.sh --recipes worked-y1 --seeds <seeds> (embark/make_task_fort.sh per seed)",
+  "seeds": {
+   "train": [
+    1000,
+    1999
+   ],
+   "test-public": [
+    2000,
+    2099
+   ],
+   "test-private": [
+    100000,
+    2147483647
+   ]
+  },
+  "pool": {
+   "test-public": [
+    2001,
+    2002,
+    2005
+   ]
+  },
+  "note": "Public forts: CLI seeds (docker/task_forts.sh, as runner/yukon/setup.sh). Private forts: pool/dfpool (seeds drawn per season, committed in pool/seasons/<season>/COMMITMENT.json, revealed at close).",
+  "seed_mode": {
+   "test-public": "cli",
+   "test-private": "paramset (EMBARK_SEED_IN_PARAMS=1)"
+  }
+ },
+ "pool_note": "Private pool (pool/README.md): `snapshot_pool_private` holds placeholders that `pool/dfpool stage` resolves to the season's sealed forts (scenarios/snapshots/<season>-<task>-p<i> under DFBENCH_SNAPSHOTS_DIR); the staged copy drops `snapshot` and replaces `snapshot_pool`. Without staging, the task runs on the public `snapshot_pool` below (competitors' local runs).",
+ "setup": [
+  [
+   "lua",
+   "-f",
+   "scenarios/lua/shortage.lua",
+   "1",
+   "0"
+  ]
+ ],
+ "setup_seeded": false,
+ "days": 60,
+ "active_days": 39,
+ "hands_off_days": 21,
+ "decision_cap": 78,
+ "brief": "All of the fortress's drink has just been lost.",
+ "goal": "From day 39 you can't act for 21 days. Keep drink in stock every day of that window, brew at least one batch of drink inside it, and end with at least one drink per dwarf. No dwarf may die.",
+ "predicate": "drought_v1",
+ "partial": "drought_v1",
+ "metrics": {
+  "days_drink_positive": 1,
+  "citizen_deaths": -1,
+  "drink_final": 1
+ },
+ "references": {
+  "noop": "fail",
+  "random": "fail",
+  "scripted": "pass?",
+  "automation": "pass",
+  "witness": "pass"
+ },
+ "description": "Seed-built LT01 (docs/SEED-FORTS.md). A working year-1 fort (embark/forts/worked-y1: about 19 dwarves; Carpenters, Still, Kitchen, two underground plump-helmet plots; 571 drink) loses all its drink at load (shortage.lua 1 0); 21-day hands-off window from day 39.",
+ "provenance": "Start: embark/forts/worked-y1.json on a fresh TEMPERATE_SOIL embark of each pool seed (embark/make_task_fort.sh), in place of the scripted-y1 snapshot. Setup unchanged from lt01-drought (shortage.lua 1 0). Season-0 copy of scenarios/seed/lt01-drought.json with the private-pool placeholders.",
+ "seed_variant": "scenarios/seed/lt01-drought.json"
+}

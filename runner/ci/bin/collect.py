@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""runner/ci/bin/collect.py: glue for the scoring workflow (runner/ci/score.yml; docs/SCORING-INFRA.md §5).
+Stdlib only; never reads harness output; prints only game ids, statuses and counts.
+
+  status   OUT_GAMES STAGE ATTEMPT JOB  > status.json    a play job's per-game statuses (ok | infra), plain JSON
+  retry    PLAN_JSON STATUS_DIR          > matrix.json   the plan's games that have no `ok` in any attempt, as a
+                                                         one-game-per-job matrix (empty: {"include": []})
+  merge    BUNDLES_DIR OUT_DIR                           unpacked per-job bundles -> one run dir: for each game the
+                                                         best attempt (ok over infra, then the latest attempt); a
+                                                         game whose DF crashed on two attempts gets crash_twice
+  finalize SCORE_JSON STAGE1_POINT OUT                   copy score.json, add flat metrics stage1_point and
+                                                         workflow_run, check the Yukon shape ({score, metrics})
+"""
+import glob, json, os, re, shutil, sys
+
+
+def status(out_games, stage, attempt, job):
+    games = {}
+    for p in sorted(glob.glob(os.path.join(out_games, "*", "game.json"))):
+        try:
+            rec = json.load(open(p))
+        except (OSError, ValueError):
+            continue
+        gid = (rec.get("spec") or {}).get("game_id") or os.path.basename(os.path.dirname(p))
+        # crash_twice: DF crashed on both of the job's attempts; final (scored at the state reached), not re-run
+        games[gid] = "crash_twice" if rec.get("status") != "ok" and rec.get("crash_twice") else (rec.get("status") or "infra")
+    json.dump({"stage": int(stage), "attempt": int(attempt), "job": job, "games": games}, sys.stdout)
+
+
+def _ok_games(status_dir):
+    ok = set()
+    for p in glob.glob(os.path.join(status_dir, "**", "status-*.json"), recursive=True):
+        for g, s in json.load(open(p))["games"].items():
+            if s in ("ok", "crash_twice"):
+                ok.add(g)
+    return ok
+
+
+def retry(plan_json, status_dir):
+    plan = json.load(open(plan_json)) if os.path.exists(plan_json) else json.loads(plan_json)
+    ok = _ok_games(status_dir)
+    inc = []
+    for job in plan.get("include", []):
+        for g in job["games"].split(","):
+            if g and g not in ok:
+                inc.append({"job": f"r-{g}", "games": g, "timeout_min": job["timeout_min"],
+                            "play_timeout_min": job.get("play_timeout_min", job["timeout_min"])})
+    sys.stderr.write(f"retry: {len(inc)} game(s) without an ok result: {','.join(x['games'] for x in inc) or '-'}\n")
+    json.dump({"include": inc}, sys.stdout)
+
+
+def merge(bundles_dir, out_dir):
+    """bundles_dir/{cur,prev}/<artifact>/games/<game>/game.json; artifact names carry s<stage>-a<attempt>-r<run attempt>."""
+    best, causes = {}, {}
+    for p in glob.glob(os.path.join(bundles_dir, "**", "game.json"), recursive=True):
+        gdir = os.path.dirname(p)
+        if "attempt-" in os.path.basename(gdir):
+            # an earlier attempt inside a job (dfbench --retries): never selected, but its infra cause counts
+            try:
+                rec = json.load(open(p))
+            except (OSError, ValueError):
+                continue
+            if rec.get("status") != "ok":
+                gid = (rec.get("spec") or {}).get("game_id") or os.path.basename(os.path.dirname(gdir))
+                causes.setdefault(gid, []).append(rec.get("infra_cause"))
+            continue
+        if "attempt-" in gdir or not os.path.isdir(os.path.join(gdir, "game")) or os.path.isdir(os.path.join(gdir, "games")):
+            continue
+        rec = json.load(open(p))
+        gid = (rec.get("spec") or {}).get("game_id") or os.path.basename(gdir)
+        m = re.search(r"s(\d+)-a(\d+)-r(\d+)", gdir)
+        cur = os.sep + "cur" + os.sep in gdir           # this run's bundles beat a merged earlier run's
+        order = (rec.get("status") == "ok", cur, int(m.group(2)) if m else 0, int(m.group(3)) if m else 0)
+        if rec.get("status") != "ok":
+            causes.setdefault(gid, []).append(rec.get("infra_cause"))
+        if gid not in best or order > best[gid][0]:
+            best[gid] = (order, gdir)
+    os.makedirs(out_dir, exist_ok=True)
+    for gid, (_, gdir) in sorted(best.items()):
+        dst = os.path.join(out_dir, os.path.basename(gdir))
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+        shutil.copytree(gdir, dst)
+        if not best[gid][0][0] and crash_twice(causes.get(gid, [])):
+            p = os.path.join(dst, "game.json")
+            rec = json.load(open(p))
+            rec["crash_twice"] = True
+            json.dump(rec, open(p, "w"), indent=1)
+    n_ok = sum(1 for o, _ in best.values() if o[0])
+    n_ct = sum(1 for g, (o, _) in best.items() if not o[0] and crash_twice(causes.get(g, [])))
+    print(f"merge: {len(best)} games ({n_ok} ok, {n_ct} crashed twice, {len(best) - n_ok - n_ct} infra)")
+
+
+def crash_twice(causes):
+    """Two DF-side failures (DF crashed or hung, the server's artifacts missing) and no ok attempt: the game is
+    scored at the state reached, not counted as infra (challenge/SCORING.md §6; runner/dfbenchlib/game.py)."""
+    return sum(1 for c in causes if c == "game") >= 2
+
+
+def finalize(score_json, stage1_point, out):
+    s = json.load(open(score_json))
+    if not isinstance(s.get("score"), (int, float)) or not isinstance(s.get("metrics"), dict):
+        sys.exit("finalize: score.json is not {score: number, metrics: {...}}")
+    for k, v in s["metrics"].items():
+        if isinstance(v, (dict, list)) and k != "harness_digest":
+            sys.exit(f"finalize: metric {k} is nested; Yukon shows one row per flat key")
+    s["metrics"]["stage1_point"] = float(stage1_point) if stage1_point not in ("", None) else None
+    s["metrics"]["workflow_run"] = f"{os.environ.get('GITHUB_RUN_ID', '')}/{os.environ.get('GITHUB_RUN_ATTEMPT', '')}"
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    json.dump(s, open(out, "w"), indent=1)
+    print(f"finalize: score {s['score']} stage {s['metrics'].get('stage')} -> {out}")
+
+
+if __name__ == "__main__":
+    cmd, *args = sys.argv[1:] or ["-h"]
+    {"status": status, "retry": retry, "merge": merge, "finalize": finalize}.get(cmd, lambda *_: sys.exit(__doc__))(*args)

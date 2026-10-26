@@ -1,0 +1,67 @@
+{
+ "id": "LT02-rescue-neglected",
+ "name": "lt02-rescue-neglected-seed",
+ "split": "test-public",
+ "family": "rescue",
+ "snapshot_pool": [
+  "scenarios/snapshots/fort-neglected-y1-2001",
+  "scenarios/snapshots/fort-neglected-y1-2002",
+  "scenarios/snapshots/fort-neglected-y1-2005"
+ ],
+ "fort": {
+  "recipe": "embark/forts/neglected-y1.json",
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "docker/task_forts.sh --recipes neglected-y1 --seeds <seeds> (embark/make_task_fort.sh per seed)",
+  "seeds": {
+   "train": [
+    1000,
+    1999
+   ],
+   "test-public": [
+    2000,
+    2099
+   ],
+   "test-private": [
+    9000,
+    99999
+   ]
+  },
+  "pool": {
+   "test-public": [
+    2001,
+    2002,
+    2005
+   ]
+  },
+  "note": "Seeds are world seeds; a seed whose embark finds no acceptable site is skipped, so a pool is the first n accepted seeds of its range. test-private seeds are drawn per season by the maintainers and never written into the repo (embark/pool_task.py --split test-private)."
+ },
+ "setup": [],
+ "setup_seeded": false,
+ "days": 90,
+ "active_days": 69,
+ "hands_off_days": 21,
+ "decision_cap": 138,
+ "brief": "You are taking over a neglected fortress: no workshops, no drink, unhappy dwarves.",
+ "goal": "From day 69 you can't act for 21 days. Keep drink in stock every day of that window, with your own built Still and a planted farm plot, and keep food in stock every day of that window too. No dwarf may die.",
+ "predicate": "rescue_v2",
+ "partial": "rescue_v2",
+ "metrics": {
+  "days_drink_positive": 1,
+  "citizen_deaths": -1,
+  "drink_final": 1
+ },
+ "references": {
+  "noop": "fail",
+  "random": "fail",
+  "scripted": "pass?",
+  "automation": "pass",
+  "witness": "pass"
+ },
+ "description": "Seed-built LT02 (docs/SEED-FORTS.md). A neglected fort (embark/forts/neglected-y1: about 18 dwarves, nothing built, no manager or automation, no drink or plants, 11 unhappy dwarves); 21-day hands-off window from day 69.",
+ "provenance": "Start: embark/forts/neglected-y1.json on a fresh TEMPERATE_SOIL embark of each pool seed (embark/make_task_fort.sh), in place of the noop-y1 snapshot. No setup, as lt02-rescue-neglected.",
+ "legacy": {
+  "task": "scenarios/lt02-rescue-neglected.json",
+  "snapshot": "scenarios/snapshots/noop-y1",
+  "note": "The snapshot-based task stays as it was (lab-2.0, dfbench/v2.1.1 results); this one is its seed-built successor with a new task hash."
+ }
+}

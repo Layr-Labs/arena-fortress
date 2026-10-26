@@ -1,0 +1,141 @@
+# TEMPLATE, not active (lives under runner/ci/). Installed in the benchmark repo as .github/workflows/play.yml,
+# next to score.yml, which calls it once per stage and once more per stage for infra re-runs.
+# One matrix job per game (or per --per-job games): the trusted DF and gateway images (pinned digests), the private
+# pool (on the host, or the sealed asset in the organiser-only store; never an artifact), the harness image built once
+# by score.yml's `harness` job and checked by image id, and the provider key only in the env of the Play step, which
+# hands it to the gateway container only (runner/README.md "Security"). docs/SCORING-INFRA.md §5.
+# Visibility: this job uploads NO artifact. Statuses and the sealed per-game bundle go to the ops store
+# (release run-<run id> of vars.DFBENCH_OPS_REPO). Harness stdout/stderr is removed from the bundle and deleted
+# with the runner, unless keep_harness_logs (organiser) seals it to the ops store too. Nothing here echoes an
+# observation, a task file or a fort id: the job log has one line per game (id, ok/infra, wall).
+name: play
+on:
+  workflow_call:
+    inputs:
+      matrix: {type: string, required: true}         # {"include": [{"job", "games", "timeout_min"}]}
+      stage: {type: number, required: true}
+      attempt: {type: number, required: true}         # 1 = first pass, 2 = infra re-run pass
+      runs_on: {type: string, required: true}         # JSON: "ubuntu-24.04" or ["self-hosted","dfbench"]
+      harness_image_id: {type: string, required: true}
+      harness_digest: {type: string, required: true}
+      keep_harness_logs: {type: boolean, required: false, default: false}
+    secrets:
+      # environment secrets of `dfbench-score` (the job below declares it); listed for documentation
+      OPENROUTER_API_KEY: {required: false}
+      DFBENCH_SEAL_KEY: {required: false}
+      DFBENCH_OPS_TOKEN: {required: false}
+
+permissions:
+  contents: read
+  packages: read          # pull the trusted images from the org registry (GitHub-hosted path)
+
+jobs:
+  play:
+    name: s${{ inputs.stage }}.${{ inputs.attempt }} ${{ matrix.games }}
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    environment: dfbench-score          # protected: deployment branches submissions/* and yukon/baseline/**; holds the secrets
+    timeout-minutes: ${{ matrix.timeout_min }}
+    # Yukon reads a score only from a run that concludes `success` (yukon src/execution/github-actions.ts:871), so a
+    # lost game must not fail the run: score.yml's *-check jobs re-play games with no ok status, and aggregate fails
+    # the run (no score) only past DFBENCH_MAX_INFRA_GAMES.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(vars.DFBENCH_MAX_PARALLEL || '40') }}
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    env:
+      SEASON: ${{ vars.DFBENCH_POOL_SEASON || 's0' }}     # the pool and image season (s0 on dev and prod alike)
+      MODEL: ${{ vars.DFBENCH_MODEL || 'z-ai/glm-5.3-flash' }}
+      TAG: s${{ inputs.stage }}-a${{ inputs.attempt }}-r${{ github.run_attempt }}-${{ matrix.job }}
+      OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}
+    steps:
+      # actions pinned by commit SHA (docs/SCORING-INFRA.md §7.2: the org's allowlist)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./runner/ci/actions/dfbench-host
+        with:
+          season: ${{ env.SEASON }}
+          game-image-ref: ${{ vars.DFBENCH_GAME_IMAGE_REF }}
+          gateway-image-ref: ${{ vars.DFBENCH_GATEWAY_IMAGE_REF }}
+          pool-sha256: ${{ vars.DFBENCH_POOL_SHA256 }}
+          pool-release-tag: ${{ vars.DFBENCH_POOL_RELEASE_TAG || 'pool-s0' }}
+          seal-key: ${{ secrets.DFBENCH_SEAL_KEY }}
+          registry-token: ${{ github.token }}
+          ops-repo: ${{ env.OPS_REPO }}
+          ops-token: ${{ secrets.DFBENCH_OPS_TOKEN }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333   # v8.0.2
+        with: {name: harness-image, path: harness}
+      - name: Load the harness image (checked by image id)
+        env: {WANT: "${{ inputs.harness_image_id }}"}
+        run: |
+          set -euo pipefail
+          gunzip -c harness/harness-image.tar.gz | docker load -q >/dev/null && rm -rf harness
+          got=$(docker image inspect -f '{{.Id}}' dfbench-harness:submission)
+          [ "$got" = "$WANT" ] || { echo "::error::harness image id $got != $WANT"; exit 1; }
+          # the source digest must match too (same tree as the build job)
+          d=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+          [ "$d" = "${{ inputs.harness_digest }}" ] || { echo "::error::submission/ digest changed"; exit 1; }
+      - name: Play
+        timeout-minutes: ${{ matrix.play_timeout_min || matrix.timeout_min }}
+        continue-on-error: true          # an overrun game is an infra game (re-played), not a failed run
+        env:
+          # the only step with the key; dfbench sets it only for `compose up gateway` (runner/README.md "Security")
+          DFBENCH_PROVIDER_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GAMES: ${{ matrix.games }}
+        run: |
+          set -euo pipefail
+          # DFBENCH_SLOT comes from the self-hosted slot's env (infra/host/slot.sh); 0 on GitHub-hosted VMs
+          prefix="dfb-s${DFBENCH_SLOT:-0}-${GITHUB_RUN_ID}"
+          # the runner's own log goes into the sealed bundle; the job log gets one line per game
+          python3 -I runner/dfbench suite run --suite "$DFBENCH_POOL_DIR/suite.json" --games "$GAMES" \
+            --harness-image dfbench-harness:submission --harness-digest "${{ inputs.harness_digest }}" \
+            --model "$MODEL" --parallel "${DFBENCH_PARALLEL:-1}" --retries 1 --run-prefix "$prefix" \
+            --stack "${{ vars.DFBENCH_STACK || 'real' }}" \
+            --out out/games > out/runner.log 2>&1 || echo "runner exit $? (infra games are re-run by score.yml)"
+          for g in out/games/*/game.json; do
+            python3 -I -c 'import json,sys;r=json.load(open(sys.argv[1]));print("game", (r.get("spec") or {}).get("game_id"), r.get("status"), "wall_s", r.get("wall_s"))' "$g" || true
+          done
+      - name: Withhold harness output (never to the log or an artifact)
+        if: always()
+        env:
+          KEEP: ${{ inputs.keep_harness_logs }}
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+        run: |
+          set -uo pipefail
+          hl=$RUNNER_TEMP/harness-logs; mkdir -p "$hl"
+          for d in out/games/*/; do
+            [ -d "$d/harness" ] || continue
+            g=$(basename "$d"); mkdir -p "$hl/$g"; mv "$d/harness" "$hl/$g/"
+            find "$d" -path '*/attempt-*/harness' -type d -exec rm -rf {} + 2>/dev/null || true
+          done
+          if [ "$KEEP" = true ] && [ -n "$(ls -A "$hl")" ]; then
+            kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+            tar -czf "$RUNNER_TEMP/hl.tgz" -C "$hl" . && bash runner/ci/bin/seal.sh seal "$RUNNER_TEMP/hl.tgz" "$RUNNER_TEMP/harness-logs-$TAG.tgz.enc" "$kf" >/dev/null
+            gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber "$RUNNER_TEMP/harness-logs-$TAG.tgz.enc" && echo "harness output kept (sealed, ops store)"
+            rm -f "$kf" "$RUNNER_TEMP/hl.tgz" "$RUNNER_TEMP/harness-logs-$TAG.tgz.enc"
+          fi
+          rm -rf "$hl"
+      - name: "Status and sealed game bundle -> the ops store (no artifacts)"
+        if: always()
+        env:
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/games bundle
+          python3 -I runner/ci/bin/collect.py status out/games "${{ inputs.stage }}" "${{ inputs.attempt }}" "${{ matrix.job }}" \
+            > "bundle/status-$TAG.json"
+          python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));print("status", " ".join(f"{g}={s}" for g,s in d["games"].items()) or "none")' "bundle/status-$TAG.json"
+          tar -czf "$RUNNER_TEMP/games.tgz" -C out .
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          bash runner/ci/bin/seal.sh seal "$RUNNER_TEMP/games.tgz" "bundle/games-$TAG.tgz.enc" "$kf" >/dev/null
+          rm -f "$kf" "$RUNNER_TEMP/games.tgz"
+          for i in 1 2 3; do gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber bundle/* && break; sleep $((i * 10)); done
+      - name: Clean up (GitHub-hosted VMs are discarded; self-hosted slots also run infra/host/cleanup.sh)
+        if: always()
+        run: |
+          docker ps -aq --filter "name=^dfb-s${DFBENCH_SLOT:-0}-${GITHUB_RUN_ID}" | xargs -r docker rm -f >/dev/null 2>&1 || true
+          docker image rm -f dfbench-harness:submission >/dev/null 2>&1 || true
+          case "${DFBENCH_POOL_DIR:-}" in "$RUNNER_TEMP"/*) rm -rf "$DFBENCH_POOL_DIR" ;; esac
+          rm -rf out bundle status

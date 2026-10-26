@@ -1,0 +1,68 @@
+#notes label(help) yukon automation arm: a small fort for the default start (research/automation-arm.md)
+"Every level section uses the access stair as its start cursor. automation.lua stair_site picks it:"
+"open surface floor whose footprint on the three soil levels below is dry non-aquifer soil."
+"/stair_top on the surface; /farm_dig one level down; /rooms_dig two down; /dorm2_dig three down."
+"Once a level is dug: /farm_build; quickfort orders + run /rooms_build then /rooms_zone; same for dorm2."
+"/still and /kitchen take a workshop centre as the cursor."
+#dig label(stair_top) start(12;3;access stair) down stair on the surface
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,j,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#dig label(farm_dig) start(12;3;access stair) up-down stair and an 11x3 farm room to its east
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,d(11x3),,,,,,,,,,
+,,,,,,,,,,,i,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#dig label(rooms_dig) start(12;3;access stair) up-down stair with an 11x3 dormitory east and a 5x3 dining room west
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,d(5x3),,,,,,d(11x3),,,,,,,,,,
+,,,,,,,,,,,i,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#dig label(dorm2_dig) start(12;3;access stair) up stair and a second 11x3 dormitory east
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,d(11x3),,,,,,,,,,
+,,,,,,,,,,,u,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#build label(farm_build) start(12;3;access stair) three 3x3 farm plots
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,p(3x3),,,,p(3x3),,,,p(3x3),,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#build label(rooms_build) start(12;3;access stair) 22 dormitory beds plus 3 tables and 3 chairs in the dining room
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,t,,t,,t,,b,b,b,b,b,b,b,b,b,b,b
+,,,,,,c,,c,,c,,,,,,,,,,,,
+,,,,,,,,,,,,b,b,b,b,b,b,b,b,b,b,b
+,,,,,,,,,,,,,,,,,,,,,,
+#zone label(rooms_zone) start(12;3;access stair) dormitory and dining hall zones
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,h(5x3),,,,,,D(11x3),,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#build label(dorm2_build) start(12;3;access stair) 22 more beds
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,b,b,b,b,b,b,b,b,b,b,b
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,b,b,b,b,b,b,b,b,b,b,b
+,,,,,,,,,,,,,,,,,,,,,,
+#zone label(dorm2_zone) start(12;3;access stair) second dormitory zone
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,D(11x3),,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+#build label(still) start(2;2;workshop centre) one 3x3 workshop
+`,`,`
+`,wl,`
+`,`,`
+#build label(kitchen) start(2;2;workshop centre) one 3x3 workshop
+`,`,`
+`,wz,`
+`,`,`

@@ -1,0 +1,43 @@
+{
+  "name": "SHALLOW_ROCK_COOL",
+  "description": "LT10 (test-only): cool biome, at most 1 soil level over stone near the wagon, sparse trees, a river or brook, no aquifer in the top 3 levels under the wagon (a light aquifer further down is allowed, as on fort_start_snapshot), not savage or evil. Same 'Play now!' embark as TEMPERATE_SOIL. DRAFT: not validated; see scenarios/README.md (LT10 notes).",
+  "paramset": "COOL POCKET",
+  "region": {
+    "biomes": [
+      "FOREST_TAIGA",
+      "TUNDRA",
+      "SHRUBLAND_TEMPERATE",
+      "GRASSLAND_TEMPERATE",
+      "FOREST_TEMPERATE_CONIFER"
+    ],
+    "require_river": true,
+    "salinity_max": 0,
+    "savagery_max": 65,
+    "evilness_max": 65,
+    "temperature_max": 35,
+    "vegetation_max": 45,
+    "vegetation_target": 25
+  },
+  "rect": {
+    "river_cells_min": 1,
+    "river_cells_max": 6,
+    "elev_range_max": 3,
+    "avoid_sites": 1
+  },
+  "reject_warn": [
+    "HEAVY_WATER_TABLE",
+    "SALT_WATER",
+    "SAVAGE",
+    "EVIL",
+    "UNDEAD"
+  ],
+  "accept": {
+    "citizens": 7,
+    "near_radius": 15,
+    "wagon_level_samples_min": 20,
+    "soil_frac_le1_min": 0.75,
+    "trees_max": 60,
+    "surface_water_min": 20,
+    "aquifer_depth_min": 4
+  }
+}

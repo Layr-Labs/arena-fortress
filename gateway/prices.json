@@ -1,0 +1,16 @@
+{
+  "schema": "dfbench-prices/1",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "source": "OpenRouter /api/v1/models/z-ai/glm-5.3-flash/endpoints, provider tag 'together', fetched 2026-10-23",
+  "models": {
+    "z-ai/glm-5.3-flash": {
+      "input": 0.15,
+      "cached_input": 0.03,
+      "output": 0.50,
+      "max_output_tokens": 943717,
+      "provider": {"order": ["together"], "allow_fallbacks": false},
+      "provider_name": "Together"
+    }
+  }
+}

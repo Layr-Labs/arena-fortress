@@ -1,0 +1,83 @@
+{
+ "id": "LT03-mood-artifact",
+ "name": "lt03-mood-artifact-s0",
+ "season": "s0",
+ "split": "test-public",
+ "family": "mood",
+ "snapshot_pool": [
+  "scenarios/snapshots/fort-worked-y1-2001",
+  "scenarios/snapshots/fort-worked-y1-2002",
+  "scenarios/snapshots/fort-worked-y1-2005"
+ ],
+ "snapshot_pool_private": [
+  "@pool:LT03/0",
+  "@pool:LT03/1",
+  "@pool:LT03/2",
+  "@pool:LT03/3"
+ ],
+ "fort": {
+  "recipe": "embark/forts/worked-y1.json",
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "docker/task_forts.sh --recipes worked-y1 --seeds <seeds> (embark/make_task_fort.sh per seed)",
+  "seeds": {
+   "train": [
+    1000,
+    1999
+   ],
+   "test-public": [
+    2000,
+    2099
+   ],
+   "test-private": [
+    100000,
+    2147483647
+   ]
+  },
+  "pool": {
+   "test-public": [
+    2001,
+    2002,
+    2005
+   ]
+  },
+  "note": "Public forts: CLI seeds (docker/task_forts.sh, as runner/yukon/setup.sh). Private forts: pool/dfpool (seeds drawn per season, committed in pool/seasons/<season>/COMMITMENT.json, revealed at close).",
+  "seed_mode": {
+   "test-public": "cli",
+   "test-private": "paramset (EMBARK_SEED_IN_PARAMS=1)"
+  }
+ },
+ "pool_note": "Private pool (pool/README.md): `snapshot_pool_private` holds placeholders that `pool/dfpool stage` resolves to the season's sealed forts (scenarios/snapshots/<season>-<task>-p<i> under DFBENCH_SNAPSHOTS_DIR); the staged copy drops `snapshot` and replaces `snapshot_pool`. Without staging, the task runs on the public `snapshot_pool` below (competitors' local runs).",
+ "description": "Seed-built LT03 (docs/SEED-FORTS.md). A working year-1 fort (embark/forts/worked-y1: about 19 dwarves; Carpenters, Still and Kitchen only) where a dwarf is taken by a fey mood to become a legendary wood crafter. The mood needs a Craftsdwarf's workshop (none exists) and one log. Tests reading the need and building the workshop before the dwarf goes insane.",
+ "setup": [
+  [
+   "lua",
+   "-f",
+   "scenarios/lua/mood.lua",
+   "woodcrafter",
+   "fey",
+   "0"
+  ]
+ ],
+ "strange_moods": true,
+ "setup_seeded": false,
+ "days": 45,
+ "active_days": 38,
+ "hands_off_days": 7,
+ "decision_cap": 76,
+ "goal": "A dwarf has been taken by a strange mood. The artifact must be finished and the dwarf sane and alive at the end (day 45). No dwarf may die.",
+ "brief": "A dwarf has been taken by a strange mood and wants a workshop to work in.",
+ "predicate": "mood_artifact_v1",
+ "partial": "mood_artifact_v1",
+ "metrics": {
+  "citizen_deaths": -1
+ },
+ "references": {
+  "noop": "fail",
+  "random": "fail",
+  "scripted": "fail",
+  "automation": "pass",
+  "witness": "pass"
+ },
+ "provenance": "Start: embark/forts/worked-y1.json on a fresh TEMPERATE_SOIL embark of each pool seed (embark/make_task_fort.sh), in place of the scripted-y1 snapshot. Setup unchanged from lt03-mood-artifact (mood.lua woodcrafter fey 0). Season-0 copy of scenarios/seed/lt03-mood-artifact.json with the private-pool placeholders.",
+ "seed_variant": "scenarios/seed/lt03-mood-artifact.json"
+}

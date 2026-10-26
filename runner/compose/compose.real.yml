@@ -1,0 +1,16 @@
+# Overlay for real games: the DF image with the game server (gameapi/server) and the gateway image (gateway/).
+# The gateway image is built by the runner from gateway/Dockerfile (or DFBENCH_GATEWAY_IMAGE). ASSUMED for the game
+# (to confirm with gameapi/server): it reads DFBENCH_GAME, serves :8090 and writes the §6 artifacts to
+# DFBENCH_GAME.artifacts_dir.
+services:
+  game:
+    image: ${DFBENCH_GAME_IMAGE:-yukon-df:s0}
+    platform: linux/amd64
+    working_dir: /root/dfprobe
+    command: ["python3", "-u", "-m", "gameapi.server", "--port", "8090"]
+    security_opt: ["seccomp=unconfined"]     # as docker/batch.sh runs DF
+    volumes:
+      # start forts built after the image (task_forts.sh, or the verifier's private pool staged outside the repo)
+      - ${DFBENCH_SNAPSHOTS_DIR:?}:/root/dfprobe/scenarios/snapshots:ro
+  gateway:
+    image: ${DFBENCH_GATEWAY_IMAGE:-dfbench-gateway:s0}

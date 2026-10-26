@@ -1,0 +1,34 @@
+{
+ "id": "OP1-start-year",
+ "name": "op1-start-year-s0",
+ "season": "s0",
+ "split": "test-public",
+ "family": "outcome",
+ "description": "OP1 (docs/HARNESS-CHALLENGE.md \u00a74.1): one in-game year from a fresh 7-dwarf 'Play now!' embark. Public: the default start fort (fort_start_snapshot, or its seed-built replacement embark-default-fort-12345; docs/SEED-FORTS.md \u00a76). Private: four fresh TEMPERATE_SOIL embarks from the season's secret seeds (embark/make_embark.sh with the seed in the param set), the same 7-dwarf loadout on a map nobody has seen.",
+ "snapshot": "fort_start_snapshot",
+ "snapshot_pool_private": [
+  "@pool:OP1/0",
+  "@pool:OP1/1",
+  "@pool:OP1/2",
+  "@pool:OP1/3"
+ ],
+ "embark": {
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "private: pool/dfpool build (kind embark); public: docker/embark.sh --rules DEFAULT_FORT --seeds 12345",
+  "seed_mode": {
+   "test-public": "DEFAULT_FORT (paramset seed 12345, pinned site)",
+   "test-private": "paramset (EMBARK_SEED_IN_PARAMS=1)"
+  }
+ },
+ "pool_note": "Private pool (pool/README.md): `snapshot_pool_private` holds placeholders that `pool/dfpool stage` resolves to the season's sealed forts (scenarios/snapshots/<season>-<task>-p<i> under DFBENCH_SNAPSHOTS_DIR); the staged copy drops `snapshot` and sets `snapshot_pool`. Without staging, the task runs on the public `snapshot` (the default start fort) (competitors' local runs).",
+ "setup": [],
+ "days": 336,
+ "goal": "Run the fortress for {days} days. Scored on how the fortress is doing (see SCORE): dwarves alive, drink and food kept in stock to the end, wellbeing, and beds and dining for everyone.",
+ "metrics": {
+  "credited_value_final": 1,
+  "days_drink_positive": 1,
+  "citizen_deaths": -1
+ },
+ "provenance": "Season-0 copy of scenarios/start-year.json (same goal, metrics and horizon) with the private-pool placeholders. The public start differs from the private ones in site class (DEFAULT_FORT shrubland vs TEMPERATE_SOIL); both are 7-dwarf spring embarks.",
+ "seed_variant": "scenarios/start-year.json"
+}

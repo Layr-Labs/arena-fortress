@@ -1,0 +1,74 @@
+{
+ "id": "LT08-migrant-surge",
+ "name": "lt08-migrant-surge-seed",
+ "split": "test-public",
+ "family": "population",
+ "snapshot_pool": [
+  "scenarios/snapshots/fort-worked-y1-2001",
+  "scenarios/snapshots/fort-worked-y1-2002",
+  "scenarios/snapshots/fort-worked-y1-2005"
+ ],
+ "fort": {
+  "recipe": "embark/forts/worked-y1.json",
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "docker/task_forts.sh --recipes worked-y1 --seeds <seeds> (embark/make_task_fort.sh per seed)",
+  "seeds": {
+   "train": [
+    1000,
+    1999
+   ],
+   "test-public": [
+    2000,
+    2099
+   ],
+   "test-private": [
+    9000,
+    99999
+   ]
+  },
+  "pool": {
+   "test-public": [
+    2001,
+    2002,
+    2005
+   ]
+  },
+  "note": "Seeds are world seeds; a seed whose embark finds no acceptable site is skipped, so a pool is the first n accepted seeds of its range. test-private seeds are drawn per season by the maintainers and never written into the repo (embark/pool_task.py --split test-private)."
+ },
+ "description": "Seed-built LT08 (docs/SEED-FORTS.md). A working year-1 fort (embark/forts/worked-y1: about 19 dwarves, 19 unplaced beds, Carpenters/Still/Kitchen, two underground plump-helmet plots, 571 drink) gets two migrant waves: migrant_surge.lua raises the caravan report to 100000 and queues a wave at load, and the fort's pending spring Migrants event (spring tick 4087, set by the recipe as on scripted-y1) brings a second. Past 20 citizens new work orders need the manager's assigned office with a chair (the agent sets that up itself).",
+ "setup": [
+  [
+   "lua",
+   "-f",
+   "scenarios/lua/migrant_surge.lua",
+   "100000"
+  ]
+ ],
+ "setup_seeded": false,
+ "days": 60,
+ "active_days": 39,
+ "hands_off_days": 21,
+ "decision_cap": 78,
+ "goal": "Migrants are arriving. From day 39 you can't act for 21 days. By day 60 every dwarf must have a placed bed, drink and food must be in stock every day from day 39, and drink must not end lower than it was on day 39. No dwarf may die.",
+ "brief": "A large wave of migrants is arriving, and more are expected. The fortress has beds for its current dwarves, but none are placed.",
+ "predicate": "migrant_surge_v1",
+ "partial": "migrant_surge_v1",
+ "metrics": {
+  "citizen_deaths": -1,
+  "days_drink_positive": 1,
+  "drink_final": 1
+ },
+ "references": {
+  "noop": "fail",
+  "random": "fail",
+  "scripted": "fail",
+  "automation": "partial",
+  "witness": "pass"
+ },
+ "provenance": "Start: embark/forts/worked-y1.json on a fresh TEMPERATE_SOIL embark of each pool seed (embark/make_task_fort.sh), in place of the scripted-y1 snapshot. Setup unchanged from lt08-migrant-surge (migrant_surge.lua 100000). The brief no longer says '19 dwarves' (the seed-built fort has 17-19).",
+ "legacy": {
+  "task": "scenarios/lt08-migrant-surge.json",
+  "snapshot": "scenarios/snapshots/scripted-y1",
+  "note": "The snapshot-based task stays as it was (lab-2.0, dfbench/v2.1.1 results); this one is its seed-built successor with a new task hash."
+ }
+}

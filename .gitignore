@@ -1,0 +1,70 @@
+# Vendored / downloaded binaries (re-fetchable; see README for versions)
+*.tar.bz2
+debs/
+sysroot/
+__pycache__/
+
+# Game install: ignore everything except the config we changed
+df/*
+!df/prefs/
+df/prefs/*
+!df/prefs/init.txt
+!df/prefs/d_init.txt
+!df/prefs/portable.txt
+!df/prefs/world_gen.txt
+!df/dfhack-config/
+df/dfhack-config/*
+!df/dfhack-config/remote-server.json
+
+# Run outputs and logs
+p2/
+*.log
+!runs/**/*.log
+
+# Parallel DF instances (created on demand from df/ by instance.sh)
+instances/
+.batch.lock
+
+# Training data and weights: not released while the Bay 12 / Kitfox question is deferred (docs/local-fine-tuning.md)
+trajectories/
+sft-data/
+adapters/
+
+# Teacher-pilot and teacher-batch run dirs hold full prompts (trajectories): keep only their READMEs
+runs/teacher-*/**
+!runs/teacher-*/
+!runs/teacher-*/README.md
+
+# Embark snapshots are generated from seeds (docker/embark.sh), not committed (LICENSING.md: saves are terms-unclear)
+scenarios/snapshots/embark-*
+
+# Scripted-arm demonstrations: the model2-style prompt stores (trajectories; archived in artifacts/scripted-raid-demos-*.tgz)
+runs/**/demo-prompts/
+
+# Task forts are built from seeds too (embark/make_task_fort.sh, docker/task_forts.sh): never committed
+scenarios/snapshots/fort-*
+
+# Track A: adapters are never committed (the baseline is `"adapter": null`; verifier/null_adapter.py makes the file)
+tracks/**/*.safetensors
+tracks/**/*.bin
+tracks/**/*.pt
+verifier/**/*.safetensors
+verifier/**/*.bin
+verifier/**/*.pt
+
+# Round 3 result dirs: keep logs and summaries, not the prompt stores
+runs/round3*/**/prompts/
+# round 4: DAgger rollouts and relabels (prompt stores; private), round-4 prompts
+runs/round4-dagger-*/**
+!runs/round4-dagger-*/
+!runs/round4-dagger-*/README.md
+runs/dagger-round4-*/**
+!runs/dagger-round4-*/
+!runs/dagger-round4-*/README.md
+runs/dagger-round4-*.relabel.log
+runs/round4*/**/prompts/
+# MY1 mid-year starts: saves made by the automation arm (terms-unclear like every DF save); built by phase0-my1.yml
+scenarios/snapshots/my1-*
+
+# runner/yukon/run.sh output in the challenge repo
+.yukon/runs/

@@ -1,0 +1,48 @@
+{
+ "id": "MY1-handover",
+ "name": "my1-handover-s0",
+ "season": "s0",
+ "split": "test-public",
+ "family": "midyear",
+ "status": "draft",
+ "snapshot_pool": [
+  "scenarios/snapshots/my1-d120-2001",
+  "scenarios/snapshots/my1-d120-2002",
+  "scenarios/snapshots/my1-d120-2005"
+ ],
+ "snapshot_pool_private": [
+  "@pool:MY1/0",
+  "@pool:MY1/1",
+  "@pool:MY1/2",
+  "@pool:MY1/3"
+ ],
+ "fort": {
+  "kind": "my1",
+  "rules": "embark/rules/TEMPERATE_SOIL.json",
+  "build": "pool/dfpool build (private) or pool/dfpool build-public --task MY1 --seeds 2001,2002,2005 (public): embark the seed, the automation arm plays it 120 days with [ARTIFACTS:NO], quicksave at day 120 (pool/fort_in_container.sh my1)",
+  "seed_mode": {
+   "test-public": "cli",
+   "test-private": "paramset (EMBARK_SEED_IN_PARAMS=1)"
+  },
+  "identity": "world.sav bytes (bench/key.py): a day-120 fort is not reproducible run to run, so the pool builds it once, hashes it and reuses it for every submission"
+ },
+ "pool_note": "Private pool (pool/README.md): `snapshot_pool_private` holds placeholders that `pool/dfpool stage` resolves to the season's sealed forts (scenarios/snapshots/<season>-<task>-p<i> under DFBENCH_SNAPSHOTS_DIR); the staged copy drops `snapshot` and replaces `snapshot_pool`. Without staging, the task runs on the public `snapshot_pool` below (competitors' local runs).",
+ "setup": [
+  [
+   "lua",
+   "-f",
+   "scenarios/lua/handover.lua"
+  ]
+ ],
+ "days": 216,
+ "decision_cap": 320,
+ "goal": "You are taking over an established fortress partway through its first year. Run it for {days} days. Scored on how the fortress is doing (see SCORE): dwarves alive, drink and food kept in stock to the end, wellbeing, and beds and dining for everyone.",
+ "brief": "An established fortress, about 120 days after its founding, with workshops, farms and stocks. Its previous overseer's standing orders and automation have been switched off.",
+ "metrics": {
+  "days_drink_positive": 1,
+  "citizen_deaths": -1
+ },
+ "description": "DRAFT (docs/HARNESS-CHALLENGE.md \u00a74.1). Late-game management of an inherited fort, day 120 -> 336, on seed-built day-120 forts (no shipped save): a fresh TEMPERATE_SOIL embark played 120 days by the automation arm, then at hand-over scenarios/lua/handover.lua turns off its control-panel automation and cancels every repeating manager order. Stocks, buildings, farms and zones stay. The full-stock variant; the season-0 candidate is my1-handover-lean.json (noop doesn't fail cleanly with full stocks: runs/local-my1-handover-2026-10-22).",
+ "provenance": "Season-0 seed-built successor of scenarios/my1-handover.json (whose pool is 4 automation saves of fort_start_snapshot made by .github/workflows/phase0-my1.yml).",
+ "seed_variant": "scenarios/my1-handover.json"
+}

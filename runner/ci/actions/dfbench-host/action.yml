@@ -1,0 +1,100 @@
+# runner/ci/actions/dfbench-host: make the job's host ready to play scoring games (docs/SCORING-INFRA.md §5.2).
+# Self-hosted dfbench host (baked by infra/host/bootstrap.sh): checks the prebuilt images and the installed pool
+# against the repo variables, and that the egress firewall is up. GitHub-hosted VM: pulls the trusted images by
+# digest from the org's private registry, installs the sealed pool from the organiser-only store's release asset into
+# $RUNNER_TEMP, applies the egress firewall. Either way it exports DFBENCH_GAME_IMAGE, DFBENCH_GATEWAY_IMAGE,
+# DFBENCH_POOL_DIR, DFBENCH_SNAPSHOTS_DIR. Nothing it prints names a fort, a seed or a private task.
+name: dfbench-host
+description: Images, private pool and egress policy for a dfbench scoring job
+inputs:
+  season: {required: true}
+  game-image-ref: {required: true, description: "registry ref with digest, e.g. ghcr.io/layr-labs/dfbench-df@sha256:..."}
+  gateway-image-ref: {required: true}
+  pool-sha256: {required: true, description: "POOL.json tarball_sha256 (public)"}
+  pool-release-tag: {required: false, default: "pool-s0"}
+  seal-key: {required: true, description: "the seal passphrase (environment secret DFBENCH_SEAL_KEY)"}
+  registry-token: {required: true, description: "github.token with packages: read"}
+  ops-repo: {required: true, description: "the organiser-only store (holds release pool-<season>)"}
+  ops-token: {required: true, description: "DFBENCH_OPS_TOKEN (contents on the ops store only)"}
+runs:
+  using: composite
+  steps:
+    - name: Host facts
+      shell: bash
+      run: |
+        mkdir -p out
+        { nproc; lscpu | grep -E 'Model name|^CPU\(s\)'; free -g | head -2; docker info --format '{{.ServerVersion}}'; } | tee out/runner.txt
+        [ "$(uname -m)" = x86_64 ] || { echo "::error::x86_64 runner required"; exit 1; }
+    - name: Trusted images
+      shell: bash
+      env:
+        GAME_REF: ${{ inputs.game-image-ref }}
+        GW_REF: ${{ inputs.gateway-image-ref }}
+        SEASON: ${{ inputs.season }}
+        REG_TOKEN: ${{ inputs.registry-token }}
+      run: |
+        set -euo pipefail
+        case "$GAME_REF$GW_REF" in *@sha256:*@sha256:*) ;; *) echo "::error::image refs must be pinned by digest"; exit 1;; esac
+        if [ -s /etc/dfbench/images.env ]; then
+          . /etc/dfbench/images.env
+          [ "$DFBENCH_GAME_IMAGE_REF" = "$GAME_REF" ] && [ "$DFBENCH_GATEWAY_IMAGE_REF" = "$GW_REF" ] || {
+            echo "::error::this host was baked with other images; re-bake (RUNBOOK §1.5)"; exit 1; }
+        else
+          reg=${GAME_REF%%/*}
+          echo "$REG_TOKEN" | docker login "$reg" -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker pull -q "$GAME_REF" >/dev/null; docker pull -q "$GW_REF" >/dev/null
+          docker logout "$reg" >/dev/null
+          docker tag "$GAME_REF" "yukon-df:$SEASON"; docker tag "$GW_REF" "dfbench-gateway:$SEASON"
+        fi
+        # the repo digest the image was pulled by must be the pinned one
+        for pair in "yukon-df:$SEASON=$GAME_REF" "dfbench-gateway:$SEASON=$GW_REF"; do
+          img=${pair%%=*}; ref=${pair#*=}
+          docker image inspect -f '{{join .RepoDigests "\n"}}' "$img" | grep -qx "$ref" || {
+            echo "::error::$img is not $ref"; exit 1; }
+        done
+        echo "DFBENCH_GAME_IMAGE=yukon-df:$SEASON" >> "$GITHUB_ENV"
+        echo "DFBENCH_GATEWAY_IMAGE=dfbench-gateway:$SEASON" >> "$GITHUB_ENV"
+        echo "images: pinned digests OK"
+    - name: Private pool (staged on the host, or the sealed asset in the ops store; never an artifact)
+      shell: bash
+      env:
+        SEASON: ${{ inputs.season }}
+        POOL_SHA: ${{ inputs.pool-sha256 }}
+        TAG: ${{ inputs.pool-release-tag }}
+        SEAL_KEY: ${{ inputs.seal-key }}
+        GH_TOKEN: ${{ inputs.ops-token }}
+        OPS_REPO: ${{ inputs.ops-repo }}
+      run: |
+        set -euo pipefail
+        want=${POOL_SHA#sha256:}
+        if [ -s "/srv/dfbench/$SEASON/.tarball_sha256" ]; then
+          [ "$(cat /srv/dfbench/$SEASON/.tarball_sha256)" = "$want" ] || {
+            echo "::error::this host's pool is not POOL.json's; re-bake"; exit 1; }
+          dir=/srv/dfbench/$SEASON
+        else
+          dir=$RUNNER_TEMP/dfbench-pool/$SEASON
+          tmp=$(mktemp -d "$RUNNER_TEMP/pool-dl.XXXX")
+          gh release download "$TAG" -R "$OPS_REPO" -p "$SEASON-pool.tar.gz.enc" -D "$tmp"
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          python3 -I runner/ci/bin/pool-install.py --bundle "$tmp/$SEASON-pool.tar.gz.enc" --passphrase-file "$kf" \
+            --expect-sha256 "$want" --into "$dir"
+          rm -rf "$tmp" "$kf"
+        fi
+        echo "DFBENCH_POOL_DIR=$dir" >> "$GITHUB_ENV"
+        echo "DFBENCH_SNAPSHOTS_DIR=$dir/snapshots" >> "$GITHUB_ENV"
+    - name: Egress policy (gateway -> provider only; builds -> public 80/443; containers -> host nothing)
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -s /etc/dfbench/images.env ]; then
+          [ -s /run/dfbench-egress/allowed ] || { echo "::error::host firewall not applied"; exit 1; }
+        else
+          sudo DFBENCH_EGRESS_ALLOW="${DFBENCH_EGRESS_ALLOW:-openrouter.ai}" bash runner/ci/bin/egress-firewall.sh apply
+          # re-resolve the provider every minute for the job's lifetime (killed with the job)
+          nohup sudo bash -c 'while sleep 60; do bash '"$PWD"'/runner/ci/bin/egress-firewall.sh refresh >/dev/null 2>&1; done' >/dev/null 2>&1 &
+        fi
+    - name: Sample container CPU and memory every 2 min
+      shell: bash
+      run: |
+        nohup bash -c 'while true; do date +%s; docker stats --no-stream --format "{{.Name}} {{.CPUPerc}} {{.MemUsage}}"; sleep 120; done' \
+          > out/stats.log 2>&1 &

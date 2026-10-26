@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "name": "dfbench-s0",
+  "tracks": [
+    {
+      "name": "harness-glm-5-3-flash",
+      "description": "Dwarf Fortress 53.16 fortress mode through a fixed facts-only game API (dfbench/v3). Submit a harness (Dockerfile + entrypoint) that plays with one fixed model, z-ai/glm-5.3-flash via the organiser's metered gateway: $0.50 credits and 90 min wall per game-year. Score = one-sided 95% lower bound of S = 0.5 OP1 + 0.3 MY1 + 0.2 labs (LT01, LT02, LT03, LT08) on a private seasonal fort pool. Local runs use public seeds and are not ranked.",
+      "category": "agent-harness",
+      "direction": "+",
+      "mode": "scalar",
+      "promotionMode": "automatic",
+      "minScoreImprovementBips": 200,
+      "editablePaths": [
+        "submission"
+      ],
+      "setupCommand": [
+        "bash",
+        "-lc",
+        ".yukon/setup.sh"
+      ],
+      "benchmarkCommand": [
+        "bash",
+        "-lc",
+        ".yukon/run.sh"
+      ],
+      "scorePath": ".yukon/score.json",
+      "maxSubmissionBytes": 104857600,
+      "hardware": "Local runs: x86_64 Linux with Docker (macOS Apple Silicon works under Rosetta, slower), your own Dwarf Fortress 53.16 + DFHack 53.16-r2 download, ~1 vCPU and 2-3 GB RAM per game plus 1 vCPU and 2 GB for the harness, ~20 GB disk, and your own model API key. Official scoring runs on the challenge's own x86_64 runners.",
+      "runner": {
+        "provider": "github-actions",
+        "workflow": "score.yml",
+        "maxConcurrentWorkflows": 2,
+        "scoreArtifactName": "dfbench-score"
+      }
+    }
+  ]
+}

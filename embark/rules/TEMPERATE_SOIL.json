@@ -1,0 +1,43 @@
+{
+  "name": "TEMPERATE_SOIL",
+  "description": "LT09 pool: temperate forest/grass/shrub with a river or brook on the embark, soil >= 2 levels near the wagon, trees, no aquifer in the top 3 levels under the wagon (a light aquifer further down is allowed, as on fort_start_snapshot), no salt water, not savage or evil. The standard 'Play now!' 7-dwarf embark.",
+  "paramset": "PINNED POCKET",
+  "region": {
+    "biomes": [
+      "FOREST_TEMPERATE_CONIFER",
+      "FOREST_TEMPERATE_BROADLEAF",
+      "GRASSLAND_TEMPERATE",
+      "SAVANNA_TEMPERATE",
+      "SHRUBLAND_TEMPERATE"
+    ],
+    "require_river": true,
+    "soil_layers_min": 3,
+    "salinity_max": 0,
+    "savagery_max": 65,
+    "evilness_max": 65,
+    "vegetation_min": 40,
+    "vegetation_target": 60
+  },
+  "rect": {
+    "river_cells_min": 1,
+    "river_cells_max": 6,
+    "elev_range_max": 3,
+    "avoid_sites": 1
+  },
+  "reject_warn": [
+    "HEAVY_WATER_TABLE",
+    "SALT_WATER",
+    "SAVAGE",
+    "EVIL",
+    "UNDEAD"
+  ],
+  "accept": {
+    "citizens": 7,
+    "near_radius": 15,
+    "wagon_level_samples_min": 20,
+    "soil_frac_ge2_min": 0.75,
+    "trees_min": 40,
+    "surface_water_min": 20,
+    "aquifer_depth_min": 4
+  }
+}

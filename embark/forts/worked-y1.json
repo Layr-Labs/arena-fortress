@@ -1,0 +1,249 @@
+{
+ "name": "worked-y1",
+ "version": 2,
+ "replaces": "scenarios/snapshots/scripted-y1",
+ "tasks": [
+  "LT01",
+  "LT03",
+  "LT05",
+  "LT08"
+ ],
+ "description": "A working year-1 fort, built from a fresh embark in about two game days instead of a 336-day scripted run: ~19 dwarves; Carpenters, Still and Kitchen; a stair to a 7x3 room one level down with two plump-helmet plots (autofarm, autochop, seedwatch on); a manager; 571 drink in 88 barrels, 3 empty barrels, 7 plump helmets, 77 seeds, ~166 food, ~230 logs, 19 unplaced beds, 12 tables, 12 chairs; orders for 4 barrels and 5 meals; the civ's caravan report at 3,330 and a Migrants event pending at spring tick 4087 (~day 34), as scripted-y1 has.",
+ "population": {
+  "target": 19,
+  "min": 17,
+  "max": 19,
+  "waves": [
+   18500
+  ]
+ },
+ "structures": {
+  "manager": true,
+  "workshops": [
+   "Carpenters",
+   "Still",
+   "Kitchen"
+  ],
+  "farms": 2,
+  "plugins": [
+   "autochop",
+   "seedwatch",
+   "autofarm"
+  ]
+ },
+ "settle_days": 3,
+ "stocks": [
+  [
+   "logs",
+   230
+  ],
+  [
+   "drink",
+   571,
+   88
+  ],
+  [
+   "plants_all",
+   0
+  ],
+  [
+   "plants",
+   "MUSHROOM_HELMET_PLUMP",
+   7
+  ],
+  [
+   "seeds",
+   "MUSHROOM_HELMET_PLUMP",
+   62
+  ],
+  [
+   "seeds",
+   "GRASS_WHEAT_CAVE",
+   8
+  ],
+  [
+   "seeds",
+   "GRASS_TAIL_PIG",
+   4
+  ],
+  [
+   "seeds",
+   "POD_SWEET",
+   3
+  ],
+  [
+   "seeds",
+   "BUSH_QUARRY",
+   0
+  ],
+  [
+   "seeds",
+   "MUSHROOM_CUP_DIMPLE",
+   0
+  ],
+  [
+   "food",
+   166
+  ],
+  [
+   "furniture",
+   "BED",
+   19
+  ],
+  [
+   "furniture",
+   "TABLE",
+   12
+  ],
+  [
+   "furniture",
+   "CHAIR",
+   12
+  ],
+  [
+   "barrels_empty",
+   3
+  ]
+ ],
+ "orders": [
+  {
+   "recipe": "make_barrel",
+   "amount": 4
+  },
+  {
+   "recipe": "cook_meal",
+   "amount": 5
+  }
+ ],
+ "events": [
+  [
+   "stress",
+   10,
+   -15000,
+   -1500,
+   1
+  ],
+  [
+   "stress",
+   1,
+   -30000,
+   -3000,
+   1
+  ],
+  [
+   "report",
+   3330
+  ],
+  [
+   "pending",
+   0,
+   4087
+  ]
+ ],
+ "expect": {
+  "pop.citizens": [
+   17,
+   19
+  ],
+  "pop.moods": [
+   0,
+   0
+  ],
+  "pop.stressed": [
+   0,
+   1
+  ],
+  "stocks.drink": [
+   571,
+   571
+  ],
+  "stocks.barrels_empty": [
+   3,
+   5
+  ],
+  "stocks.plants_brewable": [
+   7,
+   7
+  ],
+  "stocks.seeds": [
+   77,
+   100
+  ],
+  "stocks.food": [
+   166,
+   200
+  ],
+  "stocks.logs_free": [
+   230,
+   260
+  ],
+  "stocks.beds_free": [
+   19,
+   19
+  ],
+  "stocks.tables_free": [
+   12,
+   12
+  ],
+  "stocks.chairs_free": [
+   12,
+   12
+  ],
+  "buildings.workshops.Carpenters": [
+   1,
+   1
+  ],
+  "buildings.workshops.Still": [
+   1,
+   1
+  ],
+  "buildings.workshops.Kitchen": [
+   1,
+   1
+  ],
+  "buildings.farm_plots_underground": [
+   2,
+   2
+  ],
+  "buildings.stockpiles": [
+   0,
+   0
+  ],
+  "buildings.beds_placed": [
+   0,
+   0
+  ],
+  "orders.n": [
+   2,
+   2
+  ],
+  "events.migrants_pending": [
+   1,
+   1
+  ],
+  "events.reported_wealth": [
+   3330,
+   3330
+  ],
+  "military.squads": [
+   0,
+   0
+  ],
+  "plugins": [
+   "autochop",
+   "autofarm",
+   "seedwatch"
+  ],
+  "events.report_wave_idx": [
+   0,
+   0
+  ]
+ },
+ "legacy_summary": "scripted-y1 (fort_summary.lua, 2026-10-14): 19 adults; Carpenters/Kitchen/Still; 2 planted underground plots; 0 stockpiles, 0 zones; drink 571 (88 full barrels, 3 empty, 91 total); food 166; plants 7 (plump helmet); seeds 77; logs 237 (230 free); beds 19 free; tables 12; chairs 12; orders 2 (9 left); nobles expedition leader + manager; autochop/autofarm/seedwatch; stress categories [0,0,3,7,8,1,0], none stressed; Migrants pending (spring tick 4087), report 3330; spring day 16 of year 3",
+ "pre_stocks": [
+  [
+   "logs",
+   240
+  ]
+ ]
+}

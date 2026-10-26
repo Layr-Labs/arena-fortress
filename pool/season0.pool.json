@@ -1,0 +1,33 @@
+{
+ "schema": "dfpool-spec/1",
+ "season": "s0",
+ "description": "Season-0 private pool (pool/README.md): per task, `forts` start forts built from secret world seeds. `candidates` seeds are drawn and committed per task; the pool takes the first `forts` that pass the embark rules, in ascending seed order, so spares are committed too and nobody can pick which forts are used. Public; holds no secret.",
+ "seed_mode": "paramset",
+ "seed_mode_note": "EMBARK_SEED_IN_PARAMS=1: the full seed goes into the param set (DF's `-gen` keeps only the low 8 bits of a CLI seed, so CLI seeds collide with train seeds mod 256; research/seed-portability.md fix 2). Changes every embark id: private forts never match a CLI-seed fort.",
+ "seed_space": [100000, 2147483647],
+ "image": "yukon-df:s0pool",
+ "suite": "runner/suites/season0.json",
+ "tasks": {
+  "LT01": {"kind": "task_fort", "recipe": "embark/forts/worked-y1.json", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/lt01-drought.json", "forts": 4, "candidates": 20},
+  "LT02": {"kind": "task_fort", "recipe": "embark/forts/neglected-y1.json", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/lt02-rescue-neglected.json", "forts": 4, "candidates": 20},
+  "LT03": {"kind": "task_fort", "recipe": "embark/forts/worked-y1.json", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/lt03-mood-artifact.json", "forts": 4, "candidates": 20},
+  "LT08": {"kind": "task_fort", "recipe": "embark/forts/worked-y1.json", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/lt08-migrant-surge.json", "forts": 4, "candidates": 20},
+  "OP1":  {"kind": "embark", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/op1-start-year.json", "forts": 4, "candidates": 20},
+  "MY1":  {"kind": "my1", "rules": "embark/rules/TEMPERATE_SOIL.json",
+           "scenario": "scenarios/season0/my1-handover-lean.json",
+           "variants": ["scenarios/season0/my1-handover.json"],
+           "forts": 4, "candidates": 20,
+           "my1": {"day": 120, "arm": "automation", "run_seed": 12345, "min_pop": 7,
+                   "min_drink_days": 60, "min_food_days": 0, "drink_rate": 0.07, "food_rate": 0.10,
+                   "note": "accept a day-120 fort only if the arm kept everyone alive, has >= 7 citizens, and holds at least 60 days of drink at the trim_stocks.lua rate (else the lean hand-over has nothing to trim). No food clause (min_food_days 0, 2026-10-26): under score v6 only edible food counts, and edible food at day 120 is already below the 60-day target, so the trim moves drink only (D20) and a food clause would reject most candidates"}}
+ },
+ "public": {
+  "note": "Public-seed forts for competitors' local runs (CLI seeds, as the existing test-public pools). Labs: docker/task_forts.sh (runner/yukon/setup.sh); OP1: the default start fort (docker/embark.sh --rules DEFAULT_FORT); MY1: pool/dfpool build-public --task MY1 --seeds 2001,2002,2005.",
+  "MY1": {"seeds": [2001, 2002, 2005], "seed_mode": "cli"}
+ }
+}

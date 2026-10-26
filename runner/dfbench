@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""dfbench: the season-0 runner CLI (runner/README.md). stdlib + `docker compose`."""
+import os, sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from dfbenchlib.cli import main  # noqa: E402
+
+main()

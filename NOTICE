@@ -1,0 +1,26 @@
+dfbench challenge
+Copyright 2026 the dfbench challenge authors
+
+Licensing by artifact type. A file is covered by the first row that matches its path.
+
+| Paths | Licence | Text |
+|---|---|---|
+| `submission/**` | Apache-2.0, unless the submission states another open-source licence (RULES.md §8) | `LICENSE` |
+| `df/dfhack-config/remote-server.json` | zlib (DFHack configuration) | DFHack's `LICENSE.rst` |
+| `scenarios/**/*.json`, `embark/forts/*.json`, `embark/rules/*.json`, `benchmark.json` | CC0-1.0 | `LICENSES/CC0-1.0.txt` |
+| `README.md`, `RULES.md`, `SCORING.md`, `SUBMITTING.md`, `ROADMAP.md`, `NOTICE`, `docs/**`, other `*.md` | CC-BY-4.0 | `LICENSES/CC-BY-4.0.txt` |
+| everything else (Python, Lua, shell, Dockerfiles, tests) | Apache-2.0 | `LICENSE` |
+
+Not included, and not ours to license
+-------------------------------------
+- Dwarf Fortress (Bay 12 Games / Kitfox Games) and DFHack are never included. docker/Dockerfile builds an image from
+  copies you download yourself. Don't publish an image built from it: the image contains the game.
+- No Dwarf Fortress save files are included. Every start fort is rebuilt from a world seed by committed scripts
+  (docs/SEED-FORTS.md). Redistribution terms for saves are unclear, so we don't ship any.
+- df/prefs/init.txt and d_init.txt aren't shipped. docker/prefs_overrides.py writes them from your DF install's
+  data/init/*_default.txt plus a few token edits.
+- No agent trajectories, model outputs or fine-tuned adapters are included.
+- The fixed model (z-ai/glm-5.3-flash) is a third-party hosted service under its provider's terms.
+
+DFHack (https://github.com/DFHack/dfhack) is zlib-licensed. See DFHack's LICENSE.rst for its copyright holders and
+bundled components. We ship only one DFHack config file (df/dfhack-config/remote-server.json), not DFHack itself.

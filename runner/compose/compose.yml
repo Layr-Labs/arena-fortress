@@ -1,0 +1,76 @@
+# One game = one Compose project (docs/GAME-API.md §2). Rendered by `runner/dfbench`, which sets every DFBENCH_*
+# variable per game and starts the services one at a time, in order: game -> (GET /task) -> gateway -> harness.
+# Always used with an overlay that sets the game and gateway images: compose.fake.yml (tests) or compose.real.yml.
+#
+# Isolation:
+#   game_internal  internal: no route out of Docker; shared by harness, gateway and game
+#   egress         the gateway's only way out (restrict it to the provider host with the runner's firewall)
+# No service publishes a port. The runner talks to the game with `docker compose exec game`, never over the host.
+# Secrets: the host's key (runner --key-env, default DFBENCH_PROVIDER_KEY) becomes the gateway's OPENROUTER_API_KEY;
+# the runner sets it only in the env of the `up gateway` call (after the harness image is built). DFBENCH_TASK is set
+# only for `up harness`. The key is visible to `docker inspect`: only the runner may have Docker access.
+name: ${DFBENCH_PROJECT:?set by the runner}
+
+networks:
+  game_internal:
+    internal: true
+  egress: {}
+
+services:
+  game:
+    # image / command / platform: from the overlay
+    networks: [game_internal]
+    environment:
+      DFBENCH_GAME: ${DFBENCH_GAME:-}
+    volumes:
+      - ${DFBENCH_SCENARIO_FILE:?}:/dfbench/scenario.json:ro
+      - ${DFBENCH_GAME_DIR:?}:/artifacts
+      - ${DFBENCH_LEDGER_DIR:?}:/ledger:ro          # gateway-status.json: throttle waits (wall cap), blocked_reason
+    mem_limit: ${DFBENCH_GAME_MEM:-3g}
+    memswap_limit: ${DFBENCH_GAME_MEM:-3g}
+    init: true                                     # reap DF's children; forward SIGTERM on `compose down`
+    restart: "no"
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "1"}}
+
+  gateway:
+    # gateway/ (docs/GAME-API.md §2; gateway/README.md "Config"): the image listens on 0.0.0.0:8080 and writes
+    # /out/usage.jsonl and /out/gateway-status.json. GATEWAY_DEBUG must stay unset (it would log prompts).
+    networks: [game_internal, egress]
+    environment:
+      OPENROUTER_API_KEY: ${DFBENCH_PROVIDER_KEY:-}
+      GATEWAY_RUN_ID: ${DFBENCH_RUN_ID:-}
+      GATEWAY_BUDGET_USD: ${DFBENCH_BUDGET_USD:-0.50}
+      GATEWAY_LEDGER: /out/usage.jsonl
+      GATEWAY_STATUS_FILE: /out/gateway-status.json
+      GATEWAY_UPSTREAM: ${DFBENCH_UPSTREAM_URL:-https://openrouter.ai/api/v1}
+      GATEWAY_ALLOW_HTTP_UPSTREAM: ${GATEWAY_ALLOW_HTTP_UPSTREAM:-0}   # 1 only for tests (an http fake upstream)
+    volumes:
+      - ${DFBENCH_LEDGER_DIR:?}:/out
+    mem_limit: 512m
+    restart: "no"
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "1"}}
+
+  harness:
+    image: ${DFBENCH_HARNESS_IMAGE:?}
+    networks: [game_internal]
+    environment:
+      DFBENCH_TASK: ${DFBENCH_TASK:-}
+      HOME: /tmp                                   # the rootfs is read-only; /tmp is the writable scratch
+      TMPDIR: /tmp
+      PYTHONDONTWRITEBYTECODE: "1"
+    # no fillable disk (red team: a harness filling the host disk until the game's artifacts are lost would re-roll
+    # the game as infra): a read-only rootfs and a 1 GiB in-memory /tmp, charged to the harness's memory limit
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+      - /run:size=16m,mode=1777
+    cpus: ${DFBENCH_HARNESS_CPUS:-1}
+    mem_limit: ${DFBENCH_HARNESS_MEM:-2g}
+    memswap_limit: ${DFBENCH_HARNESS_MEM:-2g}
+    pids_limit: 512
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    restart: "no"
+    # bounded output: the daemon keeps at most 10 MB; the runner copies at most --log-cap bytes of it
+    logging: {driver: json-file, options: {max-size: "10m", max-file: "1"}}

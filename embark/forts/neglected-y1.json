@@ -1,0 +1,166 @@
+{
+ "name": "neglected-y1",
+ "version": 2,
+ "replaces": "scenarios/snapshots/noop-y1",
+ "tasks": [
+  "LT02"
+ ],
+ "description": "A neglected year-1 fort, built from a fresh embark in about two game days instead of a 336-day noop run: ~18 dwarves, nothing built or dug, no manager, no automation, no drink, no plants, 15 empty barrels, 74 seeds, ~98 food, no free logs or furniture, 11 dwarves unhappy (2 of them stressed); the civ's caravan report at 133 and a Migrants event pending at spring tick 4087, as noop-y1 has.",
+ "population": {
+  "target": 18,
+  "min": 16,
+  "max": 19,
+  "waves": [
+   17000
+  ]
+ },
+ "structures": {},
+ "settle_days": 3,
+ "stocks": [
+  [
+   "drink",
+   0,
+   0
+  ],
+  [
+   "plants_all",
+   0
+  ],
+  [
+   "seeds",
+   "MUSHROOM_HELMET_PLUMP",
+   49
+  ],
+  [
+   "seeds",
+   "GRASS_WHEAT_CAVE",
+   5
+  ],
+  [
+   "seeds",
+   "GRASS_TAIL_PIG",
+   5
+  ],
+  [
+   "seeds",
+   "POD_SWEET",
+   5
+  ],
+  [
+   "seeds",
+   "BUSH_QUARRY",
+   5
+  ],
+  [
+   "seeds",
+   "MUSHROOM_CUP_DIMPLE",
+   5
+  ],
+  [
+   "food",
+   98
+  ],
+  [
+   "barrels_empty",
+   15
+  ]
+ ],
+ "orders": [],
+ "events": [
+  [
+   "stress",
+   11,
+   15000,
+   1500,
+   2
+  ],
+  [
+   "stress",
+   2,
+   30000,
+   2900,
+   2
+  ],
+  [
+   "report",
+   133
+  ],
+  [
+   "pending",
+   0,
+   4087
+  ]
+ ],
+ "expect": {
+  "pop.citizens": [
+   16,
+   19
+  ],
+  "pop.moods": [
+   0,
+   0
+  ],
+  "pop.stressed": [
+   2,
+   4
+  ],
+  "stocks.drink": [
+   0,
+   0
+  ],
+  "stocks.barrels_empty": [
+   15,
+   15
+  ],
+  "stocks.plants_brewable": [
+   0,
+   0
+  ],
+  "stocks.seeds": [
+   74,
+   74
+  ],
+  "stocks.food": [
+   98,
+   130
+  ],
+  "stocks.logs_free": [
+   0,
+   0
+  ],
+  "stocks.beds": [
+   0,
+   0
+  ],
+  "buildings.workshops": {},
+  "buildings.farm_plots": [
+   0,
+   0
+  ],
+  "buildings.stockpiles": [
+   0,
+   0
+  ],
+  "orders.n": [
+   0,
+   0
+  ],
+  "nobles": [
+   "EXPEDITION_LEADER"
+  ],
+  "events.migrants_pending": [
+   1,
+   1
+  ],
+  "events.reported_wealth": [
+   133,
+   133
+  ],
+  "plugins": [],
+  "events.report_wave_idx": [
+   0,
+   0
+  ]
+ },
+ "legacy_summary": "noop-y1 (fort_summary.lua, 2026-10-14): 18 adults; no workshops, farms, stockpiles or zones; drink 0; food 98; plants 0; seeds 74; 15 barrels, all empty; logs 3 (0 free); no beds, tables or chairs; no orders; expedition leader only (manager vacant); no automation; stress categories [0,2,9,4,2,1,0], 2 stressed; Migrants pending, report 133; spring day 16 of year 3"
+}

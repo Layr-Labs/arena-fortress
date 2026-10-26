@@ -1,0 +1,8 @@
+# Installed as df/dfhack-config/init/onMapLoad.init by docker/Dockerfile (runs each time a fort map loads).
+#
+# DFHack's overlay plugin (UI widgets drawn over DF's screens) costs most of a paused DF's CPU in this headless
+# image: ~1.07 cores paused with it on, ~0.39 off, and free-running ticks/s rose ~40% with it off
+# (runs/m5-df-speed-2026-10-22). Nobody sees the widgets here and the harness doesn't use them.
+# It is turned off on map load, not at DFHack init, so the title, world-gen and embark screens (docker/embark.sh)
+# are unchanged.
+disable overlay

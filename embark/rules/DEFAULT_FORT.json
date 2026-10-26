@@ -1,0 +1,15 @@
+{
+  "name": "DEFAULT_FORT",
+  "description": "The default start fort (start-year / OP1, reset_fort.sh's default) rebuilt from a seed: fort_start_snapshot's world (PINNED POCKET, seed 12345) and its embark site, world tile (4,5), local rectangle (8,8) 4x4, with the standard 'Play now!' 7-dwarf embark. The site is pinned, so there is no search and no warning is rejected; the probe checks only the 7 citizens. docs/SEED-FORTS.md §6.",
+  "paramset": "PINNED POCKET",
+  "gen_seed": "paramset",
+  "site": {
+    "world_tile": [4, 5],
+    "local": [8, 8]
+  },
+  "reject_warn": [],
+  "accept": {
+    "citizens": 7,
+    "near_radius": 15
+  }
+}
