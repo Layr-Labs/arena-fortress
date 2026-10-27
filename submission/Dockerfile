@@ -9,5 +9,6 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /harness
 COPY dfbench_client/ dfbench_client/
 COPY plain/ plain/
+COPY scripted/ scripted/
 USER nobody
-ENTRYPOINT ["python", "-m", "plain"]
+ENTRYPOINT ["python", "-m", "scripted"]
