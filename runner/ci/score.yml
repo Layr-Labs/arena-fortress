@@ -243,6 +243,7 @@ jobs:
         with: {name: harness-image, path: img/harness-image.tar.gz, retention-days: 1, compression-level: 0}
 
   s1:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
     needs: [admit, harness]
     if: needs.admit.outputs.n1 != '0'
     uses: ./.github/workflows/play.yml
@@ -280,6 +281,7 @@ jobs:
           echo "any=$(python3 -I -c 'import json,sys;print(str(bool(json.loads(sys.argv[1])["include"])).lower())' "$m")" >> "$GITHUB_OUTPUT"
 
   s1-retry:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
     needs: [admit, harness, s1-check]
     if: ${{ !cancelled() && needs.s1-check.outputs.any == 'true' }}
     uses: ./.github/workflows/play.yml
@@ -326,6 +328,7 @@ jobs:
             $([ "$FORCE" = true ] && echo --force) >> "$GITHUB_OUTPUT"
 
   s2:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
     needs: [admit, harness, gate]
     if: ${{ !cancelled() && needs.gate.outputs.run_stage2 == 'true' && needs.admit.outputs.n2 != '0' }}
     uses: ./.github/workflows/play.yml
