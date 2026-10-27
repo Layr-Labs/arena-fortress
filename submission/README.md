@@ -51,3 +51,5 @@ Everything else is yours. The obvious directions, none of them done here:
 
 The organiser's reference harness (score published at launch) gets above this baseline by working on these. How is
 up to you.
+
+<!-- plumbing test 2026-10-27: no harness change -->
