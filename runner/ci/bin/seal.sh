@@ -29,7 +29,7 @@ case "$cmd" in
     [ -s "$pf" ] || { echo "passphrase file $pf missing" >&2; exit 2; }
     umask 077
     [ "$(head -c 8 "$in")" = DFBSEAL1 ] || { echo "not a DFBSEAL1 file" >&2; exit 1; }
-    tail -c +9 "$in" | head -c 32 > "$out.mac"
+    head -c 40 "$in" | tail -c 32 > "$out.mac"   # not tail | head: under pipefail, head closing early SIGPIPEs tail on big files
     tail -c +41 "$in" > "$out.body"
     calc=$(openssl dgst -sha256 -mac HMAC -macopt hexkey:"$(mac_key)" -binary "$out.body" | hex)
     want=$(hex < "$out.mac")

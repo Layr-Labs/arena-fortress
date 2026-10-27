@@ -523,3 +523,17 @@ class OverlapScan(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SealTests(unittest.TestCase):
+    SEAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "seal.sh")
+
+    def test_round_trip_big_file(self):
+        # > the pipe buffer: `tail | head` under pipefail used to SIGPIPE (exit 141) on the 130 MB pool bundle
+        with tempfile.TemporaryDirectory() as d:
+            key, src, enc, out = (os.path.join(d, n) for n in ("k", "in", "in.enc", "out"))
+            data = os.urandom(4 << 20)
+            open(src, "wb").write(data)
+            for args in (["newkey", key], ["seal", src, enc, key], ["open", enc, out, key]):
+                subprocess.run(["bash", self.SEAL, *args], check=True, capture_output=True)
+            self.assertEqual(open(out, "rb").read(), data)

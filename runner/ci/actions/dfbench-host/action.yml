@@ -16,6 +16,7 @@ inputs:
   registry-token: {required: true, description: "github.token with packages: read"}
   ops-repo: {required: true, description: "the organiser-only store (holds release pool-<season>)"}
   ops-token: {required: true, description: "DFBENCH_OPS_TOKEN (contents on the ops store only)"}
+  stack: {required: false, default: "real", description: "real | fake: the plumbing dry run's fake stack needs no trusted images"}
 runs:
   using: composite
   steps:
@@ -26,6 +27,7 @@ runs:
         { nproc; lscpu | grep -E 'Model name|^CPU\(s\)'; free -g | head -2; docker info --format '{{.ServerVersion}}'; } | tee out/runner.txt
         [ "$(uname -m)" = x86_64 ] || { echo "::error::x86_64 runner required"; exit 1; }
     - name: Trusted images
+      if: inputs.stack != 'fake'
       shell: bash
       env:
         GAME_REF: ${{ inputs.game-image-ref }}
@@ -55,6 +57,11 @@ runs:
         echo "DFBENCH_GAME_IMAGE=yukon-df:$SEASON" >> "$GITHUB_ENV"
         echo "DFBENCH_GATEWAY_IMAGE=dfbench-gateway:$SEASON" >> "$GITHUB_ENV"
         echo "images: pinned digests OK"
+    - name: No trusted images (fake stack, plumbing dry run)
+      if: inputs.stack == 'fake'
+      shell: bash
+      run: |
+        echo "stack fake - the runner builds its fakes; no DF or gateway image is pulled (RUNBOOK §1.8)"
     - name: Private pool (staged on the host, or the sealed asset in the ops store; never an artifact)
       shell: bash
       env:

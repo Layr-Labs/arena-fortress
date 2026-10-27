@@ -1,0 +1,48 @@
+{
+ "schema": "dfpool-commitment/1",
+ "season": "s0",
+ "created_utc": "2026-10-26T18:15:20Z",
+ "commitment": "sha256:d38cc2dc001562f3ecfde25a03712b6fc2f96442c27e08c7f772e9d6d06a7b6f",
+ "preimage": "dfpool-commit/1: sha256 over length-prefixed fields (8-byte big-endian length, then the bytes): 1 the string 'dfpool-commit/1'; 2 the season; 3 the salt (32 random bytes, secret until close); 4 the seeds (secret until close), canonical JSON {task: ascending seed list}; 5 canonical JSON of rules_sha256; 6 image_digest; 7 canonical JSON of task_def_sha256; 8 canonical JSON of {spec_sha256, repo_commit, seed_mode, seed_space, forts, candidates}. Canonical JSON = sorted keys, separators (',', ':').",
+ "rule": "Each task's pool is the first `forts` of its `candidates` seeds, in ascending order, whose build passes the embark rules (and, for MY1, the day-120 acceptance in pool/season0.pool.json). Pool id <season>-<task>-p<i> is the i-th accepted seed.",
+ "public_inputs": {
+  "rules_sha256": {
+   "embark/rules/TEMPERATE_SOIL.json": "ada8706100bff3003cd1e965042cf564b27f4ca41017ea599676cf2c5466d71c"
+  },
+  "image": "yukon-df:s0pool",
+  "image_digest": "sha256:31a843403a01b0bc5ac530f652118239baff13dbb04d63802490c4f3441daf71",
+  "task_def_sha256": {
+   "LT01": "c1854d87d7ab797f005f04dfc87c9c18b1b059b470bf156907600648abfaffb7",
+   "LT02": "3a4ade0bef4a41063d9db68da010eb438ee6c120b603ab4f5a6e52f3bd64e9f0",
+   "LT03": "781b8b4fed6b32efad71caddfa0323a6c0481c817ff166ee983583b397e9ad00",
+   "LT08": "245e05322358d6f9a2cd26fb1f3063e0cf91d93d476b08a140bc0db92a6a7359",
+   "MY1": "fb97166826c8b54ef378da1d741f1dcd8a5e82f18717e0707bbce9dc10215eed",
+   "OP1": "56355e55e7a5af5a245ed7ecaa6f5c791046b422056d743fbf540c004ca15590"
+  },
+  "spec": "pool/season0.pool.json",
+  "spec_sha256": "8a4b91e3ced284457e1e87c205aa12b76b6887db14615caf6aca55c3c325201d",
+  "repo_commit": "dde6568af472ebdcb7a90b80c462124d084e8c7b",
+  "seed_mode": "paramset",
+  "seed_space": [
+   100000,
+   2147483647
+  ],
+  "forts": {
+   "LT01": 4,
+   "LT02": 4,
+   "LT03": 4,
+   "LT08": 4,
+   "MY1": 4,
+   "OP1": 4
+  },
+  "candidates": {
+   "LT01": 20,
+   "LT02": 20,
+   "LT03": 20,
+   "LT08": 20,
+   "MY1": 20,
+   "OP1": 20
+  }
+ },
+ "check": "after the reveal: pool/dfpool check-reveal --season s0"
+}

@@ -25,7 +25,7 @@
       ],
       "scorePath": ".yukon/score.json",
       "maxSubmissionBytes": 104857600,
-      "hardware": "Local runs: x86_64 Linux with Docker (macOS Apple Silicon works under Rosetta, slower), your own Dwarf Fortress 53.16 + DFHack 53.16-r2 download, ~1 vCPU and 2-3 GB RAM per game plus 1 vCPU and 2 GB for the harness, ~20 GB disk, and your own model API key. Official scoring runs on the challenge's own x86_64 runners.",
+      "hardware": "x86_64 Linux with Docker (Apple Silicon under Rosetta works, slower), 2 CPU cores, 8 GiB RAM (add 1 core and 4 GiB per extra parallel game), and 15 GiB free disk. Needs your own Dwarf Fortress 53.16 + DFHack 53.16-r2 download and a model API key. Official scoring runs on the challenge's own runners.",
       "runner": {
         "provider": "github-actions",
         "workflow": "score.yml",

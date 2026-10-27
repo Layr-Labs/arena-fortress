@@ -32,7 +32,7 @@
  "staging": {
   "stage2": "run OP1 only if the stage-1 ub95 >= the leader's stage-1 point (--leader-stage1); always if unset"
  },
- "anchors_note": "lab z: noop 0 / witness 1 on mean partial (bench/predicates.py). PROVISIONAL-v6 anchors (outcome score v6: edible food only) from runs/s0-rc-2026-10-23/labs: noop x6 and witness x6 per task (docker/batch.sh --entry bench/labrun.py, the smoke.py reference arms) on the public seed-built forts (fort-worked-y1 / fort-neglected-y1 2001, 2002, 2005), season0 task files, strange moods off except LT03. Supersede the PROVISIONAL-v3 anchors of runs/s0-compute-2026-10-23. To be re-measured on the private pool before the season opens",
+ "anchors_note": "lab z: noop 0 / witness 1 on mean partial (bench/predicates.py). FINAL CANDIDATE anchors, AWAITING THE ORGANISER'S SIGN-OFF: measured on the season-0 PRIVATE pool (commitment sha256:d38cc2dc…, 4 forts per task, staged 2026-10-26) with outcome score v6: noop x8 and witness x8 per task (docker/batch.sh --entry bench/labrun.py, the smoke.py reference arms, --seed 12345 so run k is on private fort (12345 + k) mod 4), strange moods off except LT03. Aggregates only: runs/s0-pool-2026-10-26. Supersede the PROVISIONAL-v6 public-fort anchors of runs/s0-rc-2026-10-23",
  "tasks": [
   {
    "id": "LT01",
@@ -59,7 +59,7 @@
    "wall_s": 1800,
    "anchor": {
     "noop": 0.0,
-    "witness": 0.9383
+    "witness": 0.9126
    }
   },
   {
@@ -87,8 +87,8 @@
    "stage": 1,
    "wall_s": 1800,
    "anchor": {
-    "noop": 0.7258,
-    "witness": 0.9482
+    "noop": 0.7261,
+    "witness": 0.9116
    }
   },
   {

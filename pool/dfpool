@@ -394,6 +394,7 @@ def build_one(t, seed, dest, log, opt, seed_mode, kind=None):
     for p in (dest, dest + ".embark"):
         shutil.rmtree(p, ignore_errors=True)
     os.makedirs(os.path.dirname(log), exist_ok=True)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)   # docker cp needs the parent (forts/) to exist
     if os.environ.get("DFPOOL_FAKE_BUILD"):
         rc, last = fake_build(t, seed, dest, seed_mode)
         open(log, "w").write(last + "\n")

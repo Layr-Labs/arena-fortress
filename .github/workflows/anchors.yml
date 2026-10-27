@@ -1,0 +1,198 @@
+# TEMPLATE, not active (lives under runner/ci/). Installed in the benchmark repo as .github/workflows/anchors.yml.
+# Organiser-only: re-measures the season's reference arms on the PRIVATE pool on GitHub-hosted native x86_64 runners
+# (the verifier's host class), off the Rosetta box the pool was built and first measured on (infra/RUNBOOK.md §1.9,
+# D23). Arms are scripted (no model, no provider key): labs noop + witness (the lab anchors p̄_noop, p̄_witness),
+# MY1/OP1 noop + automation + scripted (the published reference lines). runner/ci/bin/anchors.py plans and aggregates.
+#
+# Guards (layered): `workflow_dispatch` only; the `check` job (no secrets) fails unless the actor is a repo admin and the
+# ref is anchors/*; the secrets live in the `dfbench-score` environment, whose deployment-branch policy admits
+# anchors/* (RUNBOOK §0 step 5), and the repo ruleset lets only admins and Yukon's App create or update anchors/**,
+# so nobody else can put a modified copy of this workflow on an admitted ref.
+# The witness code is not in this repo (withheld in-season): it comes from the sealed kit `anchors-kit-<season>.tgz.enc`
+# in the ops store's pool release, opened on the runner and deleted with it.
+# Visibility: the ONLY artifact is `dfbench-anchors` (per task and arm: n, mean partial or mean O, pass count; no fort,
+# seed or per-game value). Per-game run dirs go sealed to the ops store (release run-<run id>). Job logs print the job
+# id and ok/failed only.
+name: anchors
+run-name: anchors ${{ github.ref_name }}${{ inputs.only && format(' ({0})', inputs.only) || '' }}
+on:
+  workflow_dispatch:
+    inputs:
+      n: {description: "runs per lab arm and per MY1/OP1 noop (references get n/2 each)", type: number, required: false, default: 8}
+      only: {description: "comma list of tasks (LT01,LT02,LT03,LT08,MY1,OP1); empty = all", type: string, required: false, default: ""}
+permissions:
+  contents: read
+concurrency:
+  group: anchors-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  SEASON: ${{ vars.DFBENCH_POOL_SEASON || 's0' }}
+  OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - name: Organiser only (repo admin, anchors/* ref)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF" in anchors/*) ;; *) echo "::error::dispatch on an anchors/* branch (RUNBOOK §1.9)"; exit 1;; esac
+          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" -q .permission 2>/dev/null || echo unknown)
+          [ "$perm" = admin ] || { echo "::error::$ACTOR is not a repo admin ($perm); anchors are organiser-only"; exit 1; }
+          echo "organiser $ACTOR on $REF"
+      - id: plan
+        env: {N: "${{ inputs.n }}", ONLY: "${{ inputs.only }}"}
+        run: |
+          set -euo pipefail
+          [[ "$N" =~ ^[0-9]+$ ]] && [ "$N" -ge 1 ] && [ "$N" -le 32 ] || { echo "::error::n must be 1..32"; exit 1; }
+          [[ "$ONLY" =~ ^[A-Z0-9,]*$ ]] || { echo "::error::only: task ids only"; exit 1; }
+          m=$(python3 -I runner/ci/bin/anchors.py plan --n "$N" --only "$ONLY")
+          echo "matrix=$m" >> "$GITHUB_OUTPUT"
+          python3 -I -c 'import json,sys;print(len(json.loads(sys.argv[1])["include"]), "jobs")' "$m"
+
+  release:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: dfbench-score
+    steps:
+      - name: The run's release in the organiser-only store
+        env: {GH_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}"}
+        run: |
+          gh release view "run-$GITHUB_RUN_ID" -R "$OPS_REPO" >/dev/null 2>&1 ||
+            gh release create "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --prerelease --target main \
+              --title "anchors $GITHUB_RUN_ID ($GITHUB_REF_NAME)" --notes "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  arm:
+    needs: [check, release]
+    name: ${{ matrix.job }}
+    runs-on: ubuntu-24.04
+    environment: dfbench-score
+    timeout-minutes: 150
+    continue-on-error: true            # a lost job lowers n (reported); the aggregate says how many ran
+    permissions:
+      contents: read
+      packages: read                   # the trusted game image from the org registry
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(vars.DFBENCH_MAX_PARALLEL || '40') }}
+      matrix: ${{ fromJSON(needs.check.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./runner/ci/actions/dfbench-host
+        with:
+          season: ${{ env.SEASON }}
+          game-image-ref: ${{ vars.DFBENCH_GAME_IMAGE_REF }}
+          gateway-image-ref: ${{ vars.DFBENCH_GATEWAY_IMAGE_REF }}
+          pool-sha256: ${{ vars.DFBENCH_POOL_SHA256 }}
+          pool-release-tag: ${{ vars.DFBENCH_POOL_RELEASE_TAG || 'pool-s0' }}
+          seal-key: ${{ secrets.DFBENCH_SEAL_KEY }}
+          registry-token: ${{ github.token }}
+          ops-repo: ${{ env.OPS_REPO }}
+          ops-token: ${{ secrets.DFBENCH_OPS_TOKEN }}
+      - name: Reference image (game image + private forts and tasks + the sealed witness kit; local only)
+        env:
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          TAG: ${{ vars.DFBENCH_POOL_RELEASE_TAG || 'pool-s0' }}
+          MOODS: ${{ matrix.moods }}
+        run: |
+          set -euo pipefail
+          ctx=$RUNNER_TEMP/refimg; mkdir -p "$ctx/kit"
+          gh release download "$TAG" -R "$OPS_REPO" -p "anchors-kit-$SEASON.tgz.enc" -D "$ctx" >/dev/null
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          bash runner/ci/bin/seal.sh open "$ctx/anchors-kit-$SEASON.tgz.enc" "$ctx/kit.tgz" "$kf" >/dev/null
+          rm -f "$kf" "$ctx/anchors-kit-$SEASON.tgz.enc"
+          tar -xzf "$ctx/kit.tgz" -C "$ctx/kit" && rm -f "$ctx/kit.tgz"
+          cp -r "$DFBENCH_POOL_DIR/snapshots" "$ctx/snapshots"; cp -r "$DFBENCH_POOL_DIR/tasks" "$ctx/tasks"
+          art=YES; [ "$MOODS" = true ] || art=NO
+          cat > "$ctx/Dockerfile" <<EOF
+          FROM $DFBENCH_GAME_IMAGE
+          COPY kit/policies.py /root/dfprobe/policies.py
+          COPY snapshots/ /root/dfprobe/scenarios/snapshots/
+          COPY tasks/ /root/dfprobe/tasks-$SEASON/
+          RUN sed -i 's/\[ARTIFACTS:[A-Z]*\]/[ARTIFACTS:$art]/' /root/dfprobe/df/prefs/d_init.txt \
+              && grep -q '\[ARTIFACTS:$art\]' /root/dfprobe/df/prefs/d_init.txt
+          ENTRYPOINT []
+          CMD ["sleep", "infinity"]
+          EOF
+          docker build -q --network none -t dfbench-ref:local "$ctx" >/dev/null
+          rm -rf "$ctx"
+          echo "reference image built (moods $art)"
+      - name: Play one reference run (no model, no network)
+        continue-on-error: true
+        env:
+          ARM: ${{ matrix.arm }}
+          K: ${{ matrix.k }}
+          ENTRY: ${{ matrix.entry }}
+          FILE: ${{ matrix.file }}
+          CAP: ${{ matrix.cap }}
+          JOB: ${{ matrix.job }}
+        run: |
+          set -euo pipefail
+          mkdir -p "out/$JOB"
+          DOCKER_RUN_EXTRA="--network none" docker/batch.sh --image dfbench-ref:local --entry "$ENTRY" --arms "$ARM" \
+            --runs 1 --k-start "$K" --parallel 1 --memory 3g --tag "dfa-$GITHUB_RUN_ID" --out "out/$JOB" \
+            -- --scenario "/root/dfprobe/tasks-$SEASON/$FILE" --decision-cap "$CAP" > "out/$JOB.log" 2>&1 \
+            && echo "$JOB ok" || echo "$JOB failed (lowers n)"
+      - name: "Sealed run dir -> the ops store (no artifacts)"
+        if: always()
+        env:
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          JOB: ${{ matrix.job }}
+        run: |
+          set -euo pipefail
+          mkdir -p out bundle
+          tar -czf "$RUNNER_TEMP/a.tgz" -C out .
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          bash runner/ci/bin/seal.sh seal "$RUNNER_TEMP/a.tgz" "bundle/anchors-$JOB.tgz.enc" "$kf" >/dev/null
+          rm -f "$kf" "$RUNNER_TEMP/a.tgz"
+          for i in 1 2 3; do gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber bundle/* && break; sleep $((i * 10)); done
+      - name: Clean up
+        if: always()
+        run: |
+          docker ps -aq --filter "name=^dfa-${GITHUB_RUN_ID}" | xargs -r docker rm -f >/dev/null 2>&1 || true
+          docker image rm -f dfbench-ref:local >/dev/null 2>&1 || true
+          case "${DFBENCH_POOL_DIR:-}" in "$RUNNER_TEMP"/*) rm -rf "$DFBENCH_POOL_DIR" ;; esac
+          rm -rf out bundle
+
+  aggregate:
+    needs: [check, arm]
+    if: ${{ !cancelled() && needs.check.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: dfbench-score
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - name: Unseal the run dirs and aggregate (per task and arm only)
+        env:
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          SUITE: ${{ vars.DFBENCH_SCORE_SUITE || 'runner/suites/season0.json' }}
+        run: |
+          set -euo pipefail
+          B=$RUNNER_TEMP/anchors; mkdir -p "$B/enc" "$B/runs" result
+          gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p 'anchors-*.tgz.enc' -D "$B/enc"
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          for f in "$B"/enc/*.tgz.enc; do
+            bash runner/ci/bin/seal.sh open "$f" "$B/x.tgz" "$kf" >/dev/null && tar -xzf "$B/x.tgz" -C "$B/runs" && rm -f "$B/x.tgz"
+          done
+          rm -f "$kf"; rm -rf "$B/enc"
+          python3 -I runner/ci/bin/anchors.py aggregate "$B"/runs/*/ --suite "$SUITE" > result/anchors.json
+          rm -rf "$B"
+          python3 -I -c 'import json;d=json.load(open("result/anchors.json"));[print(t, a, v.get("n"), v.get("p_mean", v.get("O_mean"))) for t,r in d["tasks"].items() for a,v in r.items()]'
+          gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber result/anchors.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.0
+        with: {name: dfbench-anchors, path: result/anchors.json, if-no-files-found: error, retention-days: 30}
