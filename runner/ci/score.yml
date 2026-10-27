@@ -366,6 +366,7 @@ jobs:
           echo "any=$(python3 -I -c 'import json,sys;print(str(bool(json.loads(sys.argv[1])["include"])).lower())' "$m")" >> "$GITHUB_OUTPUT"
 
   s2-retry:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
     needs: [admit, harness, s2-check]
     if: ${{ !cancelled() && needs.s2-check.outputs.any == 'true' }}
     uses: ./.github/workflows/play.yml

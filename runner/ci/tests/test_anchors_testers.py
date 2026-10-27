@@ -1,7 +1,7 @@
 """Tests for runner/ci/bin/anchors.py and testers.py: no Docker, no network.
 Run: python3 -m unittest discover -s runner/ci/tests -t .
 """
-import json, os, sys, tarfile, tempfile, unittest
+import json, os, re, sys, tarfile, tempfile, unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"))
 import anchors, testers, tier  # noqa: E402
@@ -101,3 +101,19 @@ class Testers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorkflowPermissionsTest(unittest.TestCase):
+    """Every job that calls play.yml must grant what play.yml asks for (packages: read), or GitHub refuses to
+    start the run (startup_failure, no jobs; actionlint doesn't check it)."""
+
+    def test_play_callers_grant_packages_read(self):
+        ci = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for wf in ("score.yml", "anchors.yml"):
+            text = open(os.path.join(ci, wf)).read()
+            blocks = re.split(r"\n(?=  [A-Za-z0-9_-]+:\n)", text.split("\njobs:\n", 1)[1])
+            callers = [b for b in blocks if "uses: ./.github/workflows/play.yml" in b]
+            for b in callers:
+                with self.subTest(workflow=wf, job=b.split(":", 1)[0].strip()):
+                    self.assertRegex(b, r"permissions: \{[^}]*packages: read")
+        self.assertIn("packages: read", open(os.path.join(ci, "play.yml")).read())
