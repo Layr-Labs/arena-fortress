@@ -2,6 +2,12 @@
 """runner/ci/bin/dispatch.py: what kind of run this is, from the ref Yukon dispatched it on.
 
   dispatch.py classify --ref REF --sha SHA [--out-dir DIR]     prints kind=, submission=, tier=, user=
+  dispatch.py guard --actor LOGIN [--apps CSV] [--permission PERM]   exit 0 if the dispatcher may start a scoring run
+
+Dispatch guard: every org member has write on the repo (the org base permission), and write is enough to
+`workflow_dispatch` score.yml on an existing submissions/* branch. Only Yukon's App (it dispatches every submission and
+the import baseline) and repo admins (organiser re-runs, RUNBOOK §2.2) may start one. The App actors come from
+vars.DFBENCH_DISPATCH_APPS; an admin is the collaborator-permission API's `admin`, the same check anchors.yml makes.
 
 Yukon (scalar mode, @ bd7fb62) dispatches the scoring workflow on two kinds of branch, with no inputs:
 - `submissions/<submission id>` (a UUID): a competitor's submission, PR open (src/execution/github-actions.ts:70);
@@ -40,6 +46,21 @@ def classify(ref, sha):
     raise NotScorable(f"{ref}: not a Yukon submission or baseline branch")
 
 
+DEFAULT_APPS = "yukon-eigen[bot],yukon-autoresearch[bot]"
+
+
+def guard(actor, apps=DEFAULT_APPS, permission=None):
+    """-> (allowed, reason). `apps`: comma-separated App actor logins; `permission`: the actor's repo permission
+    (admin, maintain, write, ...) or None when it wasn't looked up."""
+    allowed_apps = {a.strip() for a in (apps or DEFAULT_APPS).split(",") if a.strip()}
+    if actor in allowed_apps:
+        return True, f"{actor} is Yukon's App"
+    if permission == "admin":
+        return True, f"{actor} is a repo admin"
+    return False, (f"{actor} may not start a scoring run ({permission or 'permission unknown'}): only Yukon's App "
+                   f"({', '.join(sorted(allowed_apps))}) or a repo admin may dispatch score.yml")
+
+
 def baseline_files(r, sha, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     open(os.path.join(out_dir, "note.md"), "w").write("")
@@ -55,7 +76,13 @@ def main():
     sp = ap.add_subparsers(dest="cmd", required=True)
     x = sp.add_parser("classify"); x.add_argument("--ref", required=True); x.add_argument("--sha", required=True)
     x.add_argument("--out-dir")
+    g = sp.add_parser("guard"); g.add_argument("--actor", required=True); g.add_argument("--apps", default="")
+    g.add_argument("--permission", default="")
     a = ap.parse_args()
+    if a.cmd == "guard":
+        ok, why = guard(a.actor, a.apps or DEFAULT_APPS, a.permission or None)
+        print(why if ok else f"::error::{why}")
+        sys.exit(0 if ok else 3)
     try:
         r = classify(a.ref, a.sha)
     except NotScorable as e:

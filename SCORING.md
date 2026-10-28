@@ -70,12 +70,19 @@ one-sided 95% lower confidence bound (LCB) of S**: a stratified bootstrap that r
 10,000 resamples, RNG seeded per submission. Every submission plays **the same private forts with the same
 seeds** (common random numbers), so differences between submissions are mostly differences between harnesses.
 
-Games per submission (*provisional*): 8 per lab task, 8 MY1, 8 OP1.
+Games per submission: 8 per lab task, 8 MY1, 8 OP1; 16 MY1 and 16 OP1 for a submission that goes to confirmation
+(§4.1).
 
-**Promotion threshold:** a submission is promoted only if its published score beats the current best by at least
-**2% of the current best** (Yukon's `minScoreImprovementBips: 200`; about 1.5 points at S ≈ 75). Two scorings of the
-same harness differ by about 1.4–2.4 points (one standard deviation, estimated from repeated games), so a smaller
-gain can't be told apart from luck.
+**How noisy is it?** Measured on the private pool (three runs of the same harness on the same 48 games): the
+published score of one harness moves by about 2.7 points (one standard deviation) from run to run, and **two runs of
+the same harness differ by about 3.8 points**. Playing the same forts and seeds barely helps: DF's own run-to-run
+randomness dominates. So a gain of a point or two can't be told apart from luck in one run, and the season handles
+that in three ways rather than with very long runs or a very high bar:
+
+- **Promotion threshold:** a submission is promoted only if its published score beats the current best by at least
+  **2.5% of the current best** (Yukon's `minScoreImprovementBips: 250`; about 1.5 points at S ≈ 60, 1.8 at S ≈ 72).
+- **Confirmation** before promotion (§4.1).
+- **The contender band:** everything near the top is listed, pooled across runs and re-scored (§4.2).
 
 ## 4. Staging
 
@@ -86,6 +93,44 @@ gain can't be told apart from luck.
 A stage-1-only result is shown with its stage-1 numbers and marked **not promotable** (it is recorded as
 `score: 0, partial: true` with `metrics.stage = 1`, which Yukon treats as a non-improving result, not a failure).
 
+### 4.1 Confirmation (only for a submission that would be promoted)
+
+When the complete score would be promoted (it clears the threshold against the current best), the same scoring
+run plays a **second batch of MY1 and OP1**: 8 more games each, on the same private forts with the same seeds. The
+published score is then the lower bound over **both batches pooled** (16 MY1 and 16 OP1 games, the labs once):
+
+- if the pooled score still clears the threshold, the confirmation **passed**: the judge checks the submission and
+  Yukon promotes it (`metrics.confirmation: passed`);
+- if not, it **failed**: the pooled score is still the published score, and Yukon records it as non-improving
+  (`metrics.confirmation: failed`, with `metrics.score_first_batch` showing the first batch alone).
+
+A lucky draw has to be lucky twice; a real gain of a few points survives. Only would-be winners pay for it (about an
+hour more). Submissions that wouldn't be promoted are scored exactly as before (`metrics.confirmation: not_run`).
+
+### 4.2 The contender band, pooled scores and weekly re-scores
+
+**Contenders.** Every complete, judge-valid submission whose published score is within **3.8 points** (about one
+standard deviation of the difference between two runs) of the leader's pooled point estimate is a **contender**
+(`metrics.band: contender`, with `metrics.band_gap`, the distance to the leader). The leader is `band: leader`.
+Contenders are as good as the leader within the noise of one run, so they're worth learning from too; their PRs, notes
+and attribution are as public as the leader's.
+
+**Pooled scores.** For each contender the organiser keeps all of its scored games: its scoring run, any confirmation
+batch, and its re-scores. The **pooled score** is the same suite score and lower bound computed over all of them. More
+games, less noise.
+
+**Weekly re-scores.** Each week the organiser re-plays the leader and up to four contenders (those most likely to be
+ahead of it) on the full private suite, and adds the games to their pools. A contender whose pooled lower bound falls
+out of the band is dropped from the list.
+
+**Leading on pooled games.** A contender whose pooled point estimate is above the leader's, with both re-scored at
+least once, is flagged as *leading on pooled games*. This is information, not a promotion: **Yukon's board alone
+decides promotion**, and the published list doesn't change it (the organiser may ask Yukon about this case).
+
+**The published list** (`CONTENDERS.md`, on the challenge repo's `contenders` branch, linked from the challenge page)
+shows for each contender: its pooled score, lower and upper bounds, number of runs and games, the gap to the leader,
+and a link to its PR (note, dependencies and coauthors). Aggregates only, as everywhere else.
+
 ## 5. What `score.json` reports
 
 Next to the scalar, every submission reports (per task and overall):
@@ -94,6 +139,8 @@ Next to the scalar, every submission reports (per task and overall):
 - model credits used per game-year, model calls per game-year, wall time per game-year, the number of
   `wall_capped` games, actions used and rejected;
 - the stage reached, the comparability key (`dfbench/v3`) and your harness's source digest.
+- `confirmation` (passed, failed or not_run) and, after a confirmation, `score_first_batch`;
+- `band` (leader, contender or none), `band_gap`, `band_leader_point`, `pooled_point`, `pooled_lb95`, `pooled_runs`.
 
 Per-game and per-seed details of the private pool are not published during the season.
 

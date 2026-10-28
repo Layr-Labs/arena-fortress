@@ -37,8 +37,16 @@ def expand(suite, stages=None, only=None, seed=None, n=None, budget=None):
         sc = json.load(open(path))
         days = int(t.get("days") or sc.get("days"))
         t = {**t, "days": days}
-        for k in range(int(n or t.get("n", 8))):
+        n_t = int(n or t.get("n", 8))
+        # explicit ids past the task's n (e.g. MY1-8..MY1-15) address extra games on the same forts and seeds: the
+        # game server plays run k on pool[(seed + k) mod forts], so k and k + n share a fort (the confirmation batch,
+        # challenge/SCORING.md §4.1)
+        extra = [int(g[len(t["id"]) + 1:]) for g in (only or ()) if g.startswith(t["id"] + "-")
+                 and g[len(t["id"]) + 1:].isdigit()]
+        for k in range(max([n_t] + [x + 1 for x in extra])):
             gid = f"{t['id']}-{k}"
+            if k >= n_t and gid not in (only or ()):
+                continue
             if only and gid not in only and t["id"] not in only:
                 continue
             out.append({"game_id": gid, "task_id": t["id"], "kind": t.get("kind", "outcome"),

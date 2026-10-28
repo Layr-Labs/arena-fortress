@@ -46,6 +46,39 @@ def res(env, http, valid=False):
     return tier.resolve(SUB, env, http, NOW, valid_here=lambda u: valid)
 
 
+class DispatchGuard(unittest.TestCase):
+    """Only Yukon's App or a repo admin may start a scoring run (org members all have write)."""
+
+    def test_apps_and_admins_pass(self):
+        self.assertTrue(dispatch.guard("yukon-eigen[bot]")[0])
+        self.assertTrue(dispatch.guard("yukon-autoresearch[bot]")[0])
+        self.assertTrue(dispatch.guard("OWNER", permission="admin")[0])
+        self.assertTrue(dispatch.guard("other-app[bot]", apps="other-app[bot]")[0])
+
+    def test_writers_and_unknowns_refused(self):
+        for perm in ("write", "maintain", "read", "unknown", None):
+            ok, why = dispatch.guard("some-member", permission=perm)
+            self.assertFalse(ok, perm)
+            self.assertIn("repo admin", why)
+        self.assertFalse(dispatch.guard("yukon-eigen[bot]", apps="yukon-autoresearch[bot]", permission="write")[0])
+        self.assertFalse(dispatch.guard("yukon-eigen", permission="write")[0])   # the bot suffix matters
+
+    def test_cli_exit_codes(self):
+        bin_ = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "dispatch.py")
+        ok = subprocess.run([sys.executable, "-I", bin_, "guard", "--actor", "yukon-eigen[bot]"], capture_output=True, text=True)
+        self.assertEqual(ok.returncode, 0)
+        bad = subprocess.run([sys.executable, "-I", bin_, "guard", "--actor", "x", "--permission", "write"],
+                             capture_output=True, text=True)
+        self.assertEqual(bad.returncode, 3)
+        self.assertTrue(bad.stdout.startswith("::error::"))
+
+    def test_guard_runs_before_the_ledger(self):
+        wf = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "score.yml")).read()
+        admit = wf.split("\n  admit:\n", 1)[1].split("\n  harness:\n", 1)[0]
+        self.assertIn("dispatch.py guard", admit)
+        self.assertLess(admit.index("dispatch.py guard"), admit.index("ledger.py"))
+
+
 class Dispatch(unittest.TestCase):
     SHA = "0123456789abcdef0123456789abcdef01234567"
 

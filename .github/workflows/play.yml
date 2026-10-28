@@ -19,6 +19,11 @@ on:
       harness_image_id: {type: string, required: true}
       harness_digest: {type: string, required: true}
       keep_harness_logs: {type: boolean, required: false, default: false}
+      # rescore.yml (one call per re-scored submission, in a matrix): its own harness artifact, a bundle-name prefix,
+      # and the image id and source digest read from the artifact (from-artifact) because a matrix build job can't
+      # pass per-entry outputs; the source digest isn't re-derived from this checkout, which isn't that harness's tree
+      harness_artifact: {type: string, required: false, default: "harness-image"}
+      tag_prefix: {type: string, required: false, default: ""}
     secrets:
       # environment secrets of `dfbench-score` (the job below declares it); listed for documentation
       OPENROUTER_API_KEY: {required: false}
@@ -33,7 +38,7 @@ jobs:
   play:
     name: s${{ inputs.stage }}.${{ inputs.attempt }} ${{ matrix.games }}
     runs-on: ${{ fromJSON(inputs.runs_on) }}
-    environment: dfbench-score          # protected: deployment branches submissions/* and yukon/baseline/**; holds the secrets
+    environment: dfbench-score          # protected: deployment branches submissions/*, yukon/baseline/*, yukon/baseline/*/*, anchors/*, rescore/*; holds the secrets
     timeout-minutes: ${{ matrix.timeout_min }}
     # Yukon reads a score only from a run that concludes `success` (yukon src/execution/github-actions.ts:871), so a
     # lost game must not fail the run: score.yml's *-check jobs re-play games with no ok status, and aggregate fails
@@ -46,7 +51,7 @@ jobs:
     env:
       SEASON: ${{ vars.DFBENCH_POOL_SEASON || 's0' }}     # the pool and image season (s0 on dev and prod alike)
       MODEL: ${{ vars.DFBENCH_MODEL || 'z-ai/glm-5.3-flash' }}
-      TAG: s${{ inputs.stage }}-a${{ inputs.attempt }}-r${{ github.run_attempt }}-${{ matrix.job }}
+      TAG: ${{ inputs.tag_prefix }}s${{ inputs.stage }}-a${{ inputs.attempt }}-r${{ github.run_attempt }}-${{ matrix.job }}
       OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}
     steps:
       # actions pinned by commit SHA (docs/SCORING-INFRA.md §7.2: the org's allowlist)
@@ -65,17 +70,22 @@ jobs:
           ops-token: ${{ secrets.DFBENCH_OPS_TOKEN }}
           stack: ${{ vars.DFBENCH_STACK || 'real' }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333   # v8.0.2
-        with: {name: harness-image, path: harness}
-      - name: Load the harness image (checked by image id)
-        env: {WANT: "${{ inputs.harness_image_id }}"}
+        with: {name: "${{ inputs.harness_artifact }}", path: harness}
+      - id: himg
+        name: Load the harness image (checked by image id)
+        env: {WANT: "${{ inputs.harness_image_id }}", WANT_DIGEST: "${{ inputs.harness_digest }}"}
         run: |
           set -euo pipefail
+          if [ "$WANT" = from-artifact ]; then WANT=$(cat harness/image_id.txt); WANT_DIGEST=$(cat harness/digest.txt); FROM_ART=1; fi
           gunzip -c harness/harness-image.tar.gz | docker load -q >/dev/null && rm -rf harness
           got=$(docker image inspect -f '{{.Id}}' dfbench-harness:submission)
           [ "$got" = "$WANT" ] || { echo "::error::harness image id $got != $WANT"; exit 1; }
-          # the source digest must match too (same tree as the build job)
-          d=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
-          [ "$d" = "${{ inputs.harness_digest }}" ] || { echo "::error::submission/ digest changed"; exit 1; }
+          # the source digest must match too (same tree as the build job); a re-score's tree isn't this checkout
+          if [ -z "${FROM_ART:-}" ]; then
+            d=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+            [ "$d" = "$WANT_DIGEST" ] || { echo "::error::submission/ digest changed"; exit 1; }
+          fi
+          echo "digest=$WANT_DIGEST" >> "$GITHUB_OUTPUT"
       - name: Play
         timeout-minutes: ${{ matrix.play_timeout_min || matrix.timeout_min }}
         continue-on-error: true          # an overrun game is an infra game (re-played), not a failed run
@@ -89,7 +99,7 @@ jobs:
           prefix="dfb-s${DFBENCH_SLOT:-0}-${GITHUB_RUN_ID}"
           # the runner's own log goes into the sealed bundle; the job log gets one line per game
           python3 -I runner/dfbench suite run --suite "$DFBENCH_POOL_DIR/suite.json" --games "$GAMES" \
-            --harness-image dfbench-harness:submission --harness-digest "${{ inputs.harness_digest }}" \
+            --harness-image dfbench-harness:submission --harness-digest "${{ steps.himg.outputs.digest }}" \
             --model "$MODEL" --parallel "${DFBENCH_PARALLEL:-1}" --retries 1 --run-prefix "$prefix" \
             --stack "${{ vars.DFBENCH_STACK || 'real' }}" \
             --out out/games > out/runner.log 2>&1 || echo "runner exit $? (infra games are re-run by score.yml)"

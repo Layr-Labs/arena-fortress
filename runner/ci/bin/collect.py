@@ -10,6 +10,9 @@ Stdlib only; never reads harness output; prints only game ids, statuses and coun
                                                          game whose DF crashed on two attempts gets crash_twice
   finalize SCORE_JSON STAGE1_POINT OUT                   copy score.json, add flat metrics stage1_point and
                                                          workflow_run, check the Yukon shape ({score, metrics})
+  pool-verdict POOLED FIRST LEADER_SCORE BIPS MAX_INFRA  the confirmation verdict on the pooled score (both batches):
+                                                         adds metrics score_first_batch, lb95_first_batch and
+                                                         confirmation passed|failed; prints infra_fail=, score=
 """
 import glob, json, os, re, shutil, sys
 
@@ -111,6 +114,22 @@ def finalize(score_json, stage1_point, out):
     print(f"finalize: score {s['score']} stage {s['metrics'].get('stage')} -> {out}")
 
 
+def pool_verdict(pooled, first, leader_score, bips, max_infra):
+    """The final score is always the pooled lower bound: if it still clears Yukon's threshold the confirmation
+    passed (Yukon promotes it after the judge); if not, Yukon records it as non-improving. Nothing else is emitted."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gate import would_promote
+    p, f = json.load(open(pooled)), json.load(open(first))
+    m = p["metrics"]
+    go, why = would_promote(p.get("score"), leader_score or None, float(bips or 0))
+    m.update(score_first_batch=f.get("score"), lb95_first_batch=(f.get("metrics") or {}).get("lb95"),
+             confirmation="passed" if go else "failed", confirmation_note=why)
+    json.dump(p, open(pooled, "w"), indent=1)
+    bad = m.get("infra_excluded", 0) > int(max_infra)
+    print(f"infra_fail={'true' if bad else 'false'}")
+    print(f"score={p['score']}")
+
+
 if __name__ == "__main__":
     cmd, *args = sys.argv[1:] or ["-h"]
-    {"status": status, "retry": retry, "merge": merge, "finalize": finalize}.get(cmd, lambda *_: sys.exit(__doc__))(*args)
+    {"status": status, "retry": retry, "merge": merge, "finalize": finalize, "pool-verdict": pool_verdict}.get(cmd, lambda *_: sys.exit(__doc__))(*args)

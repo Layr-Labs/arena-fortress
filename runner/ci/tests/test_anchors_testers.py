@@ -109,7 +109,7 @@ class WorkflowPermissionsTest(unittest.TestCase):
 
     def test_play_callers_grant_packages_read(self):
         ci = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        for wf in ("score.yml", "anchors.yml"):
+        for wf in ("score.yml", "anchors.yml", "rescore.yml"):
             text = open(os.path.join(ci, wf)).read()
             blocks = re.split(r"\n(?=  [A-Za-z0-9_-]+:\n)", text.split("\njobs:\n", 1)[1])
             callers = [b for b in blocks if "uses: ./.github/workflows/play.yml" in b]

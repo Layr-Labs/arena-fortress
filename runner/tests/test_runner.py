@@ -504,6 +504,35 @@ class E2E(unittest.TestCase):
             shutil.rmtree(out, ignore_errors=True)
             shutil.rmtree(sub, ignore_errors=True)
 
+    def test_confirmation_batch_pools(self):
+        """The confirmation batch (challenge/SCORING.md §4.1): game ids past a task's n play on the fake stack as
+        their own games (k past n, the same forts by k mod the pool), and a run dir holding both batches scores
+        them pooled."""
+        suite = os.path.join(RUNNER, "suites", "season0-public.json")
+        n = {t["id"]: t.get("n", 8) for t in json.load(open(suite))["tasks"]}["MY1"]
+        first, second, pooled = (tempfile.mkdtemp(prefix=f"s0run-e2e-{x}-") for x in ("a", "b", "p"))
+        try:
+            harness = os.path.join(RUNNER, "fakes", "example_harness")
+            for out, ids in ((first, [f"MY1-{k}" for k in range(n)]), (second, [f"MY1-{k + n}" for k in range(n)])):
+                r = self.run_cli("suite", "run", "--suite", suite, "--stack", "fake", "--run-prefix", "s0run",
+                                 "--harness", harness, "--games", ",".join(ids), "--out", out, "--poll", "1",
+                                 "--parallel", "2")
+                self.assertEqual(r.returncode, 0, r.stderr[-3000:])
+                for g in ids:
+                    rec = json.load(open(os.path.join(out, g, "game.json")))
+                    self.assertEqual((rec["status"], rec["spec"]["k"]), ("ok", int(g.split("-")[1])))
+            for out in (first, second):
+                for g in os.listdir(out):
+                    if g.startswith("MY1-"):
+                        shutil.copytree(os.path.join(out, g), os.path.join(pooled, g))
+            r = self.run_cli("score", pooled, "--suite", suite)
+            self.assertEqual(r.returncode, 0, r.stderr[-3000:])
+            sc = json.load(open(os.path.join(pooled, "score.json")))
+            self.assertIn(f"(n {2 * n};", sc["metrics"]["MY1"])
+        finally:
+            for d in (first, second, pooled):
+                shutil.rmtree(d, ignore_errors=True)
+
     def test_usage_missing_is_infra(self):
         out = tempfile.mkdtemp(prefix="s0run-e2e-")
         try:

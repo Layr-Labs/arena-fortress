@@ -1,0 +1,196 @@
+# TEMPLATE, not active (lives under runner/ci/). Installed in the benchmark repo as .github/workflows/rescore.yml.
+# Organiser-only weekly racing re-scores of the contender band (challenge/SCORING.md §4.2; infra/RUNBOOK.md §2.7):
+# the leader plus the K contenders most likely to be ahead (runner/ci/bin/band.py select) are each played again on the
+# full private suite, and the new games are pooled with their earlier ones in the organiser-only store
+# (seasons/<season>/contenders.json). REPORT ONLY: nothing here talks to Yukon's promotion, and no score artifact is
+# produced (Yukon never reads this workflow).
+#
+# Guards (layered, as anchors.yml): `workflow_dispatch` only; the `plan` job fails unless the actor is a repo admin and
+# the ref is rescore/*; the secrets live in the `dfbench-score` environment, whose deployment-branch policy must admit
+# rescore/* (RUNBOOK §0 step 5), and the rulesets let only admins and Yukon's App create or update rescore/**.
+# Untrusted code: each harness is built in its own job with no secrets and no environment (as score.yml's harness job),
+# from the submission's scored commit (submissions/<id>, else the PR's refs/pull/N/head).
+# Visibility: no artifacts but the harness images (1 day). Per-game bundles and results go sealed to the ops store
+# (release run-<run id>). The job summary prints each pick's pooled aggregates only.
+# Infra games are not re-played here (no retry pass): a lost game is simply not added to the pool.
+name: rescore
+run-name: rescore ${{ github.ref_name }}${{ inputs.submissions && format(' ({0})', inputs.submissions) || '' }}
+on:
+  workflow_dispatch:
+    inputs:
+      submissions: {description: "comma list of submission ids (or baseline); empty = band.py select", type: string, required: false, default: ""}
+      k: {description: "contenders to re-score besides the leader (empty: vars.DFBENCH_BAND_RESCORES_PER_WEEK or 4)", type: string, required: false, default: ""}
+permissions:
+  contents: read
+concurrency:
+  group: rescore-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  SEASON: ${{ vars.DFBENCH_SEASON || 's0' }}
+  SCORE_SUITE: ${{ vars.DFBENCH_SCORE_SUITE || 'runner/suites/season0.json' }}
+  OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: dfbench-score       # DFBENCH_OPS_TOKEN (the store), YUKON_API_KEY (the incumbent)
+    outputs:
+      picks: ${{ steps.pick.outputs.picks }}
+      games: ${{ steps.pick.outputs.games }}
+      leader: ${{ steps.pick.outputs.leader }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - name: Organiser only (repo admin, rescore/* ref)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF" in rescore/*) ;; *) echo "::error::dispatch on a rescore/* branch (RUNBOOK §2.7)"; exit 1;; esac
+          perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" -q .permission 2>/dev/null || echo unknown)
+          [ "$perm" = admin ] || { echo "::error::$ACTOR is not a repo admin ($perm); re-scores are organiser-only"; exit 1; }
+          echo "organiser $ACTOR on $REF"
+      - id: pick
+        name: Picks (the leader + K contenders) and the commit each was scored on
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+          BENCHMARK: ${{ vars.DFBENCH_YUKON_CHALLENGE_ID }}
+          ONLY: ${{ inputs.submissions }}
+          K: ${{ inputs.k || vars.DFBENCH_BAND_RESCORES_PER_WEEK || '4' }}
+        run: |
+          set -euo pipefail
+          [[ "$ONLY" =~ ^[a-z0-9,-]*$ ]] || { echo "::error::submissions: ids only"; exit 1; }
+          [[ "$K" =~ ^[0-9]+$ ]] && [ "$K" -le 16 ] || { echo "::error::k must be 0..16"; exit 1; }
+          lid=""
+          [ -z "$BENCHMARK" ] || lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "$BENCHMARK" | sed -n 's/^leader_id=//p')
+          echo "leader=$lid" >> "$GITHUB_OUTPUT"
+          if [ -n "$ONLY" ]; then picks=$(python3 -I -c 'import json,os;print(json.dumps([x for x in os.environ["ONLY"].split(",") if x]))')
+          else picks=$(python3 -I runner/ci/bin/band.py select --k "$K" --leader "$lid"); fi
+          # each pick's scored commit: its submissions/<id> branch, else its PR's head (Yukon closes, never deletes PRs);
+          # the baseline: the branch stored with it
+          inc=$(python3 -I - "$picks" <<'EOF'
+          import json, os, subprocess, sys
+          sys.path.insert(0, "runner/ci/bin")
+          import ledger
+          st, _ = ledger.load("contenders.json")
+          ents = (st or {}).get("entries", {})
+          repo = os.environ["GITHUB_REPOSITORY"]
+          def gh(*a):
+              r = subprocess.run(["gh", "api", *a], capture_output=True, text=True)
+              return r.stdout.strip() if r.returncode == 0 else ""
+          out = []
+          for i, sid in enumerate(json.loads(sys.argv[1])):
+              br = (ents.get(sid) or {}).get("branch") or f"submissions/{sid}"
+              sha = gh(f"repos/{repo}/git/ref/heads/{br}", "-q", ".object.sha")
+              if not sha and sid != "baseline":
+                  n = gh(f"repos/{repo}/pulls?state=all&head={repo.split('/')[0]}:{br}", "-q", ".[0].number")
+                  sha = gh(f"repos/{repo}/pulls/{n}", "-q", ".head.sha") if n else ""
+              if sha:
+                  out.append({"i": i, "submission": sid, "sha": sha})
+              else:
+                  print(f"skip {sid}: no ref for {br}", file=sys.stderr)
+          print(json.dumps({"include": out}))
+          EOF
+          )
+          echo "picks=$inc" >> "$GITHUB_OUTPUT"
+          echo "games=$(python3 -I runner/dfbench suite plan --suite "$SCORE_SUITE" --per-job 1 --per-job-long 1)" >> "$GITHUB_OUTPUT"
+          python3 -I -c 'import json,sys;p=json.loads(sys.argv[1])["include"];print(len(p), "picks:", " ".join(x["submission"][:8] for x in p))' "$inc"
+      - name: The run's release in the organiser-only store
+        env: {GH_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}"}
+        run: |
+          gh release view "run-$GITHUB_RUN_ID" -R "$OPS_REPO" >/dev/null 2>&1 ||
+            gh release create "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --prerelease --target main \
+              --title "rescore $GITHUB_RUN_ID ($GITHUB_REF_NAME)" --notes "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  build:
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.picks).include[0] != null }}
+    runs-on: ubuntu-24.04          # untrusted Dockerfile, a fresh VM, no secrets, no environment
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.picks) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false, ref: "${{ matrix.sha }}"}
+      - name: Build the harness (no secrets)
+        run: |
+          set -euo pipefail
+          D=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+          env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
+          mkdir -p img && docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
+          docker image inspect -f '{{.Id}}' dfbench-harness:submission > img/image_id.txt
+          printf '%s' "$D" > img/digest.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with: {name: "harness-image-${{ matrix.i }}", path: img/, retention-days: 1, compression-level: 0}
+
+  play:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
+    needs: [plan, build]
+    if: ${{ !cancelled() && fromJSON(needs.plan.outputs.picks).include[0] != null }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.picks) }}
+    uses: ./.github/workflows/play.yml
+    with:
+      matrix: ${{ needs.plan.outputs.games }}
+      stage: 4                  # a re-score (bundles games-p<i>-s4-*)
+      attempt: 1
+      runs_on: ${{ vars.DFBENCH_RUNS_ON_S2 || vars.DFBENCH_RUNS_ON_S1 || '"ubuntu-24.04"' }}
+      harness_image_id: from-artifact
+      harness_digest: from-artifact
+      harness_artifact: harness-image-${{ matrix.i }}
+      tag_prefix: p${{ matrix.i }}-
+    secrets: inherit
+
+  pool:
+    needs: [plan, play]
+    if: ${{ !cancelled() && fromJSON(needs.plan.outputs.picks).include[0] != null }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: dfbench-score
+    permissions: {contents: read}
+    strategy:
+      fail-fast: false
+      max-parallel: 1           # one writer of contenders.json at a time (it retries on conflict anyway)
+      matrix: ${{ fromJSON(needs.plan.outputs.picks) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./runner/ci/actions/unseal-games
+        with:
+          pattern: "games-p${{ matrix.i }}-s*"
+          seal-key: ${{ secrets.DFBENCH_SEAL_KEY }}
+          ops-repo: ${{ env.OPS_REPO }}
+          ops-token: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          out: out/games
+      - name: Score this re-run and pool it into the store (aggregates to the log only)
+        env:
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          DFBENCH_BAND_PTS: ${{ vars.DFBENCH_BAND_PTS || '3.8' }}
+          SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          LEADER: ${{ needs.plan.outputs.leader }}
+          SUB: ${{ matrix.submission }}
+        run: |
+          set -euo pipefail
+          python3 -I runner/dfbench score out/games --suite "$SCORE_SUITE" > /dev/null
+          r=$(python3 -I runner/ci/bin/band.py record --detail out/games/score_detail.json --suite "$SCORE_SUITE" \
+                --submission "$SUB" --run "$GITHUB_RUN_ID" --leader "$LEADER")
+          echo "$r"
+          echo "$SUB $(python3 -I -c 'import json,sys;r=json.loads(sys.argv[1]);p=r.get("pooled") or {};print(r.get("status"), "pooled point", p.get("point"), "lb", p.get("lb95"), "runs", p.get("runs"), "leading" if r.get("leading_on_pooled") else "")' "$r")" >> "$GITHUB_STEP_SUMMARY"
+          kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
+          tar -czf "$RUNNER_TEMP/r.tgz" -C out games
+          bash runner/ci/bin/seal.sh seal "$RUNNER_TEMP/r.tgz" "$RUNNER_TEMP/results-p${{ matrix.i }}.tgz.enc" "$kf" >/dev/null; rm -f "$kf"
+          gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber "$RUNNER_TEMP/results-p${{ matrix.i }}.tgz.enc"
+          rm -rf out "$RUNNER_TEMP/r.tgz" "$RUNNER_TEMP/results-p${{ matrix.i }}.tgz.enc"

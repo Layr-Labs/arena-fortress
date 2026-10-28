@@ -9,7 +9,7 @@
       "direction": "+",
       "mode": "scalar",
       "promotionMode": "automatic",
-      "minScoreImprovementBips": 200,
+      "minScoreImprovementBips": 250,
       "editablePaths": [
         "submission"
       ],
