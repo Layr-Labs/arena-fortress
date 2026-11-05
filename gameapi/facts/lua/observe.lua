@@ -1,4 +1,4 @@
--- observe.lua [SECTION] [BOXES_JSON]: the facts-only fortress observation (obs schema 7). Prints one JSON object.
+-- observe.lua [SECTION] [BOXES_JSON]: the facts-only fortress observation (obs schema 8). Prints one JSON object.
 -- Based on #85's observe2.lua (origin/obs-leaks, obs schema 5) minus interpretation, plus the facts game API v0 adds
 -- (docs/GAME-API.md §5). SECTION: 'all' (default) or 'sites' (only what the site resolver needs: map, site
 -- candidates, farm plots, zones, box facts). BOXES_JSON: [{"id": "R3", "x":, "y":, "z":, "w":, "h":}, ...]: boxes
@@ -12,7 +12,7 @@ local json = require('json')
 local args = {...}
 local SECTION = args[1] or 'all'
 local BOXES = C.json_arg(args[2]) or {}
-local o = {schema = 7}
+local o = {schema = 8}
 local function try(name, fn)   -- a field whose function returns nil is left out
   local ok, v = pcall(fn)
   if ok then o[name] = v else o[name] = 'ERR: ' .. tostring(v) end
@@ -105,6 +105,10 @@ local items = setmetatable({}, {__index = function(t, k)
 end})
 
 if ALL then
+-- the score's edible food (recorder.lua, score_version 6)
+local EDIBLE = {}
+for _, t in ipairs({'FOOD', 'MEAT', 'FISH', 'CHEESE', 'EGG', 'PLANT', 'PLANT_GROWTH'}) do EDIBLE[df.item_type[t]] = true end
+
 try('stocks', function()
   local other = items
   local function sum(v) local n = 0 for _, it in ipairs(v) do n = n + it.stack_size end return n end
@@ -156,7 +160,14 @@ try('stocks', function()
   -- schema 6: totals for what the frozen recipes make (audit §c-10); charcoal = BAR items of the COAL material
   local charcoal = 0
   for _, it in ipairs(other.BAR) do if it.mat_type == df.builtin_mats.COAL then charcoal = charcoal + it.stack_size end end
-  return {drink = sum(other.DRINK), food_edible = sum(other.ANY_GOOD_FOOD), prepared_meals = sum(other.FOOD),
+  -- schema 8: food_edible is the score's food (recorder.lua, score_version 6): edible item types, unrotten; no seeds,
+  -- empty bags or raw fish. food_any_good keeps DF's ANY_GOOD_FOOD list total (what food_edible was in schemas 5-7).
+  local food_edible = 0
+  for _, it in ipairs(other.ANY_GOOD_FOOD) do
+    if EDIBLE[it:getType()] and not it.flags.rotten then food_edible = food_edible + it.stack_size end
+  end
+  return {drink = sum(other.DRINK), food_edible = food_edible, food_any_good = sum(other.ANY_GOOD_FOOD),
+          prepared_meals = sum(other.FOOD),
           plants_total = plants_usable, plants_brewable = brewable, plants_rotten = plants_rotten, seeds = sum(other.SEEDS),
           plants_by_kind = by_kind, seeds_by_kind = seeds_by_kind,
           logs_usable = usable_logs, logs_unusable = wagon_logs, boulders = #other.BOULDER, boulders_usable = boulders_usable,

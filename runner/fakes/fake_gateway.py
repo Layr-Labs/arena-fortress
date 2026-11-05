@@ -14,15 +14,17 @@ FAKE_TIMEOUT_EVERY (every Nth call is a charged, retryable 504 upstream_timeout;
 GATEWAY_MAX_UPSTREAM_TIMEOUTS (5) of them block the game as upstream_unreliable).
   python3 fake_gateway.py [--port 8080]
 """
-import argparse, json, os, threading, time
+import argparse, hashlib, json, os, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 MODEL = "z-ai/glm-5.3-flash"
 PRICES = {"input": 0.15, "cached_input": 0.03, "output": 0.50}       # USD / 1M tokens, as gateway/prices.json
 PRICE_HASH = "sha256:fake-price-table"
-OPENING = [("add_order", {"recipe": "brew_drink", "amount": 10}), ("build_workshop", {"type": "Still"}),
-           ("build_farm", {"site": "S1"}), ("build_farm", {"site": "S1"}), ("place_furniture", {"item": "bed", "n": 30}),
-           ("place_furniture", {"item": "chair", "n": 30}), ("build_workshop", {"type": "Craftsdwarfs"})]
+OPENING = [("add_order", {"recipe": "brew_drink", "amount": 10}), ("build_workshop", {"type": "Still", "site": "W1"}),
+           ("build_farm", {"site": "F1"}), ("build_farm", {"site": "F2"}), ("dig_room", {"site": "R1"}),
+           ("place_furniture", {"kind": "bed", "site": "A1", "count": 30}),
+           ("place_furniture", {"kind": "chair", "site": "A1", "count": 30}),
+           ("build_workshop", {"type": "Craftsdwarfs", "site": "W2"})]
 KEY = os.environ.pop("OPENROUTER_API_KEY", "")
 
 
@@ -97,7 +99,8 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._send(400, {"error": {"code": "bad_json"}})
         base = {"t_start": t0, "request_bytes": len(raw), "n_messages": len(body.get("messages") or []),
-                "n_tools": len(body.get("tools") or [])}
+                "n_tools": len(body.get("tools") or []),
+                "request_digest": "sha256:" + hashlib.sha256(raw or b"").hexdigest()}
         if body.get("model") != MODEL:
             write({**base, "outcome": "refused_model", "t_end": time.time(), "latency_s": 0, "cost_usd": 0})
             return self._send(400, {"error": {"code": "model_not_allowed", "message": f"only {MODEL}"}})
@@ -156,7 +159,8 @@ class Handler(BaseHTTPRequestHandler):
             write({**base, "outcome": "ok", "t_end": time.time(), "latency_s": round(time.time() - t0, 4),
                    "prompt_tokens": p_tok, "cached_tokens": cached, "completion_tokens": c_tok, "reasoning_tokens": 0,
                    "cost_usd": round(cost, 10), "upstream_status": 200, "attempts": 1 + bool(throttle),
-                   "retry_statuses": [429] if throttle else [], "throttle_wait_s": throttle, "finish_reason": "tool_calls"})
+                   "retry_statuses": [429] if throttle else [], "throttle_wait_s": throttle, "finish_reason": "tool_calls",
+                   "generation_id": f"fake-{i}", "tools_called": [name]})
         self._send(200, {
             "id": f"fake-{i}", "object": "chat.completion", "created": int(t0), "model": MODEL, "provider": "fake",
             "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {

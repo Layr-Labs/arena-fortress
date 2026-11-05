@@ -79,7 +79,7 @@ class Testers(unittest.TestCase):
     def test_add_keeps_others_and_tier_reads_it(self):
         t, o = testers.add({"new": {"weekly": 3}}, {"carol": "established"}, ["alice", "bob"], weekly=12)
         self.assertEqual(t["new"], {"weekly": 3})
-        self.assertEqual(t["tester"], {"in_flight": 2, "weekly": 12, "suite": "full"})
+        self.assertEqual(t["tester"], {"in_flight": 1, "weekly": 12, "season": 8, "suite": "full"})
         self.assertEqual(o, {"carol": "established", "alice": "tester", "bob": "tester"})
         cfg = tier.tiers_config({"DFBENCH_TIERS": json.dumps(t)})
         self.assertEqual(tier.decide("alice", {}, {"created_at": "2026-10-20T00:00:00Z"}, "b", cfg, o)[0], "tester")
@@ -117,3 +117,23 @@ class WorkflowPermissionsTest(unittest.TestCase):
                 with self.subTest(workflow=wf, job=b.split(":", 1)[0].strip()):
                     self.assertRegex(b, r"permissions: \{[^}]*packages: read")
         self.assertIn("packages: read", open(os.path.join(ci, "play.yml")).read())
+
+
+class CaseInsensitiveOverridesTest(unittest.TestCase):
+    """GitHub logins are case-insensitive: overrides match any spelling, and testers.py writes one lowercase entry."""
+
+    def test_decide_matches_any_spelling(self):
+        cfg = tier.tiers_config({})
+        for user in ("Gajesh2007", "gajesh2007", "GAJESH2007"):
+            t, why = tier.decide(user, {}, {"created_at": "2020-01-01T00:00:00Z"}, "b", cfg, {"Gajesh2007": "tester"})
+            self.assertEqual((t, why), ("tester", "organiser override"), user)
+
+    def test_old_double_entries_still_work(self):
+        self.assertEqual(tier.normalize_overrides({"MC1823315": "tester", "mc1823315": "tester"}),
+                         {"mc1823315": "tester"})
+        self.assertEqual(tier.normalize_overrides({"Foo": "new", "foo": "tester"}), {"foo": "tester"})
+
+    def test_testers_writes_lowercase_once(self):
+        _, ov = testers.add({}, {"Gajesh2007": "tester", "gajesh2007": "tester"}, ["MC1823315"])
+        self.assertEqual(ov, {"gajesh2007": "tester", "mc1823315": "tester"})
+        self.assertEqual(testers.remove(ov, ["GAJESH2007"]), {"mc1823315": "tester"})

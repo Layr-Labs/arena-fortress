@@ -77,3 +77,26 @@ class Sites(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DugMeansExcavated(unittest.TestCase):
+    """schema 8: an R room's `designated` is true once dig_room ordered it; `dug` only once every tile is floor
+    (tester feedback V4, 2026-10-28: farming or zoning a designated-but-solid room failed or zoned rock)."""
+
+    def test_designated_then_dug(self):
+        s = SiteState()
+        room = {"x": 10, "y": 10, "z": 5, "w": 3, "h": 3, "soil": True}
+        s.update({"R": [room]})
+        r = next(e for e in s.listing() if e["kind"] == "R")
+        self.assertEqual((r["designated"], r["dug"]), (False, False))
+        rid = r["id"]
+        s.update({"R": []}, box_facts={rid: {"tiles": 9, "floor": 3, "designated": 6, "hidden": 0, "soil_floor": 3}})
+        r = next(e for e in s.listing() if e["id"] == rid)
+        self.assertEqual((r["designated"], r["dug"]), (True, False))
+        s.update({"R": []}, box_facts={rid: {"tiles": 9, "floor": 9, "designated": 0, "hidden": 0, "soil_floor": 9}})
+        r = next(e for e in s.listing() if e["id"] == rid)
+        self.assertEqual((r["designated"], r["dug"]), (True, True))
+        w = {"x": 1, "y": 1, "z": 5}
+        s.update({"W": [w]})
+        e = next(e for e in s.listing() if e["kind"] == "W")
+        self.assertEqual((e["designated"], e["dug"]), (None, None))

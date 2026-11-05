@@ -46,6 +46,10 @@ The process binds the port at once (`/health` says `phase: starting`), then rese
 answers once the game is `ready`. After the game it keeps serving (the artifacts are written when the game ends)
 until SIGTERM, or exits by itself with `--exit-when-done`.
 
+**Season 1.** A task with `"rules_version": "s1"` (e.g. `scenarios/season1/x1-trade.json`) gets the season-1 rules
+on top of all of the above: `gameapi/season1/` wraps the facts layer (the trade tools, facts and queries) and runs
+its `Game` subclass, and the key reads `api=v0+s1`. Season-0 tasks are unchanged (`gameapi/season1/README.md`).
+
 ## Endpoints
 
 Every response carries `day` (since the start), `tick` (absolute), `days_left`, `game_over`, and

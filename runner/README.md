@@ -58,6 +58,19 @@ kept, 5 MiB), `--poll`, `--startup-timeout`. Env: `DFBENCH_GAME_IMAGE` (default 
 `scenarios/snapshots`), `GATEWAY_ALLOW_HTTP_UPSTREAM=1` (passed to the real gateway: allow an `http://` `--upstream`,
 for tests against a fake upstream only).
 
+Watch mode (`local run`, `local suite` and `local smoke` only; `runner/dfbenchlib/watch.py`): `--watch` builds (or
+reuses) `dfbench-watch:<hash>` from the game image (`DFBENCH_GAME_IMAGE`; `docker/Dockerfile.watch`: DF rendered into
+Xvfb at 1200x800, `PRINT_MODE:SOFTWARE`, `G_FPS_CAP:20`, windowed, no sound, recorded by ffmpeg at 10 fps), plays
+with it, and after each game writes `<game>/video/<game>.mp4` (faststart H.264) and `<game>-4x.mp4`
+(`--watch-no-4x` skips it). `--watch-live` adds a view-only, password-protected VNC per game on `127.0.0.1:<port>`
+(`--watch-port`, default 5900, one port per game playing at once): the runner listens on the host's loopback and
+relays each connection through `docker compose exec game`, so the game container still publishes no port and stays
+on the internal network. Refused when `GITHUB_ACTIONS` is set, with `DFBENCH_RESULT_KIND` other than `local`, with
+`--stack fake`, and on `suite run` (no such flag). A watch run is labelled: `run.json`, each `game.json` (`watch`:
+image, frames, duration) and `score.json` (`watch: true`, `comparable: false`, `watch_note`, and `+watch` after
+the key's `dfset` hash; the per-game keys can't tell, since the server derives `dfset` from
+`docker/prefs_overrides.py`, which the watch image leaves alone). Without `--watch` nothing changes.
+
 `--task` takes a path or a bare scenario name (`start-year`, `lt01-drought-seed`: tried as `scenarios/<x>.json`,
 `scenarios/seed/<x>.json`, then by `name`/`id`). `--harness` is the directory holding the Dockerfile (in the challenge repo, the baseline:
 `--harness submission/`).
@@ -78,15 +91,21 @@ Output, per run dir:
               /task/scenario.json game_input.json server_task.json dfbench_task.json
               /harness/output.log          untrusted, bounded; never read by the scorer
               /logs/game.log gateway.log
+              /video/<task>-<k>.mp4 -4x.mp4  --watch only (local)
 ```
 
 ### Yukon wrappers (`runner/yukon/`; `.yukon/` in the challenge repo)
 
 `setup.sh` and `run.sh` are the sources of the challenge repo's `.yukon/setup.sh` and `.yukon/run.sh`
-(`challenge/benchmark.json` setupCommand / benchmarkCommand). `setup.sh` builds the DF image from the competitor's
-DF download, the gateway image, the public forts (`docker/task_forts.sh`, `docker/embark.sh`) and checks that
-`submission/` builds. `run.sh` runs `dfbench local suite --harness submission/` and copies the score to
-`.yukon/score.json`. The challenge workflow is `runner/ci/score.yml` (installed as `.github/workflows/score.yml`).
+(`challenge/benchmark.json` setupCommand / benchmarkCommand). `setup.sh` builds the plain DF image from the competitor's
+DF download (`DFBENCH_DF_BASE_IMAGE`, default `yukon-df:s0-base`: the fort builders' image), the game server image on
+top of it (`docker/Dockerfile.game`, `DFBENCH_GAME_IMAGE`, default `yukon-df:s0`: what the real stack plays), the
+gateway image, the public forts (`docker/task_forts.sh`, `docker/embark.sh`, `pool/dfpool build-public` with
+`--allow-busy` when `DFBENCH_ALLOW_BUSY=1`) and checks that `submission/` builds; a MY1 fort that doesn't build is
+reported at the end instead of skipping the check. `run.sh` runs `dfbench local suite --harness submission/` (plus
+`DFBENCH_SUITE_ARGS`, since `yukon run` passes no arguments) and copies the score to `.yukon/score.json`. A game
+server that fails at reset adds a hint to its error when the cause is a missing `df/save` (the plain image used as the
+game image) or a start fort missing from the mount (`gameapi/server/__main__.py` `reset_hint`). The challenge workflow is `runner/ci/score.yml` (installed as `.github/workflows/score.yml`).
 
 ## Suite file (`dfbench-suite/1`)
 
@@ -136,6 +155,11 @@ Task fields: `kind` `lab` (scored by `bench/predicates.py` `predicate`) or `outc
   resampled with replacement within the task, 10,000 resamples, fixed seed. `ub95` = the 95th percentile (staging).
 - `stage`: 2 = complete; 1 = stage 1 only, published as `score: 0, partial: true` (not promotable, SCORING.md §4);
   `"subset"` = any other incomplete run (local runs), `partial: true`, score = the bound over the families present.
+- `stage2` (scoring workflow only): why OP1 was or wasn't played, e.g. `skipped: stage-1 upper bound 94.27 <
+  leader's stage-1 point 94.52 …`, `skipped: tier new plays stage 1 only …` or `played (…)`; with
+  `leader_stage1_point`. On a stage-1-only result both come first in `metrics`, so they head Yukon's PR table
+  (Yukon's headline says "Scored 0" and ignores `partial`; yukon `src/execution/github-actions.ts`
+  `scoreReportComment`).
 - `lab_z_below_minus1`: the lab games whose own ẑ is below −1 (e.g. `LT08-3 -2.64`), listed while the floor is a
   pending decision; S stays unfloored.
 - Infra games (`game.json` status `infra`, or usage unknown on any gateway call) are excluded and counted.
@@ -162,6 +186,10 @@ must be re-measured on the private pool before the season (SCORING.md: "publishe
   status) and the runner's `game.json`. Harness output can't change a score (tested).
 
 ## Tests
+
+Every suite in the repo, each run its intended way: `scripts/run_tests.sh` (a few suites, e.g. `gateway/tests`,
+`baseline/tests` and `gameapi/facts/tests`, import their own directory's modules by name and must run with that
+directory as the top, not `-t .`; the script knows which).
 
 ```sh
 python3 -m unittest discover -s runner/tests -t .                          # fake rules, scoring, compose isolation

@@ -1,18 +1,31 @@
 """dfbench CLI (runner/README.md):
 
+  dfbench local smoke [--harness submission/] [--task …] [--days 3]   # real DF, fake model, $0: run this first
   dfbench local run --harness DIR --task scenarios/X.json [--seed K] [--n N] [--parallel P] [--budget 0.50] [--out DIR]
   dfbench local suite --harness DIR [--suite runner/suites/season0-public.json]   # the public suite, scored
   dfbench suite run --harness DIR --suite runner/suites/season0.json [--stages 1,2] [--games LT01-0,MY1] [--out DIR]
   dfbench suite plan --suite FILE [--stages 1] [--per-job 2]      # CI matrix JSON
   dfbench score DIR [--suite FILE]                                 # -> DIR/score.json, DIR/score_detail.json
+  dfbench local run|suite|smoke ... --watch [--watch-live]        # LOCAL only: record each game (NOT comparable)
 Common: --stack real|fake|mixed, --model, --key-env NAME (default: DFBENCH_PROVIDER_KEY, else OPENROUTER_API_KEY), --upstream URL, --harness-cpus, --harness-mem, --game-mem, --retries,
         --harness-image TAG --harness-digest D (skip the build: CI builds once), --resume.
 """
-import argparse, json, os, sys, time
+import argparse, json, os, re, sys, time
 
 from . import ROOT, RUNNER_VERSION
 from .game import DEFAULT_MODEL, build_fakes, build_gateway, build_harness, harness_digest, log
 from .suite import check_forts, expand, load_suite, local_task, run_games
+
+
+def run_prefix(value):
+    """--run-prefix becomes part of Docker image and Compose project names (`<prefix>-harness:<hash>`, `<prefix>-<game>-…`),
+    which must be lowercase: lowercase it (game.py already lowercases its run ids, so names stay consistent), and refuse
+    anything that still isn't a valid name start."""
+    v = (value or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,40}", v):
+        raise argparse.ArgumentTypeError(f"--run-prefix {value!r}: use letters, digits, '.', '_' or '-' "
+                                         "(starting with a letter or digit, at most 41 characters)")
+    return v
 
 
 def _common(p):
@@ -38,10 +51,23 @@ def _common(p):
     p.add_argument("--game-mem", default="3g")
     p.add_argument("--retries", type=int, default=1, help="re-runs of a game that failed for infra reasons")
     p.add_argument("--resume", action="store_true", help="skip games whose game.json says ok")
-    p.add_argument("--run-prefix", default="dfb", help="Compose project prefix (container names start with it)")
+    p.add_argument("--run-prefix", default="dfb", type=run_prefix,
+                   help="Compose project prefix (container and image names start with it; lowercased)")
     p.add_argument("--log-cap", type=int, default=5 * 2 ** 20, help="bytes of harness output kept per game")
     p.add_argument("--poll", type=float, default=5.0)
     p.add_argument("--startup-timeout", type=float, default=900)
+
+
+def _watch_flags(p):
+    """`dfbench local ...` only (runner/dfbenchlib/watch.py): never on `suite run`, refused in CI."""
+    g = p.add_argument_group("watch mode (local only; results are NOT comparable)")
+    g.add_argument("--watch", action="store_true",
+                   help="render DF and record each game to <run>/<game>/video/<game>.mp4 (+ -4x.mp4); slower, "
+                        "different DF prefs, labelled watch: true")
+    g.add_argument("--watch-live", action="store_true",
+                   help="--watch plus a view-only VNC of each game on 127.0.0.1 (password printed per game)")
+    g.add_argument("--watch-port", type=int, default=5900, help="first 127.0.0.1 port for --watch-live")
+    g.add_argument("--watch-no-4x", action="store_true", help="skip the 4x timelapse")
 
 
 def _opt(a):
@@ -68,24 +94,96 @@ def _opt(a):
         opt["DFBENCH_FAKES_IMAGE"] = build_fakes()
     elif not opt.get("DFBENCH_GATEWAY_IMAGE"):
         opt["DFBENCH_GATEWAY_IMAGE"] = build_gateway()
+    if getattr(a, "watch", False) or getattr(a, "watch_live", False):
+        from . import watch
+        watch.configure(opt, a)
     return opt
 
 
 def _start(out, suite, opt, argv):
+    from .score import anchors_id
+    log(f"== local run, NOT an official result: stack {opt['stack']} | suite {suite.get('name')} | tasks "
+        f"{','.join(t['id'] for t in suite['tasks'])} | anchors {anchors_id(suite)} ==")
     opt["infra"] = suite.get("infra") or {}
     os.makedirs(out, exist_ok=True)
     json.dump(suite, open(os.path.join(out, "suite.json"), "w"), indent=1)
     meta = {"runner": RUNNER_VERSION, "argv": argv, "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "harness_image": opt["harness_image"], "harness_digest": opt["digest"], "stack": opt["stack"],
             "model": opt["model"]}
+    if opt.get("watch"):     # labelled so the score never passes for a headless one (score.result_labels)
+        from .watch import NOTE
+        meta.update({"watch": True, "watch_note": NOTE, "game_image": opt.get("DFBENCH_GAME_IMAGE"),
+                     "watch_base_image": opt.get("watch_base_image")})
     json.dump(meta, open(os.path.join(out, "run.json"), "w"), indent=1)
 
 
 def _score_and_print(out, suite):
-    from .score import score_dir
+    from .score import labels_banner, score_dir
     score, _ = score_dir(out, suite)
     print(json.dumps(score, indent=1))
+    log(labels_banner(score["metrics"]))
     return score
+
+
+SMOKE_HINTS = (   # (substring of a game note or error, likely cause, next step)
+    ("no dockerfile", "the harness directory has no Dockerfile", "pass --harness <dir with a Dockerfile> (default submission/)"),
+    ("start forts not built", "the public start forts aren't built yet", "run .yukon/setup.sh (or set DFBENCH_SNAPSHOTS_DIR)"),
+    ("df/save", "the game server image is the plain DF image (no df/save, no game server)",
+     "re-run .yukon/setup.sh: it builds docker/Dockerfile.game as DFBENCH_GAME_IMAGE (default yukon-df:s0)"),
+    ("not mounted", "the start fort isn't where the game container looks", "run .yukon/setup.sh, or set DFBENCH_SNAPSHOTS_DIR"),
+    ("reset failed", "the game server couldn't load the start fort", "re-run .yukon/setup.sh; see the game log in the run dir"),
+    ("oom", "a container ran out of memory", "give Docker more memory (about 3 GB per DF game plus 2 GB for the harness)"),
+    ("harness", "your harness exited early or crashed", "see harness.log in the run dir; it ran against a fake model"),
+    ("timeout", "the game server didn't start in time", "check Docker's CPU and memory; Apple Silicon runs DF under Rosetta, slower"),
+)
+
+
+def cmd_local_smoke(a, argv):
+    """Real DF with a fake model, a few game-days of one task, $0: does the setup work, before any paid model call?"""
+    suite = local_task(a.task, a.seed if a.seed is not None else 12345, 1, None)
+    suite["tasks"][0]["days"] = a.days
+    suite["tasks"][0]["wall_s"] = max(600, 120 * a.days)
+    suite["name"], suite["smoke"] = f"smoke-{suite['tasks'][0]['id']}", True
+    out = a.out or os.path.join(ROOT, "runs", f"dfbench-smoke-{time.strftime('%Y%m%d-%H%M%S')}")
+    print(f"[smoke] {a.stack} stack (real DF, fake model, $0): {suite['tasks'][0]['id']} for {a.days} game-days -> {out}")
+    try:
+        specs = expand(suite, n=1, seed=a.seed)
+        check_forts(specs, a.stack)
+        opt = _opt(a)
+        _start(out, suite, opt, argv)
+        run_games(specs, opt, out, 1, 0)
+    except SystemExit as e:
+        msg = str(e.code if e.code is not None else "")
+        _smoke_verdict(False, msg, out)
+        raise SystemExit(1)
+    except Exception as e:  # noqa: BLE001  a smoke test reports, it doesn't trace back
+        _smoke_verdict(False, f"{type(e).__name__}: {e}", out)
+        raise SystemExit(1)
+    rec = {}
+    for p in sorted(__import__("glob").glob(os.path.join(out, "*", "game.json"))):
+        rec = json.load(open(p))
+    ok = rec.get("status") == "ok"
+    if ok:   # labelled scope "smoke": a 3-day score means nothing, but the labels say so wherever it's read
+        from .score import labels_banner, score_dir
+        try:
+            log(labels_banner(score_dir(out, suite)[0]["metrics"]))
+        except Exception as e:  # noqa: BLE001  the smoke verdict is about the stack, not the score
+            log(f"smoke: not scored ({type(e).__name__}: {e})")
+    _smoke_verdict(ok, " | ".join(str(n) for n in rec.get("notes") or []) or str(rec.get("status")), out)
+    if not ok:
+        raise SystemExit(1)
+
+
+def _smoke_verdict(ok, detail, out):
+    if ok:
+        print(f"[smoke] PASS: DF loaded the fort, the game server, gateway and your harness ran together. Next: "
+              f".yukon/run.sh (or `runner/dfbench local run --task …`) with your model key. Run dir: {out}")
+        return
+    low = (detail or "").lower()
+    cause, step = next(((c, n) for k, c, n in SMOKE_HINTS if k in low),
+                       ("see the run dir's game.json notes and logs", "fix it, then re-run the smoke test"))
+    print(f"[smoke] FAIL: {detail.strip()[:400]}\n[smoke]   likely cause: {cause}\n[smoke]   next: {step}\n"
+          f"[smoke]   run dir: {out}", file=sys.stderr)
 
 
 def cmd_local_run(a, argv):
@@ -160,7 +258,14 @@ def main(argv=None):
     lr = loc.add_parser("run", help="play N games of one task locally")
     _common(lr)
     lr.add_argument("--task", required=True, help="scenarios/X.json")
+    _watch_flags(lr)
     lr.add_argument("--wall-s", type=float, help="the game's wall cap (default max(1800, 5400 x days / 336))")
+    sm = loc.add_parser("smoke", help="real DF + fake model, a few game-days, $0: check the setup first")
+    _common(sm)
+    _watch_flags(sm)
+    sm.set_defaults(stack="mixed", harness=os.path.join(ROOT, "submission"))
+    sm.add_argument("--task", default="scenarios/season0/lt01-drought.json")
+    sm.add_argument("--days", type=int, default=3)
     su = sp.add_parser("suite").add_subparsers(dest="sub", required=True)
     ls_ = loc.add_parser("suite", help="play the public suite locally (same scoring), then score it")
     sr = su.add_parser("run", help="play a suite (stages, per-game dirs), then score it")
@@ -170,6 +275,7 @@ def main(argv=None):
         p_.add_argument("--stages", help="e.g. 1 or 1,2 (default: all)")
         p_.add_argument("--games", help="comma list of game ids (LT01-3) or task ids (MY1): a CI shard")
         p_.add_argument("--leader-stage1", type=float, help="run stage 2 only if the stage-1 ub95 reaches this")
+    _watch_flags(ls_)
     pl = su.add_parser("plan", help="print the CI job matrix for a suite")
     pl.add_argument("--suite", required=True)
     pl.add_argument("--stages")
@@ -180,7 +286,13 @@ def main(argv=None):
     sc.add_argument("dir")
     sc.add_argument("--suite")
     a = ap.parse_args(argv)
-    {("local", "run"): cmd_local_run, ("local", "suite"): cmd_suite_run, ("suite", "run"): cmd_suite_run, ("suite", "plan"): cmd_suite_plan,
+    from .watch import refuse_reason
+    why = refuse_reason(a)
+    if why:
+        ap.error(why)
+    if getattr(a, "watch_live", False):
+        a.watch = True
+    {("local", "smoke"): cmd_local_smoke, ("local", "run"): cmd_local_run, ("local", "suite"): cmd_suite_run, ("suite", "run"): cmd_suite_run, ("suite", "plan"): cmd_suite_plan,
      ("score", None): cmd_score}[(a.cmd, getattr(a, "sub", None))](a, argv)
 
 

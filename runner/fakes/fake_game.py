@@ -22,12 +22,7 @@ from urllib.parse import urlparse, parse_qs
 DAY = 1200
 T0 = 1228020                       # abs_tick at load (any value: the scorers use ticks relative to sample 0)
 API = "v0"
-FROZEN = ["appoint_manager", "build_workshop", "build_farm", "add_order", "add_manager_order", "cancel_order", "enable_automation",
-          "create_squad", "equip_squad", "squad_order", "create_burrow", "civilian_alert", "build_door", "build_wall",
-          "lock_door", "dig_room", "dig_stairs", "place_furniture", "make_zone", "assign_zone", "advance_days"]
-TOOLS = FROZEN + ["slaughter"]
 QUERIES = ["stocks", "units", "jobs", "orders", "buildings", "zones", "map", "manager_order_types", "workshop_types"]
-WORKSHOP_TYPES = ["Carpenters", "Masons", "Craftsdwarfs", "Still", "Kitchen", "Butchers", "Farmers", "Mechanics"]
 # a copy of gameapi/server/rules.py STOP_ON_VALUES (the fakes image has no gameapi/; a test checks they match)
 TRIPWIRES = ["hostile_visible", "hostile_approaching", "hostile_near_citizens", "citizen_died", "invasion",
              "water_rising", "announcement"]
@@ -39,30 +34,55 @@ ANNOUNCEMENT_TYPES = ["STRANGE_MOOD", "BERSERK_CITIZEN", "CITIZEN_TANTRUM", "POS
                       "AMBUSH_AMBUSHER_NATURE", "AMBUSH_MISCHIEVOUS", "AMBUSH_OTHER", "CAVE_COLLAPSE"]
 STOP_ON_VALUES = TRIPWIRES + [f"announcement:{t}" for t in ANNOUNCEMENT_TYPES]
 ORDER_STOCKS = ["drink", "food", "booze", "meals", "logs", "beds", "barrels"]
-SCHEMAS = {
-    "advance_days": {"type": "object", "properties": {"days": {"type": "integer", "minimum": 1, "maximum": 28},
-                                                      "stop_on": {"type": "array", "maxItems": 40,
-                                                                  "items": {"type": "string", "enum": STOP_ON_VALUES}}},
-                     "required": ["days"]},
-    "build_workshop": {"type": "object", "properties": {"type": {"enum": WORKSHOP_TYPES}, "site": {"type": "string"}},
-                       "required": ["type"]},
-    "add_order": {"type": "object", "properties": {"recipe": {"type": "string"}, "amount": {"type": "integer"},
-                                                   "when": {"type": "array"}}, "required": ["recipe", "amount"]},
-    "add_manager_order": {"type": "object", "properties": {"job": {"type": "string"}, "reaction": {"type": "string"},
-                                                           "amount": {"type": "integer"}, "when": {"type": "array"}},
-                          "required": ["job", "amount"]},
-    "slaughter": {"type": "object", "properties": {"unit_id": {"type": "integer"}}, "required": ["unit_id"]},
-    "place_furniture": {"type": "object", "properties": {"item": {"enum": ["bed", "table", "chair", "door"]},
-                                                         "site": {"type": "string"}, "n": {"type": "integer"}},
-                        "required": ["item"]},
-}
-MANUAL = ("Fake game server for runner tests. Tools act on a toy fort: add_order {recipe: brew_drink, amount} brews when a "
-          "Still exists; build_farm farms; place_furniture bed|chair houses; build_workshop Craftsdwarfs serves a mood.")
+# the real server's tool schemas (gameapi/facts/tools.py), vendored by gen_tool_schemas.py; advance_days keeps its
+# stop_on enum here (the real schema lists it in the description only)
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_schemas.json")) as _f:
+    REAL_TOOLS = {t["function"]["name"]: t for t in json.load(_f)}
+SCHEMAS = {n: t["function"]["parameters"] for n, t in REAL_TOOLS.items()}
+TOOLS = sorted(REAL_TOOLS)
+WORKSHOP_TYPES = SCHEMAS["build_workshop"]["properties"]["type"]["enum"]
+MANUAL = ("Fake game server for runner tests, with the real v0 tool schemas. Tools act on a toy fort: add_order {recipe: "
+          "brew_drink, amount} brews when a Still exists; build_farm {site} farms; dig_room {site: R…} digs a room; "
+          "place_furniture {kind: bed|chair, site, count} houses and seats; build_workshop {type, site: W…}; a "
+          "Craftsdwarfs serves a mood.")
 
 
 def tool_schema(name):
-    params = SCHEMAS.get(name, {"type": "object", "properties": {}, "additionalProperties": True})
-    return {"type": "function", "function": {"name": name, "description": f"(fake) {name}", "parameters": params}}
+    return REAL_TOOLS.get(name) or {"type": "function", "function": {"name": name, "description": f"(fake) {name}",
+                                                                      "parameters": {"type": "object", "properties": {}}}}
+
+
+def schema_error(tool, args):
+    """The real server's schema check (required keys, types, enums, integer bounds) -> message or None."""
+    p = SCHEMAS.get(tool) or {}
+    for k in p.get("required") or ():
+        if k not in args:
+            return f"args.{k} is required"
+    for k, v in args.items():
+        spec = (p.get("properties") or {}).get(k)
+        if spec is None:
+            continue
+        t = spec.get("type")
+        if t == "integer" and not (isinstance(v, int) and not isinstance(v, bool)):
+            return f"args.{k} must be an integer"
+        if t == "string" and not isinstance(v, str):
+            return f"args.{k} must be a string"
+        if t == "boolean" and not isinstance(v, bool):
+            return f"args.{k} must be a boolean"
+        if t == "array" and not isinstance(v, list):
+            return f"args.{k} must be an array"
+        if "enum" in spec and v not in spec["enum"]:
+            return f"unknown {k} {v!r}"
+        if t == "integer" and ("minimum" in spec and v < spec["minimum"] or "maximum" in spec and v > spec["maximum"]):
+            return f"args.{k} out of range"
+    return None
+
+
+# the toy fort's sites, in the real listing's shape (gameapi/facts/sites.py): kind is the id's letter, dug is set for
+# R rooms only
+SITES = [("A1", 10, 10, 0, 5, 4, False), ("R1", 30, 10, -1, 4, 4, False), ("R2", 36, 10, -1, 4, 4, False),
+         ("W1", 20, 20, 0, 3, 3, False), ("W2", 24, 20, 0, 3, 3, False), ("W3", 28, 20, 0, 3, 3, False),
+         ("F1", 40, 20, 0, 5, 5, True), ("F2", 46, 20, 0, 5, 5, True), ("S1", 20, 10, 0, 1, 1, True)]
 
 
 def _rules(cfg):
@@ -98,6 +118,9 @@ class Game:
         self.beds_items = 19 if lab else 0
         self.beds_placed = 0 if lab or fam != "midyear" else 20
         self.seats = 0 if fam != "midyear" else 10
+        self.sites = {sid: {"id": sid, "kind": sid[0], "x": x, "y": y, "z": z, "w": w, "h": h, "soil": soil,
+                            "dug": False if sid[0] == "R" else None, "used_by": []}
+                      for sid, x, y, z, w, h, soil in SITES}
         self.workshops = {"Carpenters", "Still", "Kitchen"} if lab and fam != "rescue" else set()
         if fam == "midyear":
             self.workshops = {"Carpenters", "Still", "Kitchen", "Masons"}
@@ -254,10 +277,8 @@ class Game:
                 "moods": [] if not self.mood else [{"unit_id": self.mood["unit_id"], "mood": self.mood["mood"],
                                                     "job_type": "StrangeMoodCrafter", "claimed_workshop": None,
                                                     "items_needed": [{"type": "WOOD", "quantity": 1, "available": 5}]}],
-                "map": {"sites": [{"id": "A1", "kind": "room", "x": 10, "y": 10, "z": 0, "w": 3, "h": 3, "soil": False,
-                                   "free": True, "dug": True},
-                                  {"id": "S1", "kind": "surface", "x": 20, "y": 10, "z": 1, "w": 3, "h": 3, "soil": True,
-                                   "free": True, "dug": False}]},
+                "map": {"sites": [{**{k: v for k, v in e.items() if k != "used_by" or v}, "free": not e["used_by"]}
+                                  for e in self.sites.values()]},
                 "zones": [], "furniture_unzoned": {"bed": self.beds_placed},
                 "administrators": {"manager_required_office": self.cit > 20},
                 "actions_left_today": self.rules["actions_per_game_day"] - self.actions_today}
@@ -285,6 +306,9 @@ class Game:
             return err("unknown_tool", f"no tool named {tool!r}")
         if not isinstance(args, dict):
             return err("bad_arguments", "args must be an object")
+        bad = schema_error(tool, args)
+        if bad:
+            return err("bad_arguments", bad)
         if tool == "advance_days":
             return self._advance(args, err)
         if self.A is not None and self.day >= self.A:
@@ -300,43 +324,69 @@ class Game:
         return {**self.envelope(), "ok": True, "result": res,
                 "actions_left_today": self.rules["actions_per_game_day"] - self.actions_today}
 
+    def _site(self, a, kinds, tool, need_dug=False):
+        """The real tools' site rules, toy-sized: -> (site, error message or None)."""
+        e = self.sites.get(str(a.get("site", "")).upper())
+        if e is None or e["kind"] not in kinds:
+            return None, f"{tool} needs a site of kind {'/'.join(kinds)}"
+        if need_dug and e["kind"] == "R" and not e["dug"]:
+            return None, f"room {e['id']} is not dug yet (dig_room first)"
+        return e, None
+
     def _apply(self, tool, a):
         if tool == "build_workshop":
-            ty = a.get("type")
-            if ty not in WORKSHOP_TYPES:
-                return f"type must be one of {WORKSHOP_TYPES}"
+            e, bad = self._site(a, ("W",), tool)
+            if bad:
+                return bad
+            if e["used_by"]:
+                return f"site {e['id']} is used"
+            ty = a["type"]
+            e["used_by"].append("workshop")
             self.workshops.add(ty)
             if ty == "Craftsdwarfs" and self.mood and self.mood_ws_day is None:
                 self.mood_ws_day = self.day
-            return {"built": ty}
+            return {"built": ty, "site": e["id"]}
         if tool in ("add_order", "add_manager_order"):
-            key, need = ("recipe", "stock") if tool == "add_order" else ("job", "item_type")
-            if not isinstance(a.get(key), str) or not isinstance(a.get("amount"), int):
-                return f"{tool} needs {key} and amount"
+            need = "stock" if tool == "add_order" else "item_type"
             for i, c in enumerate(a.get("when") or []):
                 if not isinstance(c, dict) or need not in c:
                     return f"{tool} when[{i}] needs {need}"
                 if tool == "add_order" and c["stock"] not in ORDER_STOCKS:
                     return f"{tool} when[{i}] stock must be one of {ORDER_STOCKS}"
-            r = a[key]
+            r = a["recipe" if tool == "add_order" else "job"]
             if "drink" in r or r == "BrewDrink":
                 self.brewing = True
             return {"order": r, "queued": True}
+        if tool == "dig_room":
+            e, bad = self._site(a, ("R",), tool)
+            if bad:
+                return bad
+            e["dug"] = True
+            return {"dug": e["id"]}
         if tool == "build_farm":
+            e, bad = self._site(a, ("F", "R", "G"), tool, need_dug=True)
+            if bad:
+                return bad
+            e["used_by"].append("farm")
             self.farms += 1
-            return {"farm": self.farms}
+            return {"farm": self.farms, "site": e["id"]}
         if tool == "place_furniture":
-            item, n = a.get("item"), int(a.get("n") or 1)
-            if item == "bed":
+            e, bad = self._site(a, ("A", "R"), tool, need_dug=True)
+            if bad:
+                return bad
+            kind, n = a["kind"], int(a.get("count") or 1)
+            if kind == "bed":
                 self.beds_placed += n
-            elif item in ("chair", "table"):
-                self.seats += n if item == "chair" else 0
-            else:
-                return "item must be bed, table, chair or door"
-            return {"placed": item, "n": n}
+            elif kind == "chair":
+                self.seats += n
+            return {"placed": kind, "count": n, "site": e["id"]}
+        if tool == "make_zone":
+            e, bad = self._site(a, ("A", "R"), tool, need_dug=True)
+            if bad:
+                return bad
+            e["used_by"].append("zone")
+            return {"zone": a["kind"], "site": e["id"]}
         if tool == "slaughter":
-            if not isinstance(a.get("unit_id"), int):
-                return "unit_id must be an integer"
             return {"marked": a["unit_id"]}
         return {"done": tool}
 

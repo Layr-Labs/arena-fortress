@@ -120,6 +120,30 @@ class Band(unittest.TestCase):
         self.assertEqual(band.band_of({"lb95": 55}, 60, 3.8), ("none", -5))
         self.assertEqual(band.band_of({"lb95": 70}, 60, 3.8, valid=False)[0], "none")
 
+    def test_select_single_run_contenders_first(self):
+        def ent(sid, ub, runs, status="contender", lb=80.0):
+            return {"submission": sid, "status": status, "pooled": {"ub95": ub, "lb95": lb, "runs": runs}}
+        # the dev board before the 2026-11-04 re-score: leader lb95 86.45; five single-run contenders reached it
+        st = {"leader": "8ead", "entries": {e["submission"]: e for e in [
+            ent("8ead", 88.06, 1, "leader", 86.45), ent("8f65", 87.94, 1), ent("13c0", 87.84, 1),
+            ent("5041", 87.76, 1), ent("6b86", 87.73, 1), ent("33c7", 87.72, 1), ent("c447", 86.42, 3)]}}
+        self.assertEqual(band.select(st, k=4), ["8ead", "8f65", "13c0", "5041", "6b86", "33c7"])   # 33c7 was missed
+        self.assertEqual(band.select(st, k=2, cap=2), ["8ead", "8f65", "13c0"])                   # the cap binds
+        self.assertEqual(band.select(st, k=4, cap=2), ["8ead", "8f65", "13c0", "5041", "6b86"])   # k still fills
+        self.assertEqual(band.select(st, k=7), ["8ead", "8f65", "13c0", "5041", "6b86", "33c7", "c447"])
+        # after the re-score everyone has two runs: back to the top K by ub95
+        for e in st["entries"].values():
+            e["pooled"]["runs"] = 2
+        self.assertEqual(band.select(st, k=4), ["8ead", "8f65", "13c0", "5041", "6b86"])
+        # a single-run contender below the leader's lb95 isn't forced in, but can still fill a slot
+        st["entries"]["new1"] = ent("new1", 86.0, 1)
+        st["entries"]["new2"] = ent("new2", 87.0, 1)
+        self.assertEqual(band.select(st, k=2), ["8ead", "new2", "8f65"])
+        self.assertEqual(band.select(st, k=0, cap=0), ["8ead"])
+        # dropped entries are never picked
+        st["entries"]["new2"]["status"] = "dropped"
+        self.assertEqual(band.select(st, k=1), ["8ead", "8f65"])
+
     def test_flow_baseline_contenders_rescore_select(self):
         st = band.empty()
         r = band.tag_decision(st, args(kind="baseline", submission="baseline"), score_with(55), games(60), SUITE)
@@ -147,6 +171,12 @@ class Band(unittest.TestCase):
         band.record_decision(st, args(submission="sub-a", leader="sub-a"), shift(games(60), 8), SUITE)
         self.assertEqual(st["entries"]["sub-a"]["status"], "leader")
         self.assertIn(st["entries"]["baseline"]["status"], ("contender", "dropped"))
+        # rescore.yml's drift and route metrics ride on the run record (flat values only)
+        d = {"drift_flag": "none", "drift_basis": "same-harness", "route_consistent": True, "nested": {"x": 1}}
+        band.record_decision(st, args(submission="sub-a", source="rescore", drift=d), shift(games(60), 8), SUITE)
+        last = st["entries"]["sub-a"]["runs"][-1]
+        self.assertEqual(last["drift"], {"drift_flag": "none", "drift_basis": "same-harness", "route_consistent": True})
+        self.assertEqual(st["entries"]["sub-a"]["drift_last"]["drift_basis"], "same-harness")
 
     def test_publish_is_aggregates_only(self):
         st = band.empty()
@@ -161,3 +191,66 @@ class Band(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SuiteDefaultsTest(unittest.TestCase):
+    """The DF defaults that used to be hardcoded (weights in score.py/band.py, the MY1/OP1 confirmation tasks in
+    score.yml/gate.py) come from the suite files; the season-0 suites carry the same values, so nothing changes."""
+
+    def test_season0_suites_carry_the_old_defaults(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        sys.path.insert(0, os.path.join(root, "framework"))
+        from harnessarena import suite as SU
+        for f in ("season0.json", "season0-public.json", "season0-int.json"):
+            s = json.load(open(os.path.join(root, "runner", "suites", f)))
+            self.assertEqual(SU.weights(s), SU.LEGACY_WEIGHTS, f)
+            self.assertEqual(SU.confirm_tasks(s), SU.LEGACY_CONFIRM_TASKS, f)
+
+
+class LeaderElect(unittest.TestCase):
+    """band.py tag runs before Yukon reads the score: a submission Yukon will promote is tagged leader-elect, not
+    contender (the reset board's first promotion, 7df400f3, was tagged contender), and becomes the leader once the
+    next run sees Yukon's incumbent."""
+
+    def promoted_score(self, lb, confirmation="passed"):
+        s = score_with(lb)
+        s["metrics"]["confirmation"] = confirmation
+        return s
+
+    def test_elect_then_leader(self):
+        st = band.empty()
+        band.tag_decision(st, args(kind="baseline", submission="baseline"), score_with(55), games(60), SUITE)
+        g = shift(games(60), 10)
+        r = band.tag_decision(st, args(submission="sub-a", leader_score="55", bips=250), self.promoted_score(70), g, SUITE)
+        self.assertEqual(r["band"], "leader-elect", r)
+        self.assertEqual(st["entries"]["sub-a"]["status"], "leader-elect")
+        # another submission scored before Yukon promotes: sub-a keeps its tag
+        band.tag_decision(st, args(submission="sub-b", leader_score="55", bips=250), score_with(54), games(60), SUITE)
+        self.assertEqual(st["entries"]["sub-a"]["status"], "leader-elect")
+        # the next run sees Yukon's incumbent = sub-a
+        band.tag_decision(st, args(submission="sub-c", leader="sub-a", leader_score="70", bips=250), score_with(50),
+                          games(55), SUITE)
+        self.assertEqual(st["entries"]["sub-a"]["status"], "leader")
+        self.assertNotEqual(st["entries"]["baseline"]["status"], "leader")
+
+    def test_not_elect_when_held_unconfirmed_or_not_improving(self):
+        st = band.empty()
+        band.tag_decision(st, args(kind="baseline", submission="baseline"), score_with(55), games(60), SUITE)
+        g = shift(games(60), 10)
+        for sc, why in ((self.promoted_score(70, "failed_paired"), "paired"),
+                        (score_with(70, verdict="hold"), "hold"),
+                        (self.promoted_score(55.5), "under the bips margin")):
+            r = band.tag_decision(st, args(submission="x-" + why, leader_score="55", bips=250), sc, g, SUITE)
+            self.assertNotEqual(r["band"], "leader-elect", why)
+        self.assertNotEqual(band.tag_decision(st, args(submission="y"), self.promoted_score(70), g, SUITE)["band"],
+                            "leader-elect")      # incumbent unknown: no guess
+
+    def test_stale_elect_is_rebanded(self):
+        st = band.empty()
+        band.tag_decision(st, args(kind="baseline", submission="baseline"), score_with(55), games(60), SUITE)
+        g = shift(games(60), 10)
+        band.tag_decision(st, args(submission="sub-a", leader_score="55", bips=250), self.promoted_score(70), g, SUITE)
+        # Yukon promoted someone else instead: sub-a is banded against that leader
+        band.tag_decision(st, args(submission="sub-z", kind="submission", leader="sub-z", leader_score="80"),
+                          score_with(80), shift(games(60), 20), SUITE)
+        self.assertIn(st["entries"]["sub-a"]["status"], ("contender", "dropped"))

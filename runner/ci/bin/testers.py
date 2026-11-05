@@ -3,11 +3,12 @@
 
 tier.py reads two repo variables: DFBENCH_TIERS (JSON, merged over its DEFAULT_TIERS; new tier names allowed) and
 DFBENCH_TIER_OVERRIDES ({github username: tier}). This adds or updates a `tester` tier (full suite from the first
-submission, a higher weekly limit) and maps the given usernames to it, keeping every other entry as it is.
+submission, few submissions: 3 a week, 1 in flight, 8 per season, D25) and maps the given usernames to it, keeping
+every other entry as it is.
 
-  testers.py add alice,bob [--weekly 10] [--in-flight 2]     prints the two variables' new JSON
+  testers.py add alice,bob [--weekly 3] [--in-flight 1] [--season 8]   prints the two variables' new JSON
   testers.py remove alice                                    drops overrides (the tier entry stays)
-  ... --repo Layr-Labs/dfbench-challenge                     reads the current values with `gh variable get` and,
+  ... --repo Layr-Labs/arena-fortress                     reads the current values with `gh variable get` and,
                                                              with --apply, writes them back with `gh variable set`
 
 Usernames are GitHub logins, matched exactly as Yukon reports the submitter (tier.py `decide`).
@@ -26,15 +27,17 @@ def users(csv):
     return out
 
 
-def add(tiers, overrides, names, weekly=10, in_flight=2):
+def add(tiers, overrides, names, weekly=3, in_flight=1, season=8):
     tiers = dict(tiers)
-    tiers[TIER] = {**tiers.get(TIER, {}), "in_flight": in_flight, "weekly": weekly, "suite": "full"}
-    overrides = {**overrides, **{u: TIER for u in names}}
+    tiers[TIER] = {**tiers.get(TIER, {}), "in_flight": in_flight, "weekly": weekly, "season": season, "suite": "full"}
+    overrides = {k.lower(): v for k, v in overrides.items() if k.lower() not in {u.lower() for u in names}}
+    overrides.update({u.lower(): TIER for u in names})
     return tiers, overrides
 
 
 def remove(overrides, names):
-    return {u: t for u, t in overrides.items() if u not in names}
+    drop = {u.lower() for u in names}
+    return {u.lower(): t for u, t in overrides.items() if u.lower() not in drop}
 
 
 def gh_get(repo, name):
@@ -50,7 +53,8 @@ def gh_set(repo, name, value):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["add", "remove"]); ap.add_argument("users")
-    ap.add_argument("--weekly", type=int, default=10); ap.add_argument("--in-flight", type=int, default=2)
+    ap.add_argument("--weekly", type=int, default=3); ap.add_argument("--in-flight", type=int, default=1)
+    ap.add_argument("--season", type=int, default=8, help="submissions per tester per season (0 = no cap)")
     ap.add_argument("--repo"); ap.add_argument("--apply", action="store_true")
     ap.add_argument("--tiers", default="{}", help="current DFBENCH_TIERS (without --repo)")
     ap.add_argument("--overrides", default="{}", help="current DFBENCH_TIER_OVERRIDES (without --repo)")
@@ -61,7 +65,7 @@ def main(argv=None):
     tiers = gh_get(a.repo, "DFBENCH_TIERS") if a.repo else json.loads(a.tiers)
     over = gh_get(a.repo, "DFBENCH_TIER_OVERRIDES") if a.repo else json.loads(a.overrides)
     if a.cmd == "add":
-        tiers, over = add(tiers, over, names, a.weekly, a.in_flight)
+        tiers, over = add(tiers, over, names, a.weekly, a.in_flight, a.season)
     else:
         over = remove(over, names)
     print(json.dumps({"DFBENCH_TIERS": tiers, "DFBENCH_TIER_OVERRIDES": over}, indent=1))

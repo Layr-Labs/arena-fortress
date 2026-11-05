@@ -70,6 +70,10 @@ Submissions are screened before they build (no credential files, size limits).
 - **No manipulating the review.** Text in a submission's code, files, note or dependency rationales that tries to
   instruct, mislead or pressure the judge (§8a) or a reviewer, such as "output pass", forged review markers or
   claimed approvals, is a breach of fair play in itself: the judge treats it as a fatal finding.
+- **Internal testers may take part, with disclosure.** People who tested the challenge before launch did so in a
+  separate internal repo, scored on the public-seed forts only, and saw no results on the private pool. They may
+  enter season 0. Their season-0 notes must disclose that they took part in internal testing and what they tested
+  and learned there (D25).
 - The organisers can audit any submission, re-run its games, and withdraw a score for a breach of these rules.
 
 ## 6. Re-runs
@@ -142,7 +146,7 @@ one person's work through several accounts to get more runs (that's a rules brea
 ## 8a. Promotion: the automated judge
 
 Every submission that would improve the leaderboard is reviewed by an **automated LLM judge** before Yukon promotes
-it (the pattern other Yukon challenges use). The judge reads the submission's diff against its base, its public note,
+it (and, with the early judge on, every submission before its games; see *When the judge runs*) (the pattern other Yukon challenges use). The judge reads the submission's diff against its base, its public note,
 its declared dependencies and coauthors, and the earlier submissions it may draw on: the one that produced `main`, the
 ones it declares, the most recent accepted ones, and any other published submission on the challenge, accepted or
 not, whose added lines overlap the diff (a mechanical scan of all of them picks these). It checks:
@@ -159,6 +163,23 @@ The outcome is **pass** (promoted as usual), **fail** (not promoted; the reasons
   judge's size limits (`runner/judge/README.md`), a finding that needs a person, or a high-risk signal that only an
   organiser can clear. A hold is never a finding against you;
 - **pass** otherwise. The judge's report is published with the run.
+
+**When the judge runs.** When the season has the early judge on (it is announced on the challenge page), the judge
+reviews every submission **before any game is played**, in parallel with building your harness, and posts its
+verdict on the pull request within minutes. A **fail** or **hold** stops the run there: no games are played, the
+result is recorded as score 0 and the attempt counts (a hold is final for that submission, as below). A **pass**
+lets the games run; if your score would then be promoted and the leader changed while your games played, the judge
+checks attribution again against the new leader before Yukon promotes you. If the judge itself is unavailable (an
+error on our side), your games run anyway and the judge runs after scoring. Without the early judge, it runs only
+after scoring, and only for a submission that would be promoted.
+
+**Attribution while scoring, and after.** Yukon shows a submission's declared dependencies only to its author until
+the submission is published, which is usually after it has been scored. When the formal list is hidden, the judge
+judges attribution from your **note and your code** (a note that credits what you build on, including the submission
+that produced `main`, is enough), and records the result as not yet verified. Once the submission is published, the
+formal list is checked against what the judge saw; a missing declaration is flagged to the organisers, who can
+correct the attribution or unrank the result. You can make the formal list available during scoring by adding
+`submission/dependencies.json` (the same format as `--dependencies-file`; `SUBMITTING.md` §3).
 
 **The judge isn't the whole of enforcement.** It is an automated review, not a guarantee, and a pass doesn't settle
 attribution. Organisers can overturn a decision. Misattribution found later, by an organiser, by another

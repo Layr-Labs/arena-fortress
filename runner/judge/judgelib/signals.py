@@ -61,13 +61,16 @@ COMPILED = [(k, lvl, re.compile(rx, re.I if k not in ("credential_value",) else 
 URL = re.compile(r"\b(?:https?|wss?|ftp|tcp|udp)://([A-Za-z0-9._\-\[\]:]+)")
 IPV4 = re.compile(r"(?<![\d.])(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?![\d.])")
 
+# a role header ("system prompt:") counts only at the start of a line: mid-sentence it is a harness describing
+# its own prompt files (false positive on the first internal submission, 2026-10-28)
 INJECTION = re.compile(
     r"\b(?:ignore|disregard|forget|override|bypass)\b[^.\n]{0,40}\b(?:previous|prior|above|earlier|preceding|all|"
     r"system|the)\b[^.\n]{0,30}\b(?:instructions?|rules?|rubric|prompts?|guidelines|directions)\b|"
     r"\b(?:you are|act as|you're)\s+(?:now\s+)?(?:the|an?)\s+(?:judge|reviewer|adjudicator|grader|evaluator)\b|"
     r"\b(?:output|return|respond with|reply with|emit|answer|print|set|mark)\b[^.\n]{0,25}\b(?:verdict|"
     r"\"?pass\"?\s*(?:verdict|only|$)|assessment\s*[:=]\s*\"?clean|no findings)\b|"
-    r"\b(?:system|developer)\s*(?:prompt|message)\s*:|<\s*/?\s*(?:system|im_start|im_end)\b|\[/?INST\]|"
+    r"(?:^|[\n>])[ \t\"'*#>`]*(?:system|developer)\s*(?:prompt|message)\s*:|<\s*/?\s*(?:system|im_start|im_end)\b|"
+    r"\[/?INST\]|"
     r"\bjudge\b[^.\n]{0,40}\b(?:must|should|will)\b[^.\n]{0,20}\b(?:pass|approve|accept|promote)\b|"
     r"\b(?:pre-?approved|already approved|organi[sz]ers? (?:have )?approved)\b|"
     r"\bend of (?:untrusted|submission|note)\b|<<<\s*(?:END|UNTRUSTED)", re.I)
@@ -153,15 +156,23 @@ def scan(scan_lines, note, per_kind_file=3, cap=80):
     return out[:cap], len(out)
 
 
-def deterministic_signals(contexts, overlaps, deps):
+def deterministic_signals(contexts, overlaps, deps, declaration_hidden=False):
     """Attribution tripwires computed from the context: the base producer not declared, and heavy line overlap
     with an undeclared prior submission (including the workflow's overlap-scan hits). Neither fires for the
-    submitter's own earlier submissions."""
+    submitter's own earlier submissions.
+
+    declaration_hidden: Yukon shows a submission's declared dependencies only to its author until it is published,
+    so during scoring the formal list is often unavailable (yukon docs/attribution-dag.md). "Not declared" then means
+    "not known", so these two signals are medium (reviewer findings, not an automatic hold) and the formal list is
+    checked after publication (runner/ci/bin/attribution_verify.py)."""
     out = []
+    cap = (lambda lvl: "medium" if lvl == "high" else lvl) if declaration_hidden else (lambda lvl: lvl)
     for c in contexts:
         if c["produced_base"] and not c["declared"] and not c.get("own"):
-            out.append({"kind": "base_producer_undeclared", "level": "high", "file": "dependencies.json", "line": None,
-                        "quote": f"context {c['id']} produced the base this submission starts from; not declared"})
+            out.append({"kind": "base_producer_undeclared", "level": cap("high"), "file": "dependencies.json", "line": None,
+                        "quote": f"context {c['id']} produced the base this submission starts from; "
+                                 + ("the formal declaration is hidden until publication: check the note"
+                                    if declaration_hidden else "not declared")})
     for o in overlaps:
         if o["declared"] or o["produced_base"] or o.get("own"):
             continue      # the submitter's own earlier work isn't undeclared copying (RULES §8)
@@ -171,7 +182,7 @@ def deterministic_signals(contexts, overlaps, deps):
             lvl = "medium"
         else:
             continue
-        out.append({"kind": "undeclared_overlap", "level": lvl, "file": o["samples"][0]["at"] if o["samples"] else "?",
+        out.append({"kind": "undeclared_overlap", "level": cap(lvl), "file": o["samples"][0]["at"] if o["samples"] else "?",
                     "line": None, "quote": f"{o['shared_lines']} added lines ({o['fraction']:.0%}) also added by "
                     f"undeclared context {o['context_id']}"})
     return out

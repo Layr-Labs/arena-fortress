@@ -23,7 +23,7 @@ class Observe(unittest.TestCase):
     def test_schema_sites_plugins(self):
         g, df = game()
         o = g.observe()
-        self.assertEqual(o["schema"], 7)
+        self.assertEqual(o["schema"], 8)
         self.assertNotIn("site_candidates", o)
         self.assertNotIn("sites", o)
         self.assertEqual([s["id"] for s in o["map"]["sites"]], ["W1", "E1", "S1", "R1"])

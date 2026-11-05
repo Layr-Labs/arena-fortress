@@ -7,7 +7,8 @@ leader: Yukon's incumbent, authoritative (GET {DFBENCH_YUKON_API}/api/benchmarks
         currentBestMetrics.stage1_point, which our score.json carries). If Yukon can't be read, the fallback values
         (the leader file in the ops store) are used when given, else it exits 3 (infra).
 
-  gate.py stage2 --stage1-score s1.json [--leader-point X] [--force]       prints run_stage2=true|false
+  gate.py stage2 --stage1-score s1.json [--leader-point X] [--force]       prints run_stage2=true|false,
+                                                                           stage1_point=, stage1_ub95=
   gate.py judge  --score scored.json [--leader-score Y] [--min-gain 0]    prints judge=true|false and reason=...
 stage2: run OP1 iff the stage-1 ub95 >= the leader's stage-1 point (always if there's no leader, or --force).
 judge:  run the judge iff the run is complete (stage 2) and its score beats the leader's by more than --min-gain
@@ -16,7 +17,7 @@ judge:  run the judge iff the run is complete (stage 2) and its score beats the 
   gate.py leader-id --benchmark ID      prints leader_id= (Yukon's incumbent submission; empty: the import baseline)
   gate.py bips [--manifest benchmark.json]                                  prints minScoreImprovementBips
   gate.py confirm --score scored.json --plans s1.json,s2.json --suite SUITE [--leader-score Y] [--bips B]
-                  [--tasks MY1,OP1] [--games-dir DIR] [--off]       prints confirm=true|false, reason=, matrix=
+                  [--tasks T1,T2 (default: the suite's confirm_tasks)] [--games-dir DIR] [--off]       prints confirm=true|false, reason=, matrix=
 confirm: a complete (stage 2) score that Yukon would promote (yukon src/benchmark/score.ts: (score - incumbent) /
         |incumbent| x 10000 >= minScoreImprovementBips; no incumbent, or Yukon unreadable: yes) plays a second batch
         of the long tasks (--tasks): game ids TASK-(n..2n-1), the same forts and seeds as TASK-(0..n-1) (the server
@@ -26,7 +27,9 @@ confirm: a complete (stage 2) score that Yukon would promote (yukon src/benchmar
 import argparse, json, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "framework"))
 from tier import Infra, http_json, yukon_headers  # noqa: E402
+from harnessarena import suite as SU  # noqa: E402
 
 
 def leader(benchmark_id, env=os.environ, http=http_json):
@@ -71,6 +74,33 @@ def stage2(s1, leader_point=None, force=False):
     if leader_point in (None, ""):
         return True, "no leader yet"
     return ub >= float(leader_point), f"stage-1 ub95 {ub} vs leader {leader_point}"
+
+
+def _num(x):
+    try:
+        return None if x in (None, "") else float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def stage2_note(stage, full_suite=True, tier="", run_stage2=None, stage1_ub95=None, leader_point=None):
+    """-> one line for the `stage2` metric: why OP1 was or wasn't played. Yukon's PR comment shows a stage-1-only
+    result as "Scored 0" (it ignores `partial`), so this row is the submitter's only explanation."""
+    ub, lp = _num(stage1_ub95), _num(leader_point)
+    bar = (f"stage-1 upper bound {ub:g} {'>=' if ub is not None and lp is not None and ub >= lp else '<'} "
+           f"leader's stage-1 point {lp:g}") if ub is not None and lp is not None else None
+    if str(stage) == "2":
+        if lp is None:
+            return "played (no leader yet)"
+        return f"played ({bar})" if bar and ub >= lp else "played (forced by the organiser)"
+    tail = "; not a failure: Yukon records a stage-1-only result as 0, not promotable (SCORING.md §4)"
+    if str(full_suite).lower() not in ("true", "1"):
+        return f"skipped: tier {tier or '?'} plays stage 1 only (RULES.md tiers){tail}"
+    if str(run_stage2).lower() == "false":
+        why = (f"{bar}, so this harness could not lead and OP1 was not played" if bar
+               else "no stage-1 score, so OP1 was not played")
+        return f"skipped: {why}{tail}"
+    return f"not completed: stage 2 was due but its games did not finish{tail}"
 
 
 def judge_needed(scored, leader_score=None, min_gain=0.0, bips=0):
@@ -170,7 +200,7 @@ def main():
     sp.add_parser("bips").add_argument("--manifest", default="")
     x = sp.add_parser("confirm"); x.add_argument("--score", required=True); x.add_argument("--plans", required=True)
     x.add_argument("--suite", required=True); x.add_argument("--leader-score"); x.add_argument("--bips", type=float, default=0)
-    x.add_argument("--tasks", default="MY1,OP1"); x.add_argument("--games-dir"); x.add_argument("--off", action="store_true")
+    x.add_argument("--tasks", default=""); x.add_argument("--games-dir"); x.add_argument("--off", action="store_true")
     a = ap.parse_args()
     if a.cmd == "leader":
         try:
@@ -198,10 +228,11 @@ def main():
         m = s1.get("metrics") or {}
         print(f"run_stage2={'true' if go else 'false'}")
         print(f"stage1_point={'' if m.get('point') is None else m['point']}")
+        print(f"stage1_ub95={'' if m.get('ub95') is None else m['ub95']}")
         sys.stderr.write(f"gate: {why} -> stage 2 {go}\n")
     elif a.cmd == "confirm":
         suite = json.load(open(a.suite))
-        tasks = [t for t in a.tasks.split(",") if t]
+        tasks = [t for t in a.tasks.split(",") if t] or SU.confirm_tasks(suite)   # default: the suite's
         n_by = {t["id"]: int(t.get("n", 8)) for t in suite["tasks"]}
         plans = [json.loads(open(p).read()) if os.path.exists(p) else json.loads(p) for p in a.plans.split(";")]
         go, why, mx = confirm(json.load(open(a.score)), plans, n_by, tasks, a.leader_score, a.bips, a.games_dir, a.off)

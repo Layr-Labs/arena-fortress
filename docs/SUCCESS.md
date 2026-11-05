@@ -77,8 +77,8 @@ DS = `https://github.com/DFHack/df-structures/blob/53.16-r2/`.
 - **Since `SCORE_VERSION` 6 the score's food count is edible items only** (`score.lua`, `recorder.lua`): of
   `ANY_GOOD_FOOD`, the item types FOOD, MEAT, FISH, CHEESE, EGG, PLANT and PLANT_GROWTH, not rotten. Seeds
   (planted ones too), empty bags and raw fish no longer count; on MY1 fort 2001 they were about 20 of 66, and recorded
-  food never reached 0 while dwarves starved (`runs/s0-compute-2026-10-23`). The observation's `food_edible` still
-  counts all of `ANY_GOOD_FOOD`.
+  food never reached 0 while dwarves starved (`runs/s0-compute-2026-10-23`). Since obs schema 8 the observation's
+  `food_edible` is this same count (`food_any_good` keeps the old `ANY_GOOD_FOOD` total).
 
 **Measured:**
 - Daily `drink` and `food` (existing samples).
@@ -239,7 +239,7 @@ order, not a weighted sum: a weighted sum lets surplus in one dimension buy off 
 |---|---|---|
 | s1 survival | `s_surv · s_sec` | `s_surv = 0` if the fort is lost, else `0.5·max(0, 1 − X/3) + 0.5·max(0, 1 − X/C0)`, with X = deaths during the run (the larger of `score.lua` and the ledger) + citizens lost to insanity, and C0 = citizens at the start. The first term punishes the first few deaths, and the second separates a wipe-out from a partial loss (the `goblin_raid_v2` shape). `s_sec` = 1 with no threat or a threat that is over at H; 0.5 while raiders are still on the map at H |
 | s2 supply | `min(drink, food)` | each resource scores `0.5·coverage_F + 0.5·min(1, T / 336)` |
-| s3 wellbeing | `w_calm · w_events` | `w_stress = 1 − mean_F(stressed / citizens)`, with stressed = DFHack category ≤ 1, i.e. stress ≥ 25k. `w_calm = 0.5·w_stress + 0.5·(share of needs met at H)`, or `w_stress` alone when the run has no needs data. `w_events = max(0, 1 − E / max(3, C̄/10))`, with E = tantrums + berserks + lost-to-stress + possessed tantrums + citizens seen insane (failed moods and stress insanity) |
+| s3 wellbeing | `w_calm · w_events` | `w_stress = 1 − mean_F(stressed / citizens)`, with stressed = DFHack category ≤ 1, i.e. stress ≥ 25k. `w_calm = w_stress` since `SCORE_VERSION` 7 (2026-11-05): the share of needs met at H (`inputs.needs_met`, formerly half of `w_calm`) is reported, not scored, because about half the needs can't be met through the game API and the share steps with time since arrival rather than with play (`runs/s0-wellbeing-needs-2026-11-05`). `w_events = max(0, 1 − E / max(3, C̄/10))`, with E = tantrums + berserks + lost-to-stress + possessed tantrums + citizens seen insane (failed moods and stress insanity) |
 | s4 growth | `housing`, or `0.5·housing + 0.5·progression` when H ≥ 336 d | `housing = mean(min(1, placed beds / citizens), min(1, 2·dining seats / citizens))` at H. `progression = min(1, steps / 2)` (§2.2) |
 
 **Gates and the tier reached.** The headline next to O is the number of consecutive gates passed (0–4):

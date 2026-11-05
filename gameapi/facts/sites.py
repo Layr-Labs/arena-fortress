@@ -85,11 +85,18 @@ class SiteState:
         """Every site with its facts, by id (no ranking): listed candidates, and every dug room of the game."""
         out = []
         for sid, s in list(self.current.items()) + [(r, s) for r, s in self.rooms.items() if r not in self.current]:
-            # contract §3.1: {id, kind, x, y, z, w, h, soil, free, dug} plus the candidate's own facts
+            # contract §3.1: {id, kind, x, y, z, w, h, soil, free, designated, dug} plus the candidate's own facts
             e = {"id": sid, "w": 1, "h": 1, "soil": None}
             e.update(s)
             e["kind"] = sid[0]   # the letter (E/D candidates' own `kind` text says the same)
-            e["dug"] = (sid not in self.current) if sid[0] == "R" else None
+            if sid[0] == "R":
+                # schema 8: `designated` = dug out of the candidate list (dig_room ordered it); `dug` = excavated,
+                # every tile of the box is floor (schemas 5-7 said dug for designated: tester feedback V4, 2026-10-28)
+                e["designated"] = sid not in self.current
+                t = self.box.get(sid) or {}
+                e["dug"] = bool(e["designated"] and t.get("tiles") and t.get("floor") == t.get("tiles"))
+            else:
+                e["designated"] = e["dug"] = None
             if sid[0] == "R" and sid in self.box:
                 e["tiles"] = self.box[sid]
             used = self.used.get(sid)

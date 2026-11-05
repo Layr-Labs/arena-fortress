@@ -4,7 +4,7 @@ fake game end to end through Docker Compose.
   python3 -m unittest discover -s runner/tests -v          # from the repo root
   DFBENCH_E2E=1 python3 -m unittest runner.tests.test_runner.E2E -v
 """
-import json, os, shutil, subprocess, sys, tempfile, unittest
+import argparse, json, os, shutil, subprocess, sys, tempfile, unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNNER = os.path.dirname(HERE)
@@ -28,9 +28,12 @@ def make_game(spec, out):
 def play(g, policy):
     """policy 'good': the fake gateway's opening then 7-day advances; 'noop': advances only."""
     if policy == "good":
-        for tool, args in [("add_order", {"recipe": "brew_drink", "amount": 10}), ("build_workshop", {"type": "Still"}),
-                           ("build_farm", {}), ("build_farm", {}), ("place_furniture", {"item": "bed", "n": 60}),
-                           ("place_furniture", {"item": "chair", "n": 60}), ("build_workshop", {"type": "Craftsdwarfs"})]:
+        for tool, args in [("add_order", {"recipe": "brew_drink", "amount": 10}),
+                           ("build_workshop", {"type": "Still", "site": "W1"}),
+                           ("build_farm", {"site": "F1"}), ("build_farm", {"site": "F2"}),
+                           ("place_furniture", {"kind": "bed", "site": "A1", "count": 30}),
+                           ("place_furniture", {"kind": "chair", "site": "A1", "count": 30}),
+                           ("build_workshop", {"type": "Craftsdwarfs", "site": "W2"})]:
             assert g.act(tool, args)["ok"], tool
     while not g.game_over:
         g.act("advance_days", {"days": 7})
@@ -62,19 +65,44 @@ class FakeGameRules(unittest.TestCase):
         g = make_game(self.lt01, self.tmp)
         g.rules["actions_per_game_day"] = 3
         for _ in range(3):
-            self.assertTrue(g.act("build_farm", {})["ok"])
-        r = g.act("build_farm", {})
+            self.assertTrue(g.act("build_farm", {"site": "F1"})["ok"])
+        r = g.act("build_farm", {"site": "F1"})
         self.assertEqual(r["error_code"], "action_limit")
         self.assertTrue(g.act("advance_days", {"days": 1})["ok"])
-        self.assertTrue(g.act("build_farm", {})["ok"])
+        self.assertTrue(g.act("build_farm", {"site": "F1"})["ok"])
 
     def test_errors_and_limits(self):
         g = make_game(self.lt01, self.tmp)
         self.assertEqual(g.act("nope", {})["error_code"], "unknown_tool")
         self.assertEqual(g.act("advance_days", {"days": 29})["error_code"], "bad_arguments")
-        self.assertEqual(g.act("build_workshop", {"type": "Castle"})["error_code"], "bad_arguments")
+        self.assertEqual(g.act("build_workshop", {"type": "Castle", "site": "W1"})["error_code"], "bad_arguments")
         for k in ("day", "tick", "days_left", "game_over", "hands_off_in_days", "observation"):
             self.assertIn(k, g.observe())
+
+    def test_real_argument_shapes(self):
+        """The fake takes the real server's v0 shapes (gameapi/facts/tools.py), so a harness that passes the fake
+        doesn't send arguments the real server rejects (tester feedback V6, 2026-10-28)."""
+        g = make_game(self.lt01, self.tmp)
+        r = g.act("make_zone", {"kind": "bedroom"})
+        self.assertEqual((r["error_code"], r["error"]), ("bad_arguments", "args.site is required"))
+        self.assertEqual(g.act("place_furniture", {"item": "bed", "n": 3})["error_code"], "bad_arguments")
+        self.assertFalse(g.act("place_furniture", {"kind": "bed", "site": "R1"})["ok"])      # not dug yet
+        self.assertTrue(g.act("dig_room", {"site": "R1"})["ok"])
+        self.assertTrue(g.act("place_furniture", {"kind": "bed", "site": "R1", "count": 2})["ok"])
+        kinds = {e["kind"] for e in g.observe()["observation"]["map"]["sites"]}
+        self.assertTrue({"R", "A", "W", "S"} <= kinds)
+        r1 = next(e for e in g.observe()["observation"]["map"]["sites"] if e["id"] == "R1")
+        self.assertIs(r1["dug"], True)
+
+    def test_vendored_schemas_match_server(self):
+        try:
+            sys.path.insert(0, ROOT)
+            from gameapi.facts.tools import tool_schemas
+        except ImportError:
+            self.skipTest("no gameapi/facts")
+        vendored = json.load(open(os.path.join(ROOT, "runner", "fakes", "tool_schemas.json")))
+        self.assertEqual(vendored, json.loads(json.dumps(tool_schemas())),
+                         "run: python3 -I runner/fakes/gen_tool_schemas.py")
 
     def test_order_tools_and_stop_on(self):
         g = make_game(self.lt01, self.tmp)
@@ -103,7 +131,7 @@ class FakeGameRules(unittest.TestCase):
         while g.day < g.A:
             g.act("advance_days", {"days": 28})
         self.assertEqual(g.day, 39)                        # cut at the window
-        self.assertEqual(g.act("build_farm", {})["error_code"], "hands_off")
+        self.assertEqual(g.act("build_farm", {"site": "F1"})["error_code"], "hands_off")
         while not g.game_over:
             g.act("advance_days", {"days": 28})
         self.assertEqual(g.finished_by, "horizon")
@@ -150,6 +178,11 @@ class Scoring(unittest.TestCase):
     def test_score_json(self):
         sc, detail = S.score_dir(self.good, self.suite)
         m = sc["metrics"]
+        for k in ("model_latency_s_per_call", "reasoning_tokens_per_call", "completion_tokens_per_call"):
+            self.assertIn(k, m)
+            self.assertTrue(m[k] is None or isinstance(m[k], (int, float)), k)
+        for k, v in m.items():   # collect.py finalize refuses nested metrics (Yukon shows one row per flat key)
+            self.assertFalse(isinstance(v, (dict, list)) and k != "harness_digest", k)
         self.assertEqual(m["stage"], 2)
         self.assertNotIn("partial", sc)
         self.assertTrue(m["promotable"])
@@ -244,7 +277,7 @@ class CrashTwice(unittest.TestCase):
         with open(os.path.join(d, "game", "harness-0.api.jsonl"), "w") as f:
             for i in range(30):
                 f.write(json.dumps({"method": "POST", "path": "/act", "day": i, "status": 200,
-                                    "request": {"tool": "build_farm", "args": {}}}) + "\n")
+                                    "request": {"tool": "build_farm", "args": {"site": "F1"}}}) + "\n")
         g = Game(self.spec, {}, self.tmp)
         g.rec["status"] = "ok"
         g._check_artifacts()
@@ -533,6 +566,42 @@ class E2E(unittest.TestCase):
             for d in (first, second, pooled):
                 shutil.rmtree(d, ignore_errors=True)
 
+    def test_paired_confirmation_same_window(self):
+        """D26 on the fake stack: the challenger's confirmation games and the leader's on the same games (same k,
+        forts and seeds), scored, paired (runner/ci/bin/paired.py) and checked for drift (drift.py) against each
+        other. The same harness on both sides is a tie: never a paired win, and no drift."""
+        sys.path.insert(0, os.path.join(RUNNER, "ci", "bin"))
+        import drift, paired
+        suite_p = os.path.join(RUNNER, "suites", "season0-public.json")
+        with open(suite_p) as f:
+            suite = json.load(f)
+        n = {t["id"]: t.get("n", 8) for t in suite["tasks"]}["MY1"]
+        ids = [f"MY1-{k + n}" for k in range(3)]
+        chal, lead = (tempfile.mkdtemp(prefix=f"s0run-e2e-{x}-") for x in ("c", "l"))
+        try:
+            harness = os.path.join(RUNNER, "fakes", "example_harness")
+            for out in (chal, lead):
+                r = self.run_cli("suite", "run", "--suite", suite_p, "--stack", "fake", "--run-prefix", "s0run",
+                                 "--harness", harness, "--games", ",".join(ids), "--out", out, "--poll", "1",
+                                 "--parallel", "2")
+                self.assertEqual(r.returncode, 0, r.stderr[-3000:])
+                r = self.run_cli("score", out, "--suite", suite_p)
+                self.assertEqual(r.returncode, 0, r.stderr[-3000:])
+            details = []
+            for out in (chal, lead):
+                with open(os.path.join(out, "score_detail.json")) as f:
+                    details.append(json.load(f))
+            d = paired.paired_diff(paired.pairs(details[0], details[1], ["MY1", "OP1"]), suite)
+            self.assertEqual(d["n"], 3)
+            scored = {"score": 70.0, "metrics": {}}
+            self.assertNotEqual(paired.decide(scored, d), "passed")
+            ref = drift.build_reference(lead, "t", "1")
+            self.assertTrue(ref["calls"])
+            self.assertIn(drift.check(chal, ref)["drift_flag"], ("none", "n/a"))
+        finally:
+            for x in (chal, lead):
+                shutil.rmtree(x, ignore_errors=True)
+
     def test_usage_missing_is_infra(self):
         out = tempfile.mkdtemp(prefix="s0run-e2e-")
         try:
@@ -554,3 +623,31 @@ class E2E(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SuiteKeyTest(unittest.TestCase):
+    """Real suites have one comparability key per task (the key hashes the task), and collect.py finalize refuses any
+    nested metric (Yukon shows one row per flat key): the suite key must always be a single string. The fake stack
+    uses one key for every task, so only this test covers it (found on the first real Yukon baseline, 2026-10-28)."""
+
+    def test_suite_key_is_flat(self):
+        self.assertIsNone(S.suite_key([]))
+        self.assertEqual(S.suite_key(["dfbench/v3|a"]), "dfbench/v3|a")
+        k = S.suite_key(sorted(["dfbench/v3|lt01", "dfbench/v3|my1", "dfbench/v3|op1"]))
+        self.assertIsInstance(k, str)
+        self.assertRegex(k, r"^dfbench/v3\|suite:[0-9a-f]{16}\|keys:3$")
+        self.assertEqual(k, S.suite_key(sorted(["dfbench/v3|op1", "dfbench/v3|lt01", "dfbench/v3|my1"])))
+        self.assertNotEqual(k, S.suite_key(["dfbench/v3|lt01", "dfbench/v3|my1"]))
+
+
+class RunPrefixTest(unittest.TestCase):
+    """--run-prefix goes into Docker image names, which must be lowercase (`--run-prefix mcA` failed at the harness
+    build with "repository name must be lowercase", 2026-10-29)."""
+
+    def test_lowercased_and_validated(self):
+        from dfbenchlib import cli
+        self.assertEqual(cli.run_prefix("mcA"), "mca")
+        self.assertEqual(cli.run_prefix(" s0PP2 "), "s0pp2")
+        for bad in ("", "-x", "a b", "a/b", "x" * 50, "é"):
+            with self.assertRaises(argparse.ArgumentTypeError, msg=bad):
+                cli.run_prefix(bad)

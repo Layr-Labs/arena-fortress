@@ -1,0 +1,685 @@
+[
+ {
+  "function": {
+   "description": "Appoint the MANAGER (validates work orders). Omit dwarf_id to pick a citizen without a position.",
+   "name": "appoint_manager",
+   "parameters": {
+    "properties": {
+     "dwarf_id": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Place a workshop or furnace centred on a W site (or x,y,z). Types and their footprints and inputs: query workshop_types.",
+   "name": "build_workshop",
+   "parameters": {
+    "properties": {
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     },
+     "type": {
+      "enum": [
+       "Butchers",
+       "Carpenters",
+       "Craftsdwarfs",
+       "Farmers",
+       "Fishery",
+       "Kitchen",
+       "Masons",
+       "Still",
+       "WoodFurnace"
+      ],
+      "type": "string"
+     }
+    },
+    "required": [
+     "type",
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Place a farm plot on soil floor: an F or G site, or a dug R room.",
+   "name": "build_farm",
+   "parameters": {
+    "properties": {
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Queue a work order from a frozen recipe. For any other DF manager order (a job type, a reaction, item-type conditions) use add_manager_order. Recipes: brew_drink: Still, brewable plant + empty barrel -> 5 drinks; brew_drink_from_fruit: Still, brewable fruit + empty barrel -> 5 drinks; cook_meal: Kitchen, 2+ cookable ingredients -> prepared meals; make_barrel: Carpenters, 1 log -> 1 barrel; make_bed: Carpenters, 1 log -> 1 bed; make_bin: Carpenters, 1 log -> 1 bin; make_chair: Carpenters, 1 log -> 1 chair; make_charcoal: WoodFurnace, 1 log -> charcoal; make_door: Carpenters, 1 log -> 1 door; make_hatch_cover: Carpenters, 1 log -> 1 hatch cover; make_table: Carpenters, 1 log -> 1 table",
+   "name": "add_order",
+   "parameters": {
+    "properties": {
+     "amount": {
+      "maximum": 30,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "recipe": {
+      "enum": [
+       "brew_drink",
+       "brew_drink_from_fruit",
+       "cook_meal",
+       "make_barrel",
+       "make_bed",
+       "make_bin",
+       "make_chair",
+       "make_charcoal",
+       "make_door",
+       "make_hatch_cover",
+       "make_table"
+      ],
+      "type": "string"
+     },
+     "repeat": {
+      "description": "re-queue every period",
+      "enum": [
+       "daily",
+       "monthly",
+       "seasonally",
+       "yearly"
+      ],
+      "type": "string"
+     },
+     "when": {
+      "description": "with repeat: only while all hold, e.g. [{\"stock\": \"drink\", \"below\": 50}]",
+      "items": {
+       "description": "give exactly one of below / at_least",
+       "properties": {
+        "at_least": {
+         "maximum": 100000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "below": {
+         "maximum": 100000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "stock": {
+         "enum": [
+          "barrels_empty",
+          "beds",
+          "bins",
+          "boulders",
+          "chairs",
+          "doors",
+          "drink",
+          "food",
+          "food_edible",
+          "logs",
+          "logs_usable",
+          "plants_brewable",
+          "plants_total",
+          "prepared_meals",
+          "tables"
+         ],
+         "type": "string"
+        }
+       },
+       "required": [
+        "stock"
+       ],
+       "type": "object"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array"
+     }
+    },
+    "required": [
+     "recipe",
+     "amount"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Queue any DF manager order: job is a df.job_type name (query manager_order_types), with reaction for job CustomReaction. For the frozen recipes (brew_drink, make_bed, ...) use add_order.",
+   "name": "add_manager_order",
+   "parameters": {
+    "properties": {
+     "amount": {
+      "maximum": 30,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "item_subtype": {
+      "type": "string"
+     },
+     "job": {
+      "type": "string"
+     },
+     "material": {
+      "description": "DF material token",
+      "type": "string"
+     },
+     "material_category": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 5,
+      "type": "array"
+     },
+     "reaction": {
+      "type": "string"
+     },
+     "repeat": {
+      "description": "re-queue every period",
+      "enum": [
+       "daily",
+       "monthly",
+       "seasonally",
+       "yearly"
+      ],
+      "type": "string"
+     },
+     "when": {
+      "description": "with repeat: only while all hold, e.g. [{\"item_type\": \"DRINK\", \"below\": 50}]",
+      "items": {
+       "description": "give exactly one of below / at_least",
+       "properties": {
+        "at_least": {
+         "maximum": 100000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "below": {
+         "maximum": 100000,
+         "minimum": 0,
+         "type": "integer"
+        },
+        "flags": {
+         "description": "DF item condition flags (query manager_order_types: condition_flags), e.g. unrotten, empty",
+         "items": {
+          "type": "string"
+         },
+         "maxItems": 10,
+         "type": "array"
+        },
+        "item_subtype": {
+         "type": "string"
+        },
+        "item_type": {
+         "description": "a DF item type (df.item_type), e.g. DRINK, PLANT, BARREL; ANY = any item type (then flags are required)",
+         "type": "string"
+        },
+        "material": {
+         "description": "DF material token",
+         "type": "string"
+        },
+        "reaction_class": {
+         "type": "string"
+        },
+        "reaction_product": {
+         "description": "e.g. DRINK_MAT",
+         "type": "string"
+        }
+       },
+       "required": [
+        "item_type"
+       ],
+       "type": "object"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array"
+     }
+    },
+    "required": [
+     "job",
+     "amount"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Remove a work order by id.",
+   "name": "cancel_order",
+   "parameters": {
+    "properties": {
+     "order_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "order_id"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Enable a DFHack plugin. autochop: fells trees; autofarm: sets each farm plot's crop every season from the seeds in stock; seedwatch: keeps seeds of each crop from being cooked or brewed below a threshold; autolabor: assigns labors; autoclothing: queues clothing orders",
+   "name": "enable_automation",
+   "parameters": {
+    "properties": {
+     "name": {
+      "enum": [
+       "autochop",
+       "autoclothing",
+       "autofarm",
+       "autolabor",
+       "seedwatch"
+      ],
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Create the fortress's one squad from dwarf_ids (adult citizens without a position or squad) or size N (the N with the highest combat skills, then strength). Members keep working until it has an order.",
+   "name": "create_squad",
+   "parameters": {
+    "properties": {
+     "dwarf_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "maxItems": 10,
+      "type": "array"
+     },
+     "size": {
+      "maximum": 10,
+      "minimum": 1,
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Give the squad a uniform template: a melee weapon plus that armour, from items that exist.",
+   "name": "equip_squad",
+   "parameters": {
+    "properties": {
+     "uniform": {
+      "enum": [
+       "weapon_only",
+       "leather",
+       "metal"
+      ],
+      "type": "string"
+     }
+    },
+    "required": [
+     "uniform"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Order the squad: attack (all visible hostiles, or target_ids), station at x,y,z, or stand_down.",
+   "name": "squad_order",
+   "parameters": {
+    "properties": {
+     "order": {
+      "enum": [
+       "attack",
+       "station",
+       "stand_down"
+      ],
+      "type": "string"
+     },
+     "target_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "maxItems": 20,
+      "type": "array"
+     },
+     "x": {
+      "type": "integer"
+     },
+     "y": {
+      "type": "integer"
+     },
+     "z": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "order"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Add an A site or a dug R room, `levels` levels down from it, to the Shelter burrow (the civilian-alert burrow).",
+   "name": "create_burrow",
+   "parameters": {
+    "properties": {
+     "levels": {
+      "maximum": 5,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Turn the civilian alert on or off (civilians stay in the Shelter burrow while on).",
+   "name": "civilian_alert",
+   "parameters": {
+    "properties": {
+     "on": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "on"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Place a hatch cover over a down stair (E site) or a door in a doorway (D site); uses a free hatch cover / door item.",
+   "name": "build_door",
+   "parameters": {
+    "properties": {
+     "kind": {
+      "enum": [
+       "door",
+       "hatch"
+      ],
+      "type": "string"
+     },
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Build a wall on a floor tile (D site) from a log or boulder.",
+   "name": "build_wall",
+   "parameters": {
+    "properties": {
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Lock or unlock a door/hatch by door_id, or all of them if omitted.",
+   "name": "lock_door",
+   "parameters": {
+    "properties": {
+     "door_id": {
+      "type": "integer"
+     },
+     "locked": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "locked"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Designate an R site for digging (default 3x3; w,h to change).",
+   "name": "dig_room",
+   "parameters": {
+    "properties": {
+     "h": {
+      "maximum": 15,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     },
+     "w": {
+      "maximum": 15,
+      "minimum": 1,
+      "type": "integer"
+     }
+    },
+    "required": [
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Designate a staircase down from an S site to z_bottom (default one level down).",
+   "name": "dig_stairs",
+   "parameters": {
+    "properties": {
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     },
+     "z_bottom": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Place free furniture items, one per free floor tile, in an A site or a dug R room (count, default 1).",
+   "name": "place_furniture",
+   "parameters": {
+    "properties": {
+     "count": {
+      "maximum": 30,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "kind": {
+      "enum": [
+       "bed",
+       "chair",
+       "container",
+       "door",
+       "table"
+      ],
+      "type": "string"
+     },
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Make an activity zone on an A site or a dug R room.",
+   "name": "make_zone",
+   "parameters": {
+    "properties": {
+     "kind": {
+      "enum": [
+       "bedroom",
+       "dining_hall",
+       "dormitory",
+       "meeting_area",
+       "office"
+      ],
+      "type": "string"
+     },
+     "site": {
+      "description": "a site id from the observation's sites (e.g. W2)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "site"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Assign an office or bedroom zone to a citizen (the zone's Assign button).",
+   "name": "assign_zone",
+   "parameters": {
+    "properties": {
+     "dwarf_id": {
+      "type": "integer"
+     },
+     "zone_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "zone_id",
+     "dwarf_id"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Mark a tame animal of the fortress for slaughter (the animal list's Slaughter button). A dwarf with the butchery labor slaughters it at a Butchers workshop.",
+   "name": "slaughter",
+   "parameters": {
+    "properties": {
+     "unit_id": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "unit_id"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ },
+ {
+  "function": {
+   "description": "Let 1-28 in-game days pass. Stops early at a tripwire; the result says which.",
+   "name": "advance_days",
+   "parameters": {
+    "properties": {
+     "days": {
+      "maximum": 28,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "stop_on": {
+      "description": "tripwires that stop the advance (default: all)",
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "days"
+    ],
+    "type": "object"
+   }
+  },
+  "type": "function"
+ }
+]

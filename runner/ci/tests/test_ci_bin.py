@@ -1,10 +1,10 @@
 """Tests for runner/ci/bin (dispatch, tier, ledger, verdict, prior, collect): no network, HTTP mocked.
 Run: python3 -m unittest discover -s runner/ci/tests -t .
 """
-import argparse, datetime, json, os, subprocess, sys, tempfile, unittest, urllib.error
+import argparse, contextlib, datetime, io, json, os, re, subprocess, sys, tempfile, unittest, urllib.error
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"))
-import collect, dispatch, emit_score, gate, ledger, prior, tier  # noqa: E402
+import collect, dispatch, early_judge, emit_score, gate, ledger, prior, tier  # noqa: E402
 
 SUB = "11111111-2222-3333-4444-555555555555"
 OURS = "aaaaaaaa-0000-0000-0000-000000000000"
@@ -15,7 +15,7 @@ ENV = {"DFBENCH_YUKON_API": "https://yukon.example"}
 def fake_http(routes):
     calls = []
 
-    def http(url, headers=None):
+    def http(url, headers=None, **_):
         calls.append((url, headers))
         for k, v in routes.items():
             if url.endswith(k):
@@ -77,6 +77,70 @@ class DispatchGuard(unittest.TestCase):
         admit = wf.split("\n  admit:\n", 1)[1].split("\n  harness:\n", 1)[0]
         self.assertIn("dispatch.py guard", admit)
         self.assertLess(admit.index("dispatch.py guard"), admit.index("ledger.py"))
+
+
+class EarlyJudge(unittest.TestCase):
+    """The judge before any game (DFBENCH_JUDGE_EARLY): fail-open on the judge's own errors, final on fail/hold."""
+
+    def test_verdict(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "dossier.json")
+            self.assertEqual(early_judge.verdict(p), "error")                 # missing: the judge crashed
+            open(p, "w").write("not json")
+            self.assertEqual(early_judge.verdict(p), "error")
+            for v in ("pass", "fail", "hold"):
+                json.dump({"verdict": v}, open(p, "w"))
+                self.assertEqual(early_judge.verdict(p), v)
+            json.dump({"verdict": "hold", "hold_conditions": ["judge infrastructure failure: provider: 503"]}, open(p, "w"))
+            self.assertEqual(early_judge.verdict(p), "error")                 # our outage: the games still run
+            json.dump({"verdict": "hold", "hold_conditions": ["judge infrastructure failure: x", "size limit: diff"]},
+                      open(p, "w"))
+            self.assertEqual(early_judge.verdict(p), "hold")                  # a real condition: stop
+            json.dump({"verdict": "hold", "hold_conditions": ["major finding(s) for an organiser: F1"]}, open(p, "w"))
+            self.assertEqual(early_judge.verdict(p), "hold")
+            json.dump({"verdict": "maybe"}, open(p, "w"))
+            self.assertEqual(early_judge.verdict(p), "error")
+        self.assertEqual(early_judge.STOPPED, ("fail", "hold"))
+
+    def test_reuse(self):
+        r = early_judge.reuse
+        self.assertTrue(r("pass", "a" * 36, "a" * 36)[0])
+        self.assertFalse(r("pass", "a" * 36, "b" * 36)[0])                     # the incumbent changed
+        for lead in ("", "unknown", None):
+            self.assertFalse(r("pass", lead, "a" * 36)[0]); self.assertFalse(r("pass", "a" * 36, lead)[0])
+        for v in ("fail", "hold", "error", ""):
+            self.assertFalse(r(v, "a" * 36, "a" * 36)[0])
+
+    def test_stub_through_emit_score(self):
+        for v in ("fail", "hold"):
+            out = emit_score.emit(early_judge.stub(), dossier={"verdict": v})
+            self.assertEqual((out["score"], out["partial"]), (0, True))
+            m = out["metrics"]
+            self.assertEqual((m["stage"], m["judge_verdict"], m["judge_stage"]), (0, v, "early"))
+            self.assertTrue(all(not isinstance(x, (dict, list)) for x in m.values()))
+
+    def test_workflow_wiring(self):
+        ci = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        wf = open(os.path.join(ci, "score.yml")).read()
+        jobs = dict((b.split(":", 1)[0].strip(), b) for b in re.split(r"\n(?=  [A-Za-z0-9_-]+:\n)", wf.split("\njobs:\n", 1)[1]))
+        ej = jobs["early-judge"]
+        self.assertIn("vars.DFBENCH_JUDGE_EARLY == 'true'", ej)
+        self.assertIn("needs.admit.outputs.kind != 'baseline'", ej)
+        # the judge's key appears in exactly one step of the job: the judge step
+        steps = ej.split("\n      - ")
+        with_key = [st for st in steps if "DFBENCH_JUDGE_OPENROUTER_KEY: ${{" in st]
+        self.assertEqual(len(with_key), 1); self.assertIn("judge_run.sh judge", with_key[0])
+        # games are gated on the early verdict, and only fail/hold stop them
+        for j in ("s1", "s1-check"):
+            self.assertIn("early-judge", jobs[j].split("needs:", 1)[1].split("\n", 1)[0])
+            self.assertIn("needs.early-judge.outputs.go != 'false'", jobs[j])
+        self.assertIn("needs.early-judge.outputs.go == 'false'", jobs["early-reject"])
+        self.assertIn("--status rejected", jobs["early-reject"])
+        self.assertIn("name: dfbench-score", jobs["early-reject"])
+        self.assertIn("early-reject", jobs["release"].split("needs:", 1)[1].split("\n", 1)[0])
+        # both judge jobs use the same script
+        self.assertIn("judge_run.sh judge j j/scored.json", jobs["judge"])
+        self.assertNotIn("python3 -I runner/judge/judge.py", wf)     # only judge_run.sh calls it
 
 
 class Dispatch(unittest.TestCase):
@@ -234,7 +298,7 @@ class Tier(unittest.TestCase):
     def test_gate_leader_sends_key(self):
         seen = []
 
-        def http(url, headers):
+        def http(url, headers, **_):
             seen.append(headers)
             return {"benchmark": {"currentBestScore": 70.0, "currentBestMetrics": {"stage1_point": 71.0}}}
         env = {"DFBENCH_YUKON_API": "https://yukon.example"}
@@ -277,9 +341,9 @@ class Tier(unittest.TestCase):
 
 
 def adm(user="alice", sub="s1", in_flight=1, weekly=2, suite="stage1_until_first_valid", glob=None, rerun=False,
-        tree=None):
+        tree=None, season_cap=0):
     return argparse.Namespace(submission=sub, user=user, in_flight=in_flight, weekly=weekly, suite=suite,
-                              global_cap=glob, rerun=rerun, run="1", tree=tree)
+                              global_cap=glob, rerun=rerun, run="1", tree=tree, season_cap=season_cap)
 
 
 def fin(sub, status):
@@ -287,6 +351,26 @@ def fin(sub, status):
 
 
 class Ledger(unittest.TestCase):
+    def test_season_cap(self):
+        """A tier's `season` caps counted submissions over the whole season (the per-season ledger), across weeks;
+        infra failures and cancellations don't count; 0 means no cap."""
+        led = {}
+        weeks = [datetime.datetime(2026, 11, d, 12, tzinfo=datetime.timezone.utc) for d in (2, 9, 16)]
+        for i, t in enumerate(weeks[:2]):
+            self.assertTrue(ledger.admit_decision(led, adm(sub=f"s{i}", season_cap=2, weekly=5), t)["admitted"])
+            ledger.finish_decision(led, fin(f"s{i}", "scored"))
+        r = ledger.admit_decision(led, adm(sub="s2", season_cap=2, weekly=5), weeks[2])
+        self.assertFalse(r["admitted"]); self.assertIn("season limit", r["reason"])
+        self.assertTrue(ledger.admit_decision(led, adm(sub="s2", season_cap=0, weekly=5), weeks[2])["admitted"])
+        led = {}
+        ledger.admit_decision(led, adm(sub="a", season_cap=1, weekly=5), weeks[0])
+        ledger.finish_decision(led, fin("a", "infra_failed"))
+        self.assertTrue(ledger.admit_decision(led, adm(sub="b", season_cap=1, weekly=5), weeks[0])["admitted"])
+
+    def test_tester_tier_defaults(self):
+        t = tier.tiers_config({})["tester"]
+        self.assertEqual((t["weekly"], t["in_flight"], t["season"], t["suite"]), (3, 1, 8, "full"))
+
     def test_flow(self):
         led = {}
         r = ledger.admit_decision(led, adm(sub="s1"), NOW)
@@ -374,6 +458,44 @@ class Gate(unittest.TestCase):
         self.assertTrue(gate.stage2(s1, None)[0]); self.assertTrue(gate.stage2(s1, "59.9")[0])
         self.assertFalse(gate.stage2(s1, "60.1")[0]); self.assertTrue(gate.stage2(s1, "70", force=True)[0])
         self.assertFalse(gate.stage2({"metrics": {}}, None)[0])
+
+    def test_stage2_note(self):
+        n = gate.stage2_note
+        # PR 23 on the dev repo (2026-11-02): full suite, stage-1 ub95 94.27 under the leader's 94.52
+        t = n(1, "true", "tester", "false", "94.27", "94.52")
+        self.assertTrue(t.startswith("skipped: stage-1 upper bound 94.27 < leader's stage-1 point 94.52"), t)
+        self.assertIn("could not lead", t); self.assertIn("not a failure", t)
+        self.assertTrue(n(1, "false", "new", "true", "99", "94.5").startswith("skipped: tier new plays stage 1 only"))
+        self.assertTrue(n(1, "false", "probation", "false", "90", "94.5").startswith("skipped: tier probation"))
+        self.assertTrue(n(1, "true", "tester", "false", "", "94.5").startswith("skipped: no stage-1 score"))
+        self.assertTrue(n(1, "true", "tester", "true", "95", "94.5").startswith("not completed"))
+        self.assertEqual(n(2, "true", "tester", "true", "95.2", "94.52"),
+                         "played (stage-1 upper bound 95.2 >= leader's stage-1 point 94.52)")
+        self.assertEqual(n(2, "true", "", "true", "80", ""), "played (no leader yet)")
+        self.assertEqual(n(2, "true", "", "true", "80", "94.5"), "played (forced by the organiser)")
+
+    def test_finalize_stage2_metric(self):
+        base = {"score": 0, "partial": True, "metrics": {"stage": 1, "point": 91.6, "ub95": 94.27, "lb95": 88.71}}
+        env = {"DFBENCH_FULL_SUITE": "true", "DFBENCH_TIER": "tester", "DFBENCH_RUN_STAGE2": "false",
+               "DFBENCH_STAGE1_UB95": "94.27", "DFBENCH_LEADER_S1": "94.52", "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "1"}
+        with tempfile.TemporaryDirectory() as d:
+            src, out = os.path.join(d, "score.json"), os.path.join(d, "o", "scored.json")
+            json.dump(base, open(src, "w"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                collect.finalize(src, "91.6", out, env)
+            m = json.load(open(out))["metrics"]
+            self.assertEqual(list(m)[:2], ["stage2", "leader_stage1_point"])   # first rows of Yukon's table
+            self.assertEqual(m["leader_stage1_point"], 94.52); self.assertEqual(m["stage1_point"], 91.6)
+            self.assertTrue(all(not isinstance(v, (dict, list)) for v in m.values()))
+            full = {"score": 87.2, "metrics": {"stage": 2, "point": 87.57}}     # complete: appended, not first
+            json.dump(full, open(src, "w"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                collect.finalize(src, "94.99", out, {**env, "DFBENCH_RUN_STAGE2": "true", "DFBENCH_STAGE1_UB95": "95.6"})
+            m = json.load(open(out))["metrics"]
+            self.assertEqual(list(m)[0], "stage"); self.assertTrue(m["stage2"].startswith("played"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                collect.finalize(src, "94.99", out, {"GITHUB_RUN_ID": "1"})     # older callers: unchanged
+            self.assertNotIn("stage2", json.load(open(out))["metrics"])
 
     def test_judge_needed(self):
         self.assertFalse(gate.judge_needed({"score": 0, "metrics": {"stage": 1}})[0])
@@ -570,3 +692,49 @@ class SealTests(unittest.TestCase):
             for args in (["newkey", key], ["seal", src, enc, key], ["open", enc, out, key]):
                 subprocess.run(["bash", self.SEAL, *args], check=True, capture_output=True)
             self.assertEqual(open(out, "rb").read(), data)
+
+
+class AttributionLagTest(unittest.TestCase):
+    """Yukon's attribution record can lag the dispatch: a 404 is retried before admit fails closed (dev, 2026-10-29)."""
+
+    def test_404_then_200_is_retried(self):
+        import io, urllib.error
+        calls = []
+
+        def opener(req, timeout=20):
+            calls.append(req.full_url)
+            if len(calls) < 3:
+                raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+            return io.BytesIO(b'{"declaration": "none", "dependencies": []}')
+        out = tier.http_json("https://y/api/submissions/x/attribution", tries=10, opener=opener, retry_404=True,
+                             sleep=lambda s: None)
+        self.assertEqual(out["declaration"], "none")
+        self.assertEqual(len(calls), 3)
+
+    def test_404_is_final_without_retry_404(self):
+        import urllib.error
+
+        def opener(req, timeout=20):
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+        with self.assertRaises(tier.Infra):
+            tier.http_json("https://y/api/submissions/x", opener=opener, sleep=lambda s: None)
+
+
+class AttributionAccessTest(unittest.TestCase):
+    """Only the author can read a submission's attribution until it's published, so the organiser key gets 404 while
+    the submission is still validating (dev, 2026-10-28): admit records it as unavailable instead of failing."""
+
+    def test_404_becomes_unavailable(self):
+        def http(url, headers=None, **kw):
+            raise tier.Infra("/api/submissions/x/attribution: HTTP 404")
+        self.assertEqual(tier.attribution("https://y", "x", {}, http), tier.UNAVAILABLE)
+
+    def test_other_errors_still_fail_closed(self):
+        def http(url, headers=None, **kw):
+            raise tier.Infra("/api/submissions/x/attribution: HTTP 503")
+        with self.assertRaises(tier.Infra):
+            tier.attribution("https://y", "x", {}, http)
+
+    def test_published_record_is_returned(self):
+        rec = {"declaration": "provided", "dependencies": [{"submissionId": "a"}]}
+        self.assertEqual(tier.attribution("https://y", "x", {}, lambda url, headers=None, **kw: rec), rec)

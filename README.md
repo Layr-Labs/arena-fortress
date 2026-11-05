@@ -1,4 +1,6 @@
-# dfbench challenge, season 0: harness optimisation in Dwarf Fortress
+# Yukon Arena: Fortress, season 0
+
+A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yukon.org/arena-fortress`).
 
 > **Pre-release, work in progress.** This repository is being assembled for season 0, an **open, public** challenge. The
 > game server, model gateway, runner and baseline harness are still being built: some directories are stubs, and
@@ -16,9 +18,9 @@ context policy, planning loop, how often it acts or advances time, sub-calls, sa
 local tools and caches. The model, the game API, the tasks, the budget and the scoring are fixed. The question the
 challenge measures: **how much can a harness get out of one fixed model?**
 
-Why it's interesting: on our own frozen harness, DFHack's built-in automation beats both the fixed model and the
-frontier models we tried, and a deterministic status layer around the model (the organiser's reference harness)
-already gains about 15 outcome points. The baseline you start from has none of that. There is room above both.
+Why it's interesting: in our early experiments, a better harness around the same fixed model gained about 15 outcome
+points over a frozen harness on the full-year task, reaching the level of DFHack's built-in automation. The baseline
+you start from has none of that. There is room above both.
 
 - [`RULES.md`](RULES.md): limits, what a submission may contain, network, fair play, publication.
 - [`SCORING.md`](SCORING.md): the outcome score, lab predicates, suite weights, the lower bound, staging.
@@ -26,6 +28,9 @@ already gains about 15 outcome points. The baseline you start from has none of t
 - [`ROADMAP.md`](ROADMAP.md): what later seasons may add (non-binding).
 - [`docs/GAME-API.md`](docs/GAME-API.md): the game API contract (tools, observation, queries, rules, artifacts).
 - [`docs/SUCCESS.md`](docs/SUCCESS.md): the outcome score in full, with the DF mechanics behind each tier.
+
+"dfbench" is the name of the challenge's tooling: the `runner/dfbench` CLI, the `dfbench/v3` comparability key, the
+`DFBENCH_*` environment variables and the `dfbench-*` images and artifacts keep that name.
 
 ## Scope (season 0)
 
@@ -139,9 +144,8 @@ seeds of the same site class.
   when the season opens and revealed at close.
 - The organiser's **reference witnesses** (scripted solutions for the lab tasks). Their scores are published.
 - The organiser's **reference harness** (status_v3: the frozen prompt plus a deterministic layer that interprets the
-  observation, diagnoses stuck orders, remembers failures and says what to fix first). Its score is published at
-  launch (*TBD*); its code is released during or at the end of the season. Once released, anything built from it
-  credits it like any other source.
+  observation, diagnoses stuck orders, remembers failures and says what to fix first). Whether and when its code is
+  released is decided during the season. Once released, anything built from it credits it like any other source.
 - Everything else that decides your score is in this repo: the game API and its server, the gateway, the runner,
   the scorers, the task definitions and the public seeds.
 
@@ -192,3 +196,8 @@ promoted (`RULES.md` §8a). Season 0 has no prizes. `SUBMITTING.md` has the flow
 Code: Apache-2.0 (`LICENSE`). Docs: CC-BY-4.0 (`LICENSES/CC-BY-4.0.txt`). Task definitions and other data: CC0-1.0
 (`LICENSES/CC0-1.0.txt`). `NOTICE` says which applies to which path. Dwarf Fortress and DFHack are not included and
 not ours to license.
+
+## Terms and privacy
+
+Taking part means agreeing to the challenge's [Terms of Service](TERMS.md) and [Privacy Policy](PRIVACY.md)
+(Eigen Labs, Inc.; standalone documents for Yukon Arena: Fortress, also on the challenge page).

@@ -1,0 +1,74 @@
+{
+ "runs/s0-plain-2026-10-23/minimal|runner/suites/season0-int.json": {
+  "score": 41.93,
+  "sha256": "24b6f54dbac04ff5ffe7e7e10e1aa90de734c414d5c965b653b6030162eb0d62"
+ },
+ "runs/s0-plain-2026-10-23/minimal|runner/suites/season0-public.json": {
+  "score": 41.95,
+  "sha256": "1b4fdeed69f4a29202bf5096a5cdf6bd9605176945ff1c875338945f7342fe94"
+ },
+ "runs/s0-plain-2026-10-23/minimal|runner/suites/season0.json": {
+  "score": 42.25,
+  "sha256": "afb45d718af2d519dde5b0ddb86b4048a9fc667318460e28a91ece36d7de376f"
+ },
+ "runs/s0-rc-2026-10-23/labs|runner/suites/season0-int.json": {
+  "score": 79.71,
+  "sha256": "4b4ddedcf3658d3b6dad32e1d568af7d6cc86770b0f8037099a5168a03b3654c"
+ },
+ "runs/s0-rc-2026-10-23/labs|runner/suites/season0-public.json": {
+  "score": 80.76,
+  "sha256": "193527307b3e91624b522c00c147894697587bc86b98b77d7bce0992ab83c640"
+ },
+ "runs/s0-rc-2026-10-23/labs|runner/suites/season0.json": {
+  "score": 84.47,
+  "sha256": "0fd369c95c26a4fd95779a80f475730327088219ef0328d32ea590518ec6c228"
+ },
+ "runs/s0-rc-2026-10-23/my1-lean|runner/suites/season0-int.json": {
+  "score": 67.2,
+  "sha256": "6711c524b258161601bcff21dab469f93f22410ef1653218d034107abebfc0c5"
+ },
+ "runs/s0-rc-2026-10-23/my1-lean|runner/suites/season0-public.json": {
+  "score": 67.2,
+  "sha256": "e89d0f906c8dac7f5acea66c6d19ddccae699fd183a90f0cfa26d3a44c7214e6"
+ },
+ "runs/s0-rc-2026-10-23/my1-lean|runner/suites/season0.json": {
+  "score": 67.2,
+  "sha256": "074d5492bf3b7cc2e8acaa3a83982f1c06c00edb48ef460a6cc7b7b0f32d0948"
+ },
+ "runs/s0-rc2-2026-10-26/plain|runner/suites/season0-int.json": {
+  "score": 58.0,
+  "sha256": "95c57d577b779ad76fe8e004584e080572a0440faecc4f0e9eb00173808c7b6e"
+ },
+ "runs/s0-rc2-2026-10-26/plain|runner/suites/season0-public.json": {
+  "score": 58.42,
+  "sha256": "fc4c6f22f651b5acf5dcf4ad4cbbba18ef89162dd4829eaf126778b232ec282e"
+ },
+ "runs/s0-rc2-2026-10-26/plain|runner/suites/season0.json": {
+  "score": 59.54,
+  "sha256": "8af1ccbe668fcc283bd0ee4059af32b6a0bdd72c7ca208b52667296d4678a5a1"
+ },
+ "toolkit/tests/fixtures/plain-a|runner/suites/season0-int.json": {
+  "score": 70.5,
+  "sha256": "9bfa8288fa3bce5d661f3fd372e6ee4e00a0c768619b86b84f4368be7ff67296"
+ },
+ "toolkit/tests/fixtures/plain-a|runner/suites/season0-public.json": {
+  "score": 70.5,
+  "sha256": "7d23f0084280521051e65a1b7e80abb681b4438447b9e64cb8c44d163bbf87d5"
+ },
+ "toolkit/tests/fixtures/plain-a|runner/suites/season0.json": {
+  "score": 71.47,
+  "sha256": "a24a62d3711d2a3624c638c5b78532accba6b8b5091e4fecaac9ce8b5c9123f3"
+ },
+ "toolkit/tests/fixtures/plain-b|runner/suites/season0-int.json": {
+  "score": 81.16,
+  "sha256": "64dc0f8a60585aed72aec434e9471e1f92986a7cd01fda66ba8cc24367df1f0d"
+ },
+ "toolkit/tests/fixtures/plain-b|runner/suites/season0-public.json": {
+  "score": 81.16,
+  "sha256": "3f85e7ea5949ff1de85c50f4bdca61fd299438fbb6a253239db34db63fe0f997"
+ },
+ "toolkit/tests/fixtures/plain-b|runner/suites/season0.json": {
+  "score": 82.45,
+  "sha256": "e1a1b6e73ddc920d53245a0cc46e929b87731b417a29672b938245835276a28a"
+ }
+}

@@ -46,6 +46,23 @@ def env(name, default=None):
     return os.environ.get("GAMEAPI_" + key.upper(), default)
 
 
+
+def reset_hint(err, task):
+    """A reset failure keeps only reset_fort.sh's own FAIL line (smoke.reset reads stdout), so check the two usual
+    causes here and say which (tester feedback V1, 2026-10-28). Outside the comparability key: diagnostics only."""
+    if "reset failed" not in err:
+        return None
+    df = os.path.join(ROOT, "df")
+    if not os.path.isdir(os.path.join(df, "save")):
+        return ("df/save is missing: this image is the plain DF image, not the game server image. Build "
+                "docker/Dockerfile.game on it (.yukon/setup.sh does) and run that as DFBENCH_GAME_IMAGE")
+    snap = (task.get("start") or {}).get("snapshot") if isinstance(task.get("start"), dict) else task.get("snapshot")
+    if snap:
+        path = snap if os.path.isabs(snap) else os.path.join(ROOT, snap)
+        if not os.path.exists(path):
+            return f"start fort {snap} not found in the container (DFBENCH_SNAPSHOTS_DIR mount?)"
+    return None
+
 def main(argv=None):
     GAME.clear(); GAME.update(game_input())
     p = argparse.ArgumentParser(prog="python3 -m gameapi.server")
@@ -88,6 +105,11 @@ def main(argv=None):
         p.error("--task is required (or GAMEAPI_TASK)")
 
     task = load_task(a.task, k=a.k, seed=a.seed, days=a.days)
+    try:                                    # gameapi/season1 is research-only: the season-0 challenge export leaves it out
+        from gameapi import season1
+        s1 = season1.rules_version(task)    # "s1" for a season-1 task (gameapi/season1), else None
+    except ImportError:
+        s1 = None
     if a.strange_moods is not None:
         task["strange_moods"] = a.strange_moods == "true"
     key_task = a.key_task if a.key_task and os.path.exists(os.path.join(ROOT, a.key_task)) else task["_path"]
@@ -98,6 +120,10 @@ def main(argv=None):
     else:
         from gameapi.server.backend import DFBackend
         backend, facts = DFBackend(), adapter.load(None if a.facts == "auto" else a.facts)
+    if s1:
+        if not a.fake and getattr(facts, "NAME", "") != "gameapi.facts":
+            p.error(f"rules_version {s1} needs the gameapi.facts layer, not {getattr(facts, 'NAME', '?')}")
+        facts = season1.wrap(facts, fake=a.fake)
     budget = {"credits": a.credits, "unit": "USD at the pinned reference prices", "per": "game"}
     from bench import key as BK
     pth = a.price_table_hash or BK.price_table_hash()
@@ -120,9 +146,13 @@ def main(argv=None):
     BK.record_batch(a.out, kf, {"arm": a.arm, "k": a.k, "seed": a.seed, "run_id": a.run_id,
                                 "harness_digest": a.harness_digest, "facts": kf["facts"], "fake": a.fake},
                     sys.argv[1:] if argv is None else argv)
-    game = rules.Game(backend, facts, task, out=a.out, arm=a.arm, k=a.k, K=a.actions_per_day,
-                      max_days=a.max_advance_days, wall_s=wall_s, condition=condition, key=kf["key"],
-                      harness_digest=a.harness_digest, run_id=a.run_id, budget=budget)
+    if s1:
+        from gameapi.season1.game import Game
+    else:
+        Game = rules.Game
+    game = Game(backend, facts, task, out=a.out, arm=a.arm, k=a.k, K=a.actions_per_day,
+                max_days=a.max_advance_days, wall_s=wall_s, condition=condition, key=kf["key"],
+                harness_digest=a.harness_digest, run_id=a.run_id, budget=budget)
     srv = http_api.serve(game, a.host, a.port)
     print(json.dumps({"listening": f"{a.host}:{a.port}", "task": task["name"], "key": kf["key"], "out": a.out}),
           flush=True)
@@ -131,7 +161,10 @@ def main(argv=None):
     try:
         game.start()
     except Exception as e:   # noqa: BLE001  /health reports phase=failed; keep serving so the runner sees why
-        print(json.dumps({"start_failed": str(e)[:500]}), flush=True)
+        hint = reset_hint(str(e), task)
+        if hint:
+            game.error = f"{game.error} | {hint}"
+        print(json.dumps({"start_failed": str(e)[:500], "hint": hint}), flush=True)
     print(json.dumps({"phase": game.phase, **game.envelope()}), flush=True)
     dog = rules.Watchdog(game, gateway_status_url=a.gateway_status_url, finish_on_blocked=a.finish_on_blocked,
                          gateway_status_path=a.gateway_status_path, ledger_path=a.ledger_path)

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 2,
-  "name": "dfbench-s0",
+  "name": "arena-fortress-s0",
   "tracks": [
     {
       "name": "harness-glm-5-3-flash",
-      "description": "Dwarf Fortress 53.16 fortress mode through a fixed facts-only game API (dfbench/v3). Submit a harness (Dockerfile + entrypoint) that plays with one fixed model, z-ai/glm-5.3-flash via the organiser's metered gateway: $0.50 credits and 90 min wall per game-year. Score = one-sided 95% lower bound of S = 0.5 OP1 + 0.3 MY1 + 0.2 labs (LT01, LT02, LT03, LT08) on a private seasonal fort pool. Local runs use public seeds and are not ranked.",
+      "description": "Yukon Arena: Fortress, season 0: a harness challenge played in the game Dwarf Fortress (53.16, fortress mode) through a fixed facts-only game API (dfbench/v3). Submit a harness (Dockerfile + entrypoint) that plays with one fixed model, z-ai/glm-5.3-flash via the organiser's metered gateway: $0.50 credits and 90 min wall per game-year. Score = one-sided 95% lower bound of S = 0.5 OP1 + 0.3 MY1 + 0.2 labs (LT01, LT02, LT03, LT08) on a private seasonal fort pool. Local runs use public seeds and are not ranked.",
       "category": "agent-harness",
       "direction": "+",
       "mode": "scalar",

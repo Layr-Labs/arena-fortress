@@ -4,7 +4,7 @@
 # isn't part of the trusted tree (DFBENCH_TRUSTED_TREE covers main), so publishing never stales a submission.
 # infra/RUNBOOK.md §2.7. Needs: gh (admin on BENCH), the ops repo readable with your gh token, the SSH signing key.
 set -euo pipefail
-R=${DFBENCH_BENCH_REPO:-Layr-Labs/dfbench-challenge}
+R=${DFBENCH_BENCH_REPO:-Layr-Labs/arena-fortress}
 SIGN=${DFBENCH_SIGNING_KEY:-$HOME/.ssh/vdi.pub}
 HERE=$(cd "$(dirname "$0")" && pwd)
 D=$(mktemp -d); trap 'rm -rf "$D"' EXIT
@@ -14,7 +14,7 @@ GITHUB_TOKEN=${GITHUB_TOKEN:-$(gh auth token)} DFBENCH_OPS_REPO=${DFBENCH_OPS_RE
   python3 -I "$HERE/band.py" publish --out "$D/CONTENDERS.md" --repo "$R"
 if git "${GH[@]}" clone -q --branch contenders "https://github.com/$R.git" "$D/repo" 2>/dev/null; then :; else
   git "${GH[@]}" clone -q "https://github.com/$R.git" "$D/repo"
-  git -C "$D/repo" checkout -q --orphan contenders && git -C "$D/repo" rm -rq . >/dev/null
+  git -C "$D/repo" checkout -q --orphan contenders && git -C "$D/repo" rm -rqf . >/dev/null   # -f: an orphan checkout leaves every file staged
 fi
 cp "$D/CONTENDERS.md" "$D/repo/CONTENDERS.md"
 cd "$D/repo"

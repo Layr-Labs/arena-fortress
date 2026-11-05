@@ -10,40 +10,46 @@ Suite: S = sum_f w_f * F_f / sum_f w_f over the families present (OP1 0.5, MY1 0
 task scores). Published scalar: the one-sided 95% lower bound of S by a stratified bootstrap over games (each task's
 games resampled with replacement within the task), seeded.
 """
-import glob, json, os, random, sys
+import glob, hashlib, json, os, random, re, sys
 
 from . import ROOT, RUNNER_VERSION
-from .game import DAYS_PER_YEAR, last_summary_row, ledger_summary
+from . import df_adapter
+from .game import DAYS_PER_YEAR, ledger_summary
 
-sys.path.insert(0, ROOT)
-from bench import outcomes, predicates   # noqa: E402  the trusted scorers, unchanged
+sys.path.insert(0, os.path.join(ROOT, "framework"))
+from harnessarena import adapter as A, suite as SU   # noqa: E402
 
 SCORE_VERSION = "s0-score/1"
-PRED = {"LT01": predicates.lt01, "LT02": predicates.lt02, "LT03": predicates.lt03, "LT04": predicates.lt04,
-        "LT05": predicates.lt05, "LT08": predicates.lt08, "LT09": predicates.lt09,
-        "LT08-items": lambda r, d: predicates.lt08(r, d, items=True)}
+PRED = df_adapter.PRED          # compatibility: the DF lab predicates now live in the DF adapter
 Z_CAP = 1.5
 
 
+def suite_key(keys):
+    """One flat comparability key for score.json (Yukon shows one row per flat metric). Each game's key includes its
+    task's hash, so a real suite has one key per task: report a digest over the sorted keys and their count."""
+    if not keys:
+        return None
+    if len(keys) == 1:
+        return keys[0]
+    h = hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
+    return f"{keys[0].split('|')[0]}|suite:{h}|keys:{len(keys)}"
+
+
 def _read_row(gdir):
-    p = os.path.join(gdir, "summary.jsonl")
-    rows = []
-    if os.path.exists(p):
-        with open(p) as f:
-            rows = [json.loads(l) for l in f if l.strip()]
-    rows = [r for r in rows if not r.get("crashed")]
-    return rows[-1] if rows else None
+    return df_adapter.DF.read_episode(gdir)
 
 
-def score_game(game_dir):
-    """-> per-game record from trusted artifacts, or one with status != 'ok' (excluded from the score)."""
+def score_game(game_dir, adapter=None):
+    """-> per-game record from trusted artifacts, or one with status != 'ok' (excluded from the score). The
+    environment-specific parts (the episode record, the per-episode score) come from the adapter."""
+    ad = adapter or df_adapter.DF
     with open(os.path.join(game_dir, "game.json")) as f:
         rec = json.load(f)
     spec = rec["spec"]
     out = {"game_id": spec["game_id"], "task": spec["task_id"], "kind": spec.get("kind"), "family": spec.get("family"),
            "stage": spec.get("stage", 1), "k": spec["k"], "status": rec.get("status"), "notes": list(rec.get("notes") or [])}
     g = os.path.join(game_dir, "game")
-    row = _read_row(g)
+    row = ad.read_episode(g)
     led = ledger_summary(os.path.join(game_dir, "gateway", "usage.jsonl"))
     try:
         with open(os.path.join(game_dir, "gateway", "gateway-status.json")) as f:
@@ -54,7 +60,7 @@ def score_game(game_dir):
     out["blocked_reason"] = gst.get("blocked_reason")
     out["price_table_hash"] = gst.get("price_table_hash") or led.get("price_table_hash")
     if rec.get("crash_twice"):
-        return _score_crashed(out, g, spec, rec)
+        return _score_crashed(out, g, spec, rec, ad)
     if (gst.get("usage_unknown_calls") or 0) > 0 or led["usage_missing"]:
         out["status"] = "infra"
         out["notes"].append("usage unknown on a gateway call (fail closed): infra")
@@ -68,80 +74,34 @@ def score_game(game_dir):
         if row is None:
             out["notes"].append("no summary row")
         return out
-    o = outcomes.for_run(g, row)
-    days = float(row.get("days_played") or 0)
+    ep = ad.episode_fields(row)
     tw = gst.get("throttle_wait_total_s")
     tw = led["throttle_wait_s"] if tw is None else float(tw)
-    out.update(throttle_wait_s=round(min(tw, float(row.get("wall_s") or rec.get("wall_s") or 0)), 2))
-    out.update(days=days, wall_s=row.get("wall_s"), wall_capped=bool(row.get("wall_capped")),
-               finished_by=row.get("finished_by"), actions_used=row.get("actions_used"),
-               actions_rejected=row.get("actions_rejected"),
-               harness_digest=row.get("harness_digest"), key=row.get("key"))
-    if o is None:
+    out.update(throttle_wait_s=round(min(tw, float(ep.get("wall_s") or rec.get("wall_s") or 0)), 2))
+    out.update(ep)
+    try:
+        sc = ad.score_episode(g, row, spec)
+    except A.EpisodeInfra as e:
         out["status"] = "infra"
-        out["notes"].append("no daily samples")
+        out["notes"].append(str(e))
         return out
-    out.update(O=o["outcome"], tier=o["tier"], s=o["s"])
-    if spec.get("kind") == "lab":
-        fn = PRED.get(spec.get("predicate") or spec["task_id"])
-        got = [(r, dd) for r, dd in predicates.runs([g])]
-        if fn is None or not got:
-            out["status"] = "infra"
-            out["notes"].append("no predicate or no lab artifacts")
-            return out
-        try:
-            c, part, info = fn(*got[-1])
-            out.update(partial=round(part, 4), passed=all(x for x in c if x is not None), clauses=c)
-        except (IndexError, KeyError, ZeroDivisionError) as e:
-            # e.g. a wall-capped or lost fort that never reached day A: scored as no credit
-            out.update(partial=0.0, passed=False, clauses=None)
-            out["notes"].append(f"predicate error {type(e).__name__}: {e}; partial 0")
+    out["notes"].extend(sc.pop("notes", []))
+    out.update(sc)
     return out
 
 
-ZERO_S = {"survival": 0.0, "supply": 0.0, "wellbeing": 0.0, "growth": 0.0}
+ZERO_S = df_adapter.ZERO_S      # compatibility
 
 
-def _score_crashed(out, g, spec, rec):
-    """DF crashed or hung on the game's re-run too (challenge/SCORING.md §6): scored at the state reached, from the
-    server's last summary row (crashed or not) and its daily samples, like a wall-capped game; with no samples, as
-    a lost fort (O 0, partial 0). Not infra, so it can't be used to re-roll a game."""
+def _score_crashed(out, g, spec, rec, ad=None):
+    """The environment crashed or hung on the game's re-run too (challenge/SCORING.md §6): scored at the state
+    reached (the adapter's score_crashed). Not infra, so it can't be used to re-roll a game."""
+    ad = ad or df_adapter.DF
     out.update(status="ok", crash_twice=True, throttle_wait_s=0.0, wall_capped=False)
     out["notes"].append("DF crashed or hung on two attempts: scored at the state reached")
-    row = last_summary_row(g)
-    o = None
-    if row is not None:
-        try:
-            o = outcomes.for_run(g, row)
-        except (OSError, ValueError, KeyError, IndexError, ZeroDivisionError, TypeError) as e:
-            out["notes"].append(f"outcome error {type(e).__name__}: {e}")
-    if row is not None:
-        out.update(days=float(row.get("days_played") or 0), wall_s=row.get("wall_s"),
-                   finished_by="crashed", actions_used=row.get("actions_used"),
-                   actions_rejected=row.get("actions_rejected"), harness_digest=row.get("harness_digest"),
-                   key=row.get("key"))
-    else:
-        out.update(days=0.0, wall_s=rec.get("wall_s"), finished_by="crashed")
-    if o is None:
-        out["notes"].append("no daily samples: scored as a lost fort")
-        out.update(O=0.0, tier=0, s=dict(ZERO_S))
-    else:
-        out.update(O=o["outcome"], tier=o["tier"], s=o["s"])
-    if spec.get("kind") == "lab":
-        fn = PRED.get(spec.get("predicate") or spec["task_id"])
-        part, passed, c = 0.0, False, None
-        stem = os.path.join(g, f"{row['arm']}-{row['k']}") if row else None
-        if fn and o is not None and stem and os.path.exists(stem + ".daily.json"):
-            try:
-                dd = json.load(open(stem + ".daily.json"))
-                if os.path.exists(stem + ".credit.json"):
-                    dd["_credit"] = json.load(open(stem + ".credit.json"))
-                c, part, _ = fn(row, dd)
-                passed = all(x for x in c if x is not None)
-            except (IndexError, KeyError, ZeroDivisionError, TypeError, ValueError) as e:
-                out["notes"].append(f"predicate error {type(e).__name__}: {e}; partial 0")
-                part, passed, c = 0.0, False, None
-        out.update(partial=round(part, 4), passed=passed, clauses=c)
+    sc = ad.score_crashed(g, spec, rec)
+    out["notes"].extend(sc.pop("notes", []))
+    out.update(sc)
     return out
 
 
@@ -182,14 +142,66 @@ def bootstrap(by_task, tasks, weights, anchors, B=10000, seed=0, alpha=0.05):
     return vals[int(alpha * B)], vals[min(B - 1, int((1 - alpha) * B))]
 
 
-def _fmt_task(t, gs, anchors):
-    n = len(gs)
-    if t["kind"] == "lab":
-        p = sum(g["partial"] for g in gs) / n
-        return (f"pass {sum(bool(g['passed']) for g in gs)}/{n}, partial {p:.2f}, "
-                f"z {task_value(t, gs, anchors) / 100:.2f}")
-    tiers = [sum(g["tier"] == i for g in gs) for i in range(5)]
-    return f"O {sum(g['O'] for g in gs) / n:.1f} (n {n}; tiers 0-4 {','.join(map(str, tiers))})"
+def _fmt_task(t, gs, anchors, adapter=None):
+    return (adapter or df_adapter.DF).format_task(t, gs, task_value(t, gs, anchors))
+
+
+# the suites whose forts are the season's private pool: only these give an officially comparable result
+OFFICIAL_SUITES = {"season0"}
+
+
+def anchors_id(suite):
+    """A short id of the anchors a score used: the suite, where they were measured and the run (from anchors_note)."""
+    note = suite.get("anchors_note") or ""
+    where = ("native" if re.search(r"native", note, re.I) else "rosetta" if re.search(r"rosetta", note, re.I) else
+             "unknown")
+    prov = "provisional" if re.search(r"provisional", note, re.I) else "final"
+    run = re.search(r"run (\d{8,})", note)
+    return f"{suite.get('anchors_from') or suite.get('name')}/{where}/{prov}" + (f"/run{run.group(1)}" if run else "")
+
+
+def result_labels(run_dir, suite, tasks, by_task, keys):
+    """What a score is, so a fake, single-task, partial or local result is never mistaken for an official one (tester
+    feedback, 2026-10-28). result_kind: official in the scoring workflow (DFBENCH_RESULT_KIND), else local. stack:
+    run.json's (local runs), else DFBENCH_STACK, else fake if every game key is a fake key."""
+    meta = {}
+    try:
+        meta = json.load(open(os.path.join(run_dir, "run.json")))
+    except (OSError, ValueError):
+        pass
+    stack = meta.get("stack") or os.environ.get("DFBENCH_STACK") or (
+        "fake" if keys and all("|fake" in k for k in keys) else "real")
+    played = [t["id"] for t in tasks if t["id"] in by_task]
+    scope = ("smoke" if suite.get("smoke") else "full" if len(played) == len(tasks) and len(tasks) > 1
+             else "single-task" if len(played) == 1 else "partial")
+    kind = os.environ.get("DFBENCH_RESULT_KIND") or "local"
+    labels = {"result_kind": kind, "stack": stack, "scope": scope, "tasks_played": ",".join(played) or None,
+              "anchors_id": anchors_id(suite),
+              "official_comparable": kind == "official" and stack == "real" and scope == "full"
+                                     and suite.get("name") in OFFICIAL_SUITES}
+    if meta.get("watch"):   # local watch mode (runner/dfbenchlib/watch.py): rendered DF, other prefs, slower
+        labels.update({"watch": True, "comparable": False, "official_comparable": False,
+                       "watch_note": meta.get("watch_note") or "watch mode: not comparable"})
+    return labels
+
+
+def watch_key(key):
+    """A watch-mode key: `+watch` after the dfset hash (or at the end of a key without one)."""
+    if isinstance(key, list):
+        return [watch_key(k) for k in key]
+    if not isinstance(key, str) or "+watch" in key:
+        return key
+    out, n = re.subn(r"(\|dfset=[^|]*)", r"\1+watch", key, count=1)
+    return out if n else key + "|watch"
+
+
+def labels_banner(m):
+    """One line for the top and bottom of a run's output."""
+    ok = "OFFICIALLY COMPARABLE" if m.get("official_comparable") else "NOT an official result"
+    if m.get("watch"):
+        ok += " (WATCH MODE: rendered DF, not comparable with any headless run)"
+    return (f"== {ok}: {m.get('result_kind')} | stack {m.get('stack')} | scope {m.get('scope')}"
+            f" ({m.get('tasks_played') or '-'}) | suite {m.get('suite')} | anchors {m.get('anchors_id')} ==")
 
 
 def score_dir(run_dir, suite, write=True):
@@ -198,10 +210,11 @@ def score_dir(run_dir, suite, write=True):
               "stage": t.get("stage", 1), "n": t.get("n", 8),
               "zlim": ((suite.get("lab_z") or {}).get("floor"), (suite.get("lab_z") or {}).get("cap", Z_CAP))}
              for t in suite["tasks"]]
-    weights = suite.get("weights") or {"OP1": 0.5, "MY1": 0.3, "labs": 0.2}
-    anchors = {t["id"]: t["anchor"] for t in suite["tasks"] if t.get("anchor")}
+    weights = SU.weights(suite)
+    anchors = SU.anchors(suite)
+    adapter = A.get(SU.environment(suite))
     bs = suite.get("bootstrap") or {}
-    games = [score_game(os.path.dirname(p)) for p in sorted(glob.glob(os.path.join(run_dir, "**", "game.json"),
+    games = [score_game(os.path.dirname(p), adapter) for p in sorted(glob.glob(os.path.join(run_dir, "**", "game.json"),
                                                                        recursive=True))
              if os.path.isdir(os.path.join(os.path.dirname(p), "game"))
              and not any(x.startswith("attempt-") for x in os.path.relpath(p, run_dir).split(os.sep))]
@@ -235,10 +248,14 @@ def score_dir(run_dir, suite, write=True):
     pth = sorted({g.get("price_table_hash") for g in ok if g.get("price_table_hash")})
     r = lambda v, d=2: None if v is None else round(v, d)
     metrics = {"stage": stage, "promotable": stage == 2, "point": r(point), "lb95": r(lb), "ub95": r(ub),
-               **{t["id"]: _fmt_task(t, by_task[t["id"]], anchors) for t in tasks_present},
+               **{t["id"]: _fmt_task(t, by_task[t["id"]], anchors, adapter) for t in tasks_present},
                **{f"family_{f}": r(v) for f, v in fam.items()},
                "credits_per_game_year": r(cost / years, 4) if years else None,
                "calls_per_game_year": r(calls / years, 1) if years else None,
+               # model-side behaviour, to spot provider drift between runs (runs/s0-op1-native-2026-10-28)
+               "model_latency_s_per_call": r(sum(x.get("latency_s") or 0 for x in led) / calls, 2) if calls else None,
+               "reasoning_tokens_per_call": r(sum(x.get("reasoning_tokens") or 0 for x in led) / calls, 1) if calls else None,
+               "completion_tokens_per_call": r(sum(x.get("completion_tokens") or 0 for x in led) / calls, 1) if calls else None,
                "wall_h_per_game_year": r(wall / 3600 / years, 3) if years else None,
                "wall_capped": sum(g.get("wall_capped", False) for g in ok),
                "actions_per_game_year": r(sum(g.get("actions_used") or 0 for g in ok) / years, 1) if years else None,
@@ -253,10 +270,11 @@ def score_dir(run_dir, suite, write=True):
                "game_years": r(years, 2),
                "credits_usd": r(cost, 4),
                "harness_digest": digests[0] if len(digests) == 1 else (digests or None),
-               "key": keys[0] if len(keys) == 1 else (keys or None),
+               "key": suite_key(keys),
                "price_table_hash": pth[0] if len(pth) == 1 else (",".join(pth) or None),
                "suite": suite.get("name"), "score_version": SCORE_VERSION, "runner": RUNNER_VERSION,
                "anchors": suite.get("anchors_note"),
+               **result_labels(run_dir, suite, tasks, by_task, keys),
                "bootstrap": f"stratified by task, {int(bs.get('resamples', 10000))} resamples, seed {int(bs.get('seed', 0))}"}
     # per-game z below -1 (a lost or harmed fort on a task with a narrow anchor gap, e.g. LT08): listed while the
     # floor is undecided (the suite score stays unfloored)
@@ -268,6 +286,10 @@ def score_dir(run_dir, suite, write=True):
             if z < -1:
                 low.append(f"{g['game_id']} {z:.2f}")
     metrics["lab_z_below_minus1"] = ", ".join(low) or None
+    if metrics.get("watch") and metrics.get("key"):
+        # the per-game keys can't tell (the server computes dfset from docker/prefs_overrides.py, which the watch
+        # image doesn't change): mark the suite key so it never matches a headless one
+        metrics["key"] = watch_key(metrics["key"])
     score = {"score": r(lb), "metrics": metrics}
     if stage != 2:
         score["partial"] = True

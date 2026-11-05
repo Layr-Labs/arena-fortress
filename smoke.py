@@ -43,7 +43,10 @@ DFAI_LOG_EVENTS = {   # df-ai.log lines of the behaviours the fairness audit swi
     "vein_tunnel_planned": "Planning tunnel to", "cavern_outpost": "outpost: wall",
     "manager_order": "add_manager_order(", "setup_complete": "Planning complete!",
     "abandon": "abandon called", "exception": "EXCEPTION",
-    "farm_mud_cheat": "cheat: mud invocation"}   # research/df-ai-privilege-audit.md: mud conjured under a farm plot
+    "farm_mud_cheat": "cheat: mud invocation",   # research/df-ai-privilege-audit.md: mud conjured under a farm plot
+    # research/df-ai-player-equivalence.md (fog_of_war): breached rooms abandoned, damp/warm stone left, openings walled
+    "fog_breach": "[fog] breach:", "fog_damp_stone": "[fog] damp stone", "fog_warm_stone": "[fog] warm stone",
+    "fog_sealed": "[fog] sealed (", "fog_seal_gave_up": "[fog] gave up sealing"}
 DFAI_MAX_ATTEMPTS = 2   # a (dfai, k) that failed this often without a DF crash is not retried again
 SCENARIO = None      # loaded scenarios/<name>.json (see scenarios/README.md), or None for the default year
 
@@ -258,6 +261,20 @@ def dfai_enable():
         if st and "not running" not in st:
             return {"enable": out[-300:], "version": H.dfhack("ai", "version")[-600:]}
     raise RuntimeError("df-ai did not start: " + (out + " | " + st)[-300:])
+
+def dfai_fog_status(st):
+    """For reports (run_one doesn't call it, so the loop hash is unchanged): the player-equivalence counters in a dfai row's `ai` status (research/df-ai-player-equivalence.md): `fog` (breaches, damp or
+    warm dig cancels, sealed openings) and, with xray_audit, `xray` totals plus the call sites that read a hidden tile."""
+    out = {}
+    m = re.search(r"Fog: day=(\d+) breaches=(\d+) dig_cancels=(\d+) sealed=(\d+) seal_pending=(\d+)", st)
+    if m:
+        out["fog"] = dict(zip(("day", "breaches", "dig_cancels", "sealed", "seal_pending"), map(int, m.groups())))
+    m = re.search(r"\[xray\] total reads=(\d+) hidden=(\d+) masked=(\d+) unmasked=(\d+) prior_differs=(\d+)", st)
+    if m:
+        out["xray"] = dict(zip(("reads", "hidden", "masked", "unmasked", "prior_differs"), map(int, m.groups())))
+        out["xray_sites"] = re.findall(r"\[xray\] site=(\S+) reads=(\d+) hidden=(\d+) masked=(\d+) unmasked=(\d+) "
+                                       r"prior_differs=(\d+)", st)
+    return out
 
 def dfai_advance(ticks):
     """Let df-ai play `ticks` game ticks. df-ai unpauses the game itself about 2 s after any pause, so wait for

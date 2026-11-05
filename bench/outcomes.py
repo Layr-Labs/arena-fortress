@@ -18,7 +18,9 @@ Four tiers, each a sub-score in [0, 1]. A tier counts only as far as every tier 
                 before F included; infinite if the stock is not falling). F is the hands-off
                 window when the task has one, else the last quarter of the run (7-28 days).
   s3 wellbeing  w_stress · w_events, where w_stress = 1 − mean over F of (stressed / citizens) (stressed = DFHack
-                stress category <= 1), averaged 50/50 with the share of needs met at H when the recorder has needs;
+                stress category <= 1). The share of needs met at H is reported (inputs.needs_met), not scored since
+                OUTCOME_VERSION 2: most of it can't be moved through the game API and it steps with time since arrival
+                (runs/s0-wellbeing-needs-2026-11-05);
                 w_events = max(0, 1 − E / max(3, C̄/10)), E = tantrums + berserks + lost-to-stress + possessed
                 tantrums + citizens seen in an insane mood (failed strange moods, stress insanity), C̄ = mean citizens.
   s4 growth     housing = mean(min(1, placed beds / citizens), min(1, 2 · dining seats / citizens)) at H. On
@@ -44,7 +46,7 @@ import glob, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DAY = 1200
-OUTCOME_VERSION = 1
+OUTCOME_VERSION = 2     # 2 (2026-11-05, SCORE_VERSION 7): needs met dropped from w_calm (w_calm = w_stress)
 T_STAR = 336           # days of supply past H that count as sustained: one DF year (12 months of 28 days)
 STRESSED_OK = 0.10     # G3: at most this share of citizen-days in F stressed
 BREAKDOWN = ("CITIZEN_TANTRUM", "BERSERK_CITIZEN", "CITIZEN_LOST_TO_STRESS", "POSSESSED_TANTRUM")
@@ -226,11 +228,8 @@ def score_run(row, daily, final=None, sc=None):
     needs = ((daily.get("S") or {}).get("wb") or {}).get("needs") or (last.get("wb") or {}).get("needs")
     needs_met = None
     if needs and needs.get("n"):
-        needs_met = 1 - needs["unmet"] / needs["n"]
-        w_calm = 0.5 * w_stress + 0.5 * needs_met
-    else:
-        w_calm = w_stress
-        missing.append("needs")
+        needs_met = 1 - needs["unmet"] / needs["n"]          # reported only (OUTCOME_VERSION 2)
+    w_calm = w_stress
     brk = sum(ev.get(t, 0) for t in BREAKDOWN)
     mood_units = {}
     for s in samples:

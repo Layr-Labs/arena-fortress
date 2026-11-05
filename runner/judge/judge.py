@@ -38,7 +38,8 @@ def versions():
 
 def gather(a):
     note, note_h = E.read_text(a.note, E.LIMITS["max_note_chars"], "note")
-    deps, deps_h = E.load_dependencies(a.dependencies)
+    deps_path, basis, verified = E.attribution_source(a.dependencies, a.repo_dir)
+    deps, deps_h = E.load_dependencies(deps_path)
     declared = {d["submissionId"] for d in deps}
     producers = {x.strip().lower() for x in (a.base_producers or "").split(",") if x.strip()}
     sub = E.collect_submission(a.repo_dir, a.base, a.head)
@@ -46,14 +47,15 @@ def gather(a):
     ov = E.overlap(sub["scan_lines"], ctx)
     score, score_h = E.load_score(a.score_json)
     sig, total = signals.scan(sub["scan_lines"], note)
-    sig = signals.deterministic_signals(ctx, ov, deps) + sig
+    sig = signals.deterministic_signals(ctx, ov, deps, declaration_hidden=basis == "note+code") + sig
     for i, s in enumerate(sig, 1):
         s["id"] = f"S{i}"
     ev = {"sub": sub, "note": note, "deps": deps, "contexts": ctx, "overlaps": ov, "score": score, "signals": sig,
           "signals_total": total, "submitter": (a.submitter or "")[:100],
           "coauthors": [c.strip() for c in (a.coauthors or "").split(",") if c.strip()][:40],
           "missing_declared": sorted(declared - {c["id"] for c in ctx}),
-          "missing_producers": sorted(producers - {c["id"] for c in ctx})}
+          "missing_producers": sorted(producers - {c["id"] for c in ctx}),
+          "attribution": {"verified": verified, "basis": basis}}
     hashes = {"note_sha256": note_h, "dependencies_sha256": deps_h, "score_json_sha256": score_h,
               "diff_sha256": sub["diff_sha256"],
               "context": [{"id": c["id"], "dir": c["dir"], "diff_sha256": c["diff_sha256"],
@@ -108,6 +110,7 @@ def run(a, provider=None):
                             "declared_dependencies": [x["submissionId"] for x in ev["deps"]],
                             "declared_but_not_in_context": ev["missing_declared"],
                             "base_producers_not_in_context": ev["missing_producers"]})
+        d["attribution"] = ev["attribution"]
         d["evidence"] = {"files": [{k: v for k, v in f.items() if k != "added_lines"} for f in ev["sub"]["files"]],
                          "chunks": len(ev["sub"]["chunks"]), "chunk_chars": [len(c) for c in ev["sub"]["chunks"]],
                          "overlap": ev["overlaps"], "signals_total": ev["signals_total"],

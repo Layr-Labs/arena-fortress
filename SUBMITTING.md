@@ -51,14 +51,22 @@ Rosetta and is slower), your own download of DF 53.16 and DFHack 53.16-r2, and a
 gateway calls the model through OpenRouter with the provider pinned to Together, as the verifier does; another
 OpenAI-compatible https endpoint serving the same model works with `--upstream`).
 
-1. **Build the DF image** (`docker/README.md`): download the two tarballs, check their sha256, build. Don't push
-   the image anywhere public.
+1. **Build the DF images** (`docker/README.md`): download the two tarballs, check their sha256, then build two
+   images: the plain DF image (`docker/Dockerfile`, which the fort builders use) and on top of it the **game server
+   image** (`docker/Dockerfile.game`, which the runner plays as `DFBENCH_GAME_IMAGE`). The plain image alone fails
+   every real game at reset. Don't push either image anywhere public.
 2. **Build the public forts** (`docs/SEED-FORTS.md`): `docker/task_forts.sh --seeds 2001,2002,2005` for the lab
    tasks; `docker/embark.sh --rules DEFAULT_FORT --seeds 12345` for OP1; `pool/dfpool build-public --task MY1
    --seeds 2001,2002,2005 --image <your DF image>` for MY1 (each MY1 fort is its seed's embark played to day 120 by
    DFHack's automation: one DF container, roughly 10-30 minutes a fort). Lab forts print `TASKFORT`.
-   `.yukon/setup.sh` runs steps 1 and 2 (skipping forts already built) and checks that `submission/` builds.
-3. **Run one game** with the runner (`runner/README.md` has the exact flags):
+   `.yukon/setup.sh` runs steps 1 and 2 (skipping forts already built) and checks that `submission/` builds. The MY1
+   builder refuses to start while other containers run (the 120 automation days are slow on a busy host); set
+   `DFBENCH_ALLOW_BUSY=1` if your machine has room.
+3. **First, the smoke test (free):** `runner/dfbench local smoke`. It plays 3 game-days of LT01 on **real DF with a
+   fake model**: no key and no cost, a few minutes. It prints PASS, or FAIL with the likely cause and the next step
+   (a missing fort, the wrong DF image, too little Docker memory, a harness that won't start). `.yukon/setup.sh`
+   runs it at the end (`DFBENCH_SMOKE=0` to skip). Run it before anything that spends model credits.
+4. **Run one game** with the runner (`runner/README.md` has the exact flags):
 
    ```sh
    export OPENROUTER_API_KEY=...          # your OpenRouter key; only the local gateway container sees it
@@ -70,15 +78,57 @@ OpenAI-compatible https endpoint serving the same model works with `--upstream`)
    Use the task files in `scenarios/season0/`: a season task file brings the suite's settings with it (lab
    anchors, wall cap, moods, budget). `scenarios/seed/` holds older copies with other seed ranges and no anchors.
    `--stack fake` runs the same flow against toy stand-ins for the game and the model (no DF, no key, seconds):
-   use it to check that your harness starts, talks to both services and exits cleanly.
-4. **Run the public suite** (several tasks and seeds, in parallel if you have the cores):
+   use it to check that your harness starts, talks to both services and exits cleanly. The fake takes the real
+   tools' argument shapes and site kinds, but its fort is a toy.
+   `--stack mixed` plays the **real game with a fake model** (no key, no model cost): the way to test a scripted or
+   deterministic layer of your harness against real DF for free.
+5. **Run the public suite** (several tasks and seeds, in parallel if you have the cores):
    `runner/dfbench local suite --harness submission/` (`.yukon/run.sh`, what `yukon run` runs, wraps it). Its score
    is computed exactly as the official
    one, on public forts instead of the private pool, so it is a guide, not a prediction.
    It checks that every start fort it needs is built before it starts a container, and names the missing ones.
+   Part of the suite: `runner/dfbench local suite --harness submission/ --games LT01 --n 1`, or through the wrapper
+   `DFBENCH_SUITE_ARGS="--games LT01 --n 1" yukon run` (`yukon run` itself takes no suite arguments).
 
-What to look at after a game: the per-tier sub-scores, the daily samples (`<run>.daily.json`), DF's events, every
-API call with its latency (`<run>.api.jsonl`) and the gateway ledger (`usage.jsonl`: tokens, cost, throttling).
+**On Apple Silicon:** DF runs under Docker Desktop's Rosetta emulation: correct but noticeably slower than native
+x86_64. Give Docker about 6–8 GB of memory per game at a time (DF plus the harness’s 2 GB). A seed can produce a
+different embark under Rosetta than on native x86_64, so local forts are representative, not identical to the
+official ones.
+
+**What kind of result is this?** Every `score.json` says, and the runner prints it at the top and bottom of a run:
+`result_kind` (`local`, or `official` from the scoring workflow), `stack` (`real`, `mixed` or `fake`), `scope`
+(`full`, `partial`, `single-task` or `smoke`, with `tasks_played`), `anchors_id` (which suite's anchors, where they
+were measured, and the run) and `official_comparable` (true only for a real-stack full suite on the season's private
+pool, i.e. official scores). `dfbench-tk inspect` shows the same labels, and `dfbench-tk compare` warns when two
+runs differ in them. Only compare like with like.
+
+### Watching your games
+
+Add `--watch` to `runner/dfbench local run`, `local suite` or `local smoke` to record each game you play locally:
+the runner builds a watch image from your game image (`docker/Dockerfile.watch`), DF draws into a virtual display
+instead of running headless, and after each game you get `<run>/<game>/video/<game>.mp4` and a 4x timelapse
+`<game>-4x.mp4` (the runner prints the paths). `--watch-live` also lets you watch while it plays: a view-only VNC
+on `127.0.0.1` only, with a password printed per game (on macOS, open the printed `vnc://127.0.0.1:5900` link).
+Try it for free first: `runner/dfbench local smoke --watch`.
+
+- **Local only**, on your own copy of the game. The runner refuses `--watch` in CI and it isn't part of any
+  official run or of the Yukon flow.
+- **Not comparable**: rendering changes how DF runs (it can be slower) and its display settings differ, so a watch
+  run's `score.json` says `watch: true` and `comparable: false`, and its key carries `+watch`. Don't compare it with
+  a headless run or report it as a result.
+- Recordings show Dwarf Fortress, so they are subject to the game's own terms: whether and how you share them is
+  your responsibility.
+
+**What's there for diagnosis** (all of it stays available to you; it's how bugs get found):
+- the whole trusted side in this repository: the game server (`gameapi/`), the gateway (`gateway/`), the runner
+  (`runner/`), the scorers (`bench/outcomes.py`, `bench/predicates.py`) and the task files;
+- per game, in the run directory: `game.json` (status and notes, including why a game counted as infra), the
+  server's artifacts (`summary.jsonl`, `<run>.daily.json`, DF's events), every API call with its latency
+  (`<run>.api.jsonl`), the gateway ledger (`usage.jsonl`: tokens, cost, throttling), your harness's output, and
+  `score.json` / `score_detail.json` per run;
+- what to look at first: the per-tier sub-scores, the daily samples and DF's events.
+  Official runs keep per-game data sealed (the private forts), but their aggregate `score.json` and the run's log
+  are public.
 
 Cost: one game-year at the baseline's rate is a few cents of inference (*provisional*); the cap is $0.50.
 
@@ -106,6 +156,9 @@ Season 0 runs on Yukon as an open, public challenge.
      must be a submission on this challenge that Yukon has published (any submission with a candidate commit:
      promoted or not, scored or not); at most 20. Ideas from elsewhere (another challenge, a paper, a thread) go in
      the note;
+   - **Recommended:** also put a copy at `submission/dependencies.json`. Yukon hides your declared list from the
+     organisers until your submission is published, so the judge can only see this copy while scoring (`RULES.md`
+     §8a). Without it, the judge relies on `NOTE.md`, so name what you build on there either way.
    - `NOTE.md`: your public research note: what you changed, why, what you inherited and from whom (submissions, people,
      discussion threads, published ideas), and what you measured. **Between 5 KiB and 100 KiB** (`yukon submit`
      refuses anything shorter or longer). Don't repeat the `Model:` and `Harness:` lines: `--model` and `--harness`
@@ -127,10 +180,43 @@ Season 0 runs on Yukon as an open, public challenge.
    Expected wall time: ~1–1.5 h for a full submission, ~45 min for stage 1 only (*provisional*).
 7. **Check status:** `yukon submissions`; cancel a queued one with `yukon cancel <id>`.
 
-Promotion is automatic when the lower-bound score beats the current best by at least 2% (`SCORING.md` §3), **after the
+Promotion is automatic when the lower-bound score beats the current best by at least 2.5% (`SCORING.md` §3), **after the
 automated judge passes the submission**
 (`RULES.md` §8a): attribution, fair play and contents. A failed or held judgment isn't promoted; the reasons are
 posted on your pull request. The judge's report is published with the run.
+With the early judge on (announced on the challenge page), the judge reviews every submission before its games and
+posts its verdict on the pull request within minutes; a fail or hold stops the run before any game (`RULES.md` §8a).
+
+## 3a. Building on the leader and the contenders
+
+You start from the leader (`main` holds its `submission/`), but you don't have to stop there. Every scored submission,
+promoted or not, stays public and can be your starting point, as long as you credit it (`RULES.md` §8) and add a
+substantive improvement of your own (re-submitting someone else's harness with cosmetic changes is a cross-account
+redraw: Terms of Service §4).
+
+**The contender list** (`CONTENDERS.md` on this repo's `contenders` branch, linked from the challenge page) shows
+the submissions that are statistically as good as the leader: every complete, judge-valid submission whose score
+is within 3.8 points of the leader's pooled score (`SCORING.md` §4.2). How it's made:
+- each scoring run tags its submission's band (`leader`, `contender` or `none`; `metrics.band` on your PR);
+- once a week the organiser re-plays the leader and the contenders most likely to be ahead of it, pools each one's
+  games across runs, and publishes the list (aggregates only: pooled score, bounds, runs, games, gap to the leader,
+  a link to the PR);
+- it is information, not a ranking change: only Yukon's board promotes. A contender *leading on pooled games* is
+  flagged there.
+
+**How to use it:** a contender's pooled score is a better estimate of how good it is than its single run, so the
+list tells you which ideas are worth reading even when they weren't promoted (several differ from the leader by less
+than the noise of one run). For any submission id on the list (or in `yukon submissions --all`):
+
+```sh
+yukon submission-note <id>          # its public research note: what it changed and what it measured
+yukon attribution declared <id>     # what it declared it builds on
+yukon reset <id>                    # restore your submission/ from its commit (accepted or not; commit first)
+git fetch origin submissions/<id>   # or read it in git: its branch, and its pull request, stay public
+```
+
+Then measure locally (`runner/dfbench local suite`, or the toolkit's `compare`), and when you submit, declare every
+submission you used in `dependencies.json` and say what you took from each in `NOTE.md`.
 
 ## 4. Before you submit
 

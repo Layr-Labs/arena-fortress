@@ -11,7 +11,7 @@ DFHack Lua (`lua/`), and it runs inside the DF image next to DFHack, as `harness
 from gameapi.facts import Game, DFHack, FactsError, OBS_SCHEMA, QUERIES, TOOL_NAMES, SERVER_TOOLS
 
 g = Game(df=DFHack(df_dir=None))   # one per game; df_dir defaults to $DFBENCH_DF_DIR, else <repo>/df
-g.observe() -> dict                # obs schema 7 (below); raises FactsError if the probe fails as a whole
+g.observe() -> dict                # obs schema 8 (below); raises FactsError if the probe fails as a whole
 g.query(name: str, **args) -> dict # {"ok": true, ...} or {"ok": false, "error_code", "error"[, "allowed"]}
 g.tools() -> list                  # 22 OpenAI function schemas; build_workshop's enum comes from DF (cached)
 g.act(tool: str, args: dict) -> dict
@@ -48,7 +48,7 @@ formats the advance result itself (`{"advanced_ticks", "stopped"}`), since advan
 Tests: `python3 -m unittest discover -s gameapi/facts/tests` (37 tests, fake DF, no DF needed). In game:
 `gameapi/facts/check_in_game.sh` (builds `yukon-df:s0facts-<sha>`, one container, scripted-y1). Output: `IN_GAME.md`.
 
-## Observation: obs schema 7
+## Observation: obs schema 8 (7 + `stocks.food_edible` as the score counts it, `food_any_good`, R rooms' `designated`/`dug`)
 
 Schema 7 (2026-10-24) is schema 6 with the mood facts cut to the visible subset (the moods row below); everything
 else is as in schema 6.

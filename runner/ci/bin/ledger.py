@@ -7,9 +7,14 @@ DFBENCH_OPS_TOKEN (environment secret; contents: write on that repo only). Write
 with the file's sha (optimistic concurrency, retried on conflict), so two runs can't both take the last slot of a
 user's week or of the global allowance. Python 3 stdlib only.
 
-  admit   --submission ID --user U --in-flight N --weekly N --suite S [--global N] [--rerun] [--run ID] [--tree T]
-          reserve a slot; prints {"admitted", "reason", "full_suite", "week", ...}; a submission/ tree (T, the git
-          tree id) identical to one already scored this season is refused and not counted
+  admit   --submission ID --user U --in-flight N --weekly N --suite S [--season-cap N] [--global N] [--rerun]
+          [--run ID] [--tree T]
+          reserve a slot; prints {"admitted", "reason", "full_suite", "week", "quota", ["retry_of"]}; quota says
+          whether this attempt counts and the weekly/season use after it; a submission/ tree (T, the git tree id)
+          identical to one already scored this season is refused and not counted (infra_failed attempts are exempt)
+  infra   --submission ID --user U [--tree T] [--run ID] [--reason TEXT]
+          an attempt that failed on our side before admission: recorded as infra_failed (not counted); a later
+          submission of the same tree by the same user is admitted with retry_of: <this id>
   finish  --submission ID --status scored|infra_failed|rejected|cancelled [--score X] [--stage N] [--run ID]
           `scored` also records the user's first valid score here (unlocks the full suite for tier `new`)
   leader-get [--field stage1_point|score|submission]       prints the field ("" if no leader)
@@ -19,7 +24,8 @@ user's week or of the global allowance. Python 3 stdlib only.
 Rules (challenge/RULES.md §7; per user, no teams; the limits bound the organiser's spend): a week is the ISO week
 (UTC, Monday 00:00). Counted: reserved, scored and rejected entries (a rejected harness still used the runners). Not
 counted: infra_failed and cancelled. In flight: at most --in-flight `reserved` entries per user. Weekly: at most
---weekly counted entries per user. Global: at most --global counted entries per week over all users; when it is used
+--weekly counted entries per user, and (a tier's optional `season`) at most --season-cap counted entries per user over
+the whole season (this ledger; 0 = no cap). Global: at most --global counted entries per week over all users; when it is used
 up the admit is refused with the date the next week starts, and nothing is written (not counted). Suite: `full`,
 `stage1`, or `stage1_until_first_valid` (full once the user has a first valid score here). `--rerun` (an organiser
 re-dispatch of the same submission) never takes a new slot and isn't refused by the limits.
@@ -141,13 +147,49 @@ def admit_decision(led, a, t=None):
         return {**base, "admitted": False, "_nowrite": True,
                 "reason": f"{a.user} already has {a.in_flight} submission(s) in flight; submit again when it finishes"}
     used = sum(1 for e in own if e["week"] == wk and e["status"] in COUNTED)
+    cap = int(getattr(a, "season_cap", 0) or 0)
+    used_season = sum(1 for e in own if e["status"] in COUNTED)
+    base["quota"] = {"counts": False, "weekly_used": used, "weekly_limit": a.weekly, "season_used": used_season,
+                     "season_cap": cap or None}
     if used >= a.weekly:
         return {**base, "admitted": False, "_nowrite": True,
                 "reason": f"weekly limit reached for {a.user} ({used}/{a.weekly} in {wk}); submit again after "
                           f"{next_week_start(t)}"}
-    es.append({"submission": a.submission, "user": a.user, "week": wk, "status": "reserved",
-               "created": t.isoformat(), "updated": t.isoformat(), "run": a.run, "tree": tree})
-    return {**base, "admitted": True, "reason": f"slot {used + 1}/{a.weekly} in {wk}"}
+    if cap and used_season >= cap:
+        return {**base, "admitted": False, "_nowrite": True,
+                "reason": f"season limit reached for {a.user} ({used_season}/{cap} this season); no further "
+                          "submissions are scored this season"}
+    entry = {"submission": a.submission, "user": a.user, "week": wk, "status": "reserved",
+             "created": t.isoformat(), "updated": t.isoformat(), "run": a.run, "tree": tree}
+    # a resubmission of a tree whose earlier attempt failed on our side (infra_failed, not counted) is linked to it
+    prev = [e for e in own if tree and e.get("tree") == tree and e["status"] == "infra_failed"]
+    if prev:
+        entry["retry_of"] = prev[-1]["submission"]
+    es.append(entry)
+    quota = {"counts": True, "weekly_used": used + 1, "weekly_limit": a.weekly,
+             "season_used": used_season + 1, "season_cap": cap or None}
+    return {**base, "admitted": True, "reason": f"slot {used + 1}/{a.weekly} in {wk}", "quota": quota,
+            **({"retry_of": entry["retry_of"]} if prev else {})}
+
+
+def infra_decision(led, a, t=None):
+    """An attempt that failed on our side before it was admitted (e.g. Yukon couldn't be read): recorded as
+    infra_failed, which isn't counted, so a resubmission of the same tree can be linked to it."""
+    t = t or now()
+    es = led.setdefault("entries", [])
+    if any(e["submission"] == a.submission for e in es):
+        return {"ok": True, "reason": "already in the ledger", "_nowrite": True}
+    es.append({"submission": a.submission, "user": a.user, "week": week_of(t.isoformat()), "status": "infra_failed",
+               "created": t.isoformat(), "updated": t.isoformat(), "run": a.run, "tree": a.tree,
+               "infra": a.reason})
+    return {"ok": True}
+
+
+def cmd_infra(a):
+    r = update("ledger.json", lambda led: infra_decision(led, a), f"infra {a.submission} ({a.user})",
+               lambda: {"entries": [], "users": {}})
+    r.pop("_nowrite", None)
+    print(json.dumps(r))
 
 
 def cmd_admit(a):
@@ -181,6 +223,51 @@ def cmd_finish(a):
     print(json.dumps(r))
 
 
+def release_decision(led, a, t=None):
+    """An organiser releases an entry (e.g. a hold caused by our own bug): it becomes `cancelled`, so it isn't
+    counted and an identical resubmission isn't refused as a duplicate (SCORED excludes cancelled)."""
+    t = t or now()
+    mine = [e for e in led.setdefault("entries", []) if e["submission"] == a.submission]
+    if not mine:
+        return {"ok": False, "reason": "not in the ledger", "_nowrite": True}
+    e = mine[-1]
+    e["released"] = {"from": e.get("status"), "reason": a.reason, "at": t.isoformat()}
+    e.update(status="cancelled", updated=t.isoformat())
+    return {"ok": True, "from": e["released"]["from"]}
+
+
+def cmd_release(a):
+    r = update("ledger.json", lambda led: release_decision(led, a), f"release {a.submission}: {a.reason}"[:200],
+               lambda: {"entries": [], "users": {}})
+    r.pop("_nowrite", None)
+    print(json.dumps(r))
+
+
+def attribution_decision(led, a, t=None):
+    """How the judge saw the submission's attribution (runner/ci/bin/attribution_verify.py checks the unverified
+    ones after publication). `result` set: the post-publication check's outcome."""
+    t = t or now()
+    mine = [e for e in led.setdefault("entries", []) if e["submission"] == a.submission]
+    if not mine:
+        return {"ok": False, "reason": "not in the ledger", "_nowrite": True}
+    e = mine[-1]
+    rec = e.setdefault("attribution", {})
+    if a.result:
+        rec["checked"] = {"result": a.result, "reason": a.reason or "", "at": t.isoformat()}
+    else:
+        csv = lambda v: [x.strip() for x in (v or "").split(",") if x.strip()]      # noqa: E731
+        rec.update(verified=a.verified == "true", basis=a.basis or "", base_producers=csv(a.base_producers),
+                   suspects=csv(a.suspects), judged=t.isoformat())
+    return {"ok": True}
+
+
+def cmd_attribution(a):
+    r = update("ledger.json", lambda led: attribution_decision(led, a), f"attribution {a.submission}",
+               lambda: {"entries": [], "users": {}})
+    r.pop("_nowrite", None)
+    print(json.dumps(r))
+
+
 def cmd_leader_get(a):
     obj, _ = load("leader.json")
     print("" if not obj or obj.get(a.field) is None else obj[a.field])
@@ -207,15 +294,28 @@ def main():
     sp = p.add_subparsers(dest="cmd", required=True)
     x = sp.add_parser("admit"); x.add_argument("--submission", required=True); x.add_argument("--user", required=True)
     x.add_argument("--in-flight", type=int, required=True); x.add_argument("--weekly", type=int, required=True)
+    x.add_argument("--season-cap", type=int, default=0, help="counted entries per user per season (0 = no cap)")
     x.add_argument("--suite", required=True, choices=["full", "stage1", "stage1_until_first_valid"])
     x.add_argument("--global", dest="global_cap", type=int)
     x.add_argument("--rerun", action="store_true"); x.add_argument("--run")
     x.add_argument("--tree", help="git tree id of submission/ (refused if identical to one already scored)")
     x.set_defaults(f=cmd_admit)
+    x = sp.add_parser("infra", help="record an attempt that failed on our side before admission (not counted)")
+    x.add_argument("--submission", required=True); x.add_argument("--user", required=True)
+    x.add_argument("--tree"); x.add_argument("--run"); x.add_argument("--reason", default="")
+    x.set_defaults(f=cmd_infra)
     x = sp.add_parser("finish"); x.add_argument("--submission", required=True)
     x.add_argument("--status", required=True, choices=["scored", "infra_failed", "rejected", "cancelled"])
     x.add_argument("--score", type=float); x.add_argument("--stage"); x.add_argument("--run")
     x.set_defaults(f=cmd_finish)
+    x = sp.add_parser("release", help="organiser: mark an entry cancelled (not counted; an identical resubmission is allowed)")
+    x.add_argument("--submission", required=True); x.add_argument("--reason", required=True)
+    x.set_defaults(f=cmd_release)
+    x = sp.add_parser("attribution", help="record how the judge saw attribution, or the post-publication check")
+    x.add_argument("--submission", required=True); x.add_argument("--verified", choices=["true", "false"])
+    x.add_argument("--basis"); x.add_argument("--base-producers", default=""); x.add_argument("--suspects", default="")
+    x.add_argument("--result", choices=["verified_ok", "verify_flagged"]); x.add_argument("--reason")
+    x.set_defaults(f=cmd_attribution)
     x = sp.add_parser("leader-get"); x.add_argument("--field", default="stage1_point", choices=["stage1_point", "score", "submission"])
     x.set_defaults(f=cmd_leader_get)
     x = sp.add_parser("leader-set"); x.add_argument("--stage1-point", type=float, required=True)

@@ -14,6 +14,7 @@
   "MY1": 0.3,
   "labs": 0.2
  },
+ "confirm_tasks": ["MY1", "OP1"],
  "bootstrap": {
   "resamples": 10000,
   "seed": 20261023,

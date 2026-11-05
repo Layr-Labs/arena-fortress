@@ -220,6 +220,25 @@ def build(sub, out, api, headers, repo=".", last=5, cap=200_000, http=http_json,
     return len(entries)
 
 
+def declared_dependencies(sub, who_dir, repo_dir):
+    """The freshest declared list: the judge job's re-read deps.json (tier.py attribution) if it has one; else, when
+    Yukon still hides the record, the submitter's in-tree submission/dependencies.json (runner/judge evidence.py
+    attribution_source does the same for the judge); else what admit saw."""
+    try:
+        d = json.load(open(os.path.join(who_dir, "deps.json")))
+    except (OSError, ValueError):
+        d = {}
+    if d.get("declaration") not in (None, "unavailable"):
+        return d.get("dependencies") or []
+    tree = os.path.join(repo_dir or ".", "submission", "dependencies.json")
+    try:
+        t = json.load(open(tree))
+        t = t.get("dependencies", []) if isinstance(t, dict) else t
+        return [x if isinstance(x, dict) else {"submissionId": x} for x in t if isinstance(x, (dict, str))]
+    except (OSError, ValueError):
+        return sub.get("dependencies") or []
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--submitter-json", required=True); ap.add_argument("--out", required=True)
@@ -235,6 +254,7 @@ def main():
     ap.add_argument("--no-scan", action="store_true")
     a = ap.parse_args()
     sub = json.load(open(a.submitter_json))
+    sub["dependencies"] = declared_dependencies(sub, os.path.dirname(a.submitter_json), a.repo_dir)
     api = os.environ.get("DFBENCH_YUKON_API", "").rstrip("/")
     h = yukon_headers()
     opts = None

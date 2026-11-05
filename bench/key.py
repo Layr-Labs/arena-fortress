@@ -30,7 +30,7 @@ OBS_SCHEMA = 5          # 2: observe2.lua plus the harness additions (frozen v1)
                         #   hid hostiles on unrevealed tiles, runs/obs-leaks-2026-10-16);
                         #   recent_events / recent_cancellations drop non-announcement reports on unrevealed tiles;
                         #   map.doorways no longer reads the shape of unrevealed neighbours
-SCORE_VERSION = 6       # 1 (2026-10-10): LT05 partial goblin_raid_v2 (survival only); score.lua thefts/thieves (LT06)
+SCORE_VERSION = 7       # 1 (2026-10-10): LT05 partial goblin_raid_v2 (survival only); score.lua thefts/thieves (LT06)
                         # 2 (2026-10-10): lab predicates bench/predicates.py (LT08, LT04, LT03); recorder ev / moods /
                         #   beds and S0/S from final_state.lua. Rows under 1 keep their scores (nothing they use changed)
                         # 3 (2026-10-13): credited_value_dr, per-class diminishing returns (bench/dr.py, §3.4), the
@@ -43,6 +43,9 @@ SCORE_VERSION = 6       # 1 (2026-10-10): LT05 partial goblin_raid_v2 (survival 
                         #   the citizen ledger; LT02/LT09 supply-over-W clauses
                         # 6 (2026-10-23): food counts edible items only (score.lua, recorder.lua): ANY_GOOD_FOOD's seeds
                         #   (planted ones too), empty bags and raw fish no longer count (runs/s0-compute-2026-10-23)
+                        # 7 (2026-11-05): wellbeing no longer scores the share of needs met at H (OUTCOME_VERSION 2):
+                        #   ~half the needs can't be met through the game API, and the share steps with time since
+                        #   arrival, not with play (runs/s0-wellbeing-needs-2026-11-05)
 REFS_VERSION = 4        # 1 (2026-10-10): policies.Random no longer draws create_burrow / civilian_alert
                         # 2 (2026-10-11): policies.Scripted re-picks its farm stair when the room gives no soil farm site
                         # 3 (v2, 2026-10-13): manager_office_step (scripted, automation, witnesses); no HandsOff shim
@@ -295,8 +298,9 @@ def _facts_files(prefer=None):
     return key_files(prefer)
 
 
-def _v3_surface():
-    """The tool schemas and query list as the server serves them (imports the facts layer; no DF needed)."""
+def _v3_surface(s1=None):
+    """The tool schemas and query list as the server serves them (imports the facts layer; no DF needed).
+    s1: a season-1 rules version adds its tools, queries and obs schema suffix (gameapi/season1)."""
     sys.path.insert(0, ROOT)
     from gameapi.server import adapter, rules
     if adapter.facts_available():   # static schemas: build_workshop's DF enum is pinned by the df version
@@ -304,8 +308,13 @@ def _v3_surface():
         facts.F = __import__("importlib").import_module("gameapi.facts")
     else:
         facts = adapter.Legacy()
-    tools = [t for t in facts.key_tools() if t["function"]["name"] != "advance_days"] + [rules.advance_tool()]
-    return tools, facts.queries(), getattr(facts, "OBS_SCHEMA", None)
+    tools, queries, obs = facts.key_tools(), facts.queries(), getattr(facts, "OBS_SCHEMA", None)
+    if s1:
+        from gameapi import season1
+        t1, q1, suffix = season1.key_surface()
+        tools, queries, obs = tools + t1, queries + q1, f"{obs}{suffix}"
+    tools = [t for t in tools if t["function"]["name"] != "advance_days"] + [rules.advance_tool()]
+    return tools, queries, obs
 
 
 def df_settings(strange_moods=False):
@@ -339,16 +348,25 @@ def compute_v3(scenario=None, days=None, *, k_actions=40, max_advance_days=28, w
     if strange_moods is None:
         strange_moods = bool(sc.get("strange_moods", False))
     days = days or sc.get("days", 336)
+    s1 = sc.get("rules_version")   # season 1 (gameapi/season1): absent on every season-0 task, so their key is unchanged
+    s1_files = {}
+    if s1:
+        sys.path.insert(0, ROOT)
+        from gameapi import season1
+        season1.rules_version(sc)
+        s1_files = season1.key_files()
     if tools is None or queries is None or obs_schema is None:
-        t, q, o = _v3_surface()
+        t, q, o = _v3_surface(s1)
         tools, queries, obs_schema = tools if tools is not None else t, queries if queries is not None else q, \
             obs_schema if obs_schema is not None else o
     facts_name, tool_files, obs_files = _facts_files(facts_impl)
+    tool_files, obs_files = tool_files + s1_files.get("sem", []), obs_files + s1_files.get("obs", [])
     task, task_hash = scenario_fields(scenario)
+    api = V3_API + (f"+{s1}" if s1 else "")
     settings = df_settings(strange_moods)
     rules = {"actions_per_game_day": k_actions, "max_advance_days": max_advance_days, "wall_s": wall_s}
     f = {
-        "bench": V3_BENCH, "api": V3_API, "facts": facts_name,
+        "bench": V3_BENCH, "api": api, "facts": facts_name,
         "tools_hash": _sha(tools),
         # what the tools do: the facts layer's act code and Lua (or the legacy adapter's), plus the server's checks
         "tool_semantics_hash": _sha(*[x for r in tool_files for x in (r, _file(r))]),
@@ -357,12 +375,13 @@ def compute_v3(scenario=None, days=None, *, k_actions=40, max_advance_days=28, w
         "df_settings": settings,
         "df_settings_hash": _sha(settings, _file("docker/dfhack-onMapLoad.init")),
         "rules": rules,
-        "rules_hash": _sha(rules, *[x for r in V3_SERVER_FILES for x in (r, _file(r))],
+        "rules_hash": _sha(rules, *[x for r in V3_SERVER_FILES + tuple(s1_files.get("rules", ())) for x in (r, _file(r))],
                            *_funcs("smoke.py", V3_SMOKE_FUNCS), _consts("smoke.py", {"DAY", "STUCK_S", "HANG_S",
                                                                                      "POLL_TIMEOUT"})),
         "score_version": SCORE_VERSION,
         "score_hash": _sha(*[_file(x) for x in ("score.lua", "credit.lua", "recorder.lua", "final_state.lua",
-                                                 "outcome.lua", "bench/predicates.py", "bench/dr.py", "bench/outcomes.py")]),
+                                                 "outcome.lua", "bench/predicates.py", "bench/dr.py", "bench/outcomes.py")
+                             + tuple(s1_files.get("score", ()))]),
         "task": task, "task_hash": task_hash,
         "df": "53.16", "dfhack": "53.16-r2",
         "model": {"model": model, "price_table_hash": price_table_hash},
@@ -371,7 +390,9 @@ def compute_v3(scenario=None, days=None, *, k_actions=40, max_advance_days=28, w
     f["model_hash"] = _sha(f["model"])
     f["budget_hash"] = _sha(f["budget"])
     s = lambda k: f[k][:8]
-    f["key"] = (f"{V3_BENCH}|api={V3_API}|tools={s('tools_hash')}|sem={s('tool_semantics_hash')}|"
+    if s1:
+        f["rules_version"] = s1
+    f["key"] = (f"{V3_BENCH}|api={api}|tools={s('tools_hash')}|sem={s('tool_semantics_hash')}|"
                 f"obs={obs_schema}:{s('obs_schema_hash')}|dfset={'art' if strange_moods else 'noart'}:"
                 f"{s('df_settings_hash')}|rules=K{k_actions}.A{max_advance_days}.W{wall_s}:{s('rules_hash')}|"
                 f"score={SCORE_VERSION}:{s('score_hash')}|task={task}:{s('task_hash')}|df=53.16|dfhack=53.16-r2|"

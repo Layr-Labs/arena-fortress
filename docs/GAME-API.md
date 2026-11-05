@@ -87,7 +87,7 @@ a window.
 | method, path | what it does |
 |---|---|
 | `GET /task` | the task (as in `DFBENCH_TASK.task`), the rules (§4), the tool schemas (`tools`, OpenAI function format), the query list, the API version, and `manual`: the reference text describing tools and observation facts. The frozen MANUAL minus its advice; the advice moves to the baseline harness. The text is `gameapi/manual/MANUAL.md`, served verbatim and hashed into the v3 key (2026-10-23) |
-| `GET /observe` | the observation: **facts only** (§5), obs schema 7 = #85's schema 5 minus interpretation, plus the mood facts (only what a vanilla player sees) |
+| `GET /observe` | the observation: **facts only** (§5), obs schema 8 = #85's schema 5 minus interpretation, plus the mood facts (only what a vanilla player sees; schema 7), plus the score's edible-food count and excavated R rooms (schema 8) |
 | `POST /act` `{"tool": name, "args": {...}}` | one action. `{"ok": true, "result": {...}}` or `{"ok": false, "error_code": "...", "error": "..."}`. Also `actions_left_today`. `advance_days` returns when the days have run, or earlier at a tripwire (its result says which) or at the wall cap |
 | `GET /query/<name>?…` | read-only queries (§5.2). Never move time, never count as actions |
 | `GET /events?since_tick=N` | DF's announcements and reports since a tick, with ids and ticks (the report stream the audit found missing) |
@@ -110,7 +110,8 @@ only `advance_days` is accepted), `hands_off` (the window has begun), `game_over
   - Fey moods add the bar/glass `material` and the `cloth` kind (silk, plant, yarn).
   - No raw flags, exact materials or availability counts (`gameapi/manual/MOOD-VISIBILITY.md`). The manager's office: `administrators.manager_required_office` (DF's flag) plus the citizen count.
 - **Furniture:** `zones[].furniture` counts, plus `furniture_unzoned` counts for placed furniture outside any zone.
-- **Sites:** `map.sites: [{"id", "kind", "x", "y", "z", "w", "h", "soil", "free", "dug"}]`.
+- **Sites:** `map.sites: [{"id", "kind", "x", "y", "z", "w", "h", "soil", "free", "designated", "dug"}]`. For R rooms
+  (schema 8): `designated` = `dig_room` ordered it; `dug` = every tile of the box is floor.
 - **Advance result:** `{"ok": true, "result": {"advanced_ticks", "stopped": null | {"reason", "detail",
   "after_ticks"}}}`.
 - **Events:** `GET /events` → `{"events": [{"id", "tick", "type", "text"}]}`.

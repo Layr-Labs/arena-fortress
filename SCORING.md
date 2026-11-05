@@ -21,8 +21,8 @@ O = 100 · (s1 + s1·s2 + s1·s2·s3 + s1·s2·s3·s4) / 4
 | tier | sub-score | in short |
 |---|---|---|
 | s1 survival | `s_surv · s_sec` | deaths and insanities against the founding population; 0 if the fort is lost; halved while raiders are still on the map at the horizon |
-| s2 supply | `min(drink, food)` | food counts edible items only (not seeds or empty containers; the observation's `food_edible` is broader). Each: half the share of days in stock over the final window, half the projected days of stock left (full at 336 d) |
-| s3 wellbeing | `w_calm · w_events` | stress and needs met; tantrums, berserks and insanity zero it quickly |
+| s2 supply | `min(drink, food)` | food counts edible items only (not seeds, empty containers or raw fish), the same count as the observation's `food_edible` (schema 8). Each: half the share of days in stock over the final window, half the projected days of stock left (full at 336 d) |
+| s3 wellbeing | `w_stress · w_events` | the share of citizen-days stressed; tantrums, berserks and insanity zero it quickly. Needs met is reported, not scored (score version 7) |
 | s4 growth | housing (+ progression at 336 d) | placed beds per citizen, zoned dining seats per two citizens; on full-year games, DF progression steps weighted toward exports |
 
 A tier pays only as far as the tiers below it hold: a fort that runs dry can't buy points with furniture. Items
@@ -50,6 +50,12 @@ the same private forts. ẑ is capped at 1.5 and not floored. Both reference sco
 tools: many sites have no stone reachable with the season-0 tools, and a mood that demands stone can't be met. So every task
 except LT03 runs with DF's own `[ARTIFACTS:NO]` setting, and no strange moods occur. LT03 (and any later mood task)
 runs with moods on and uses moods that can be won on its fort; there a failed mood counts normally.
+
+**Read horizons and windows from the task, not from this file.** Each game's horizon and hands-off window are in
+`DFBENCH_TASK.task` (`days`, `hands_off`) and `GET /task`, and every response carries `days_left` (plus
+`hands_off_in_days` on a lab task). Season 0's official tasks use the published values (OP1 336 days, LT08 hands-off
+from day 39, and so on), but later seasons may vary them, for example by a few days, on games your harness hasn't
+seen. A harness that times its plans to the exact published numbers may lose points then.
 
 ## 2. Suite score
 
@@ -92,6 +98,9 @@ that in three ways rather than with very long runs or a very high bar:
 
 A stage-1-only result is shown with its stage-1 numbers and marked **not promotable** (it is recorded as
 `score: 0, partial: true` with `metrics.stage = 1`, which Yukon treats as a non-improving result, not a failure).
+Yukon's PR comment then reads "Scored **0**"; the first rows of its table, `stage2` and `leader_stage1_point`,
+say why OP1 wasn't played (your tier plays stage 1 only, or your stage-1 upper bound was below the leader's stage-1
+point) and what the bar was.
 
 ### 4.1 Confirmation (only for a submission that would be promoted)
 
@@ -107,11 +116,31 @@ published score is then the lower bound over **both batches pooled** (16 MY1 and
 A lucky draw has to be lucky twice; a real gain of a few points survives. Only would-be winners pay for it (about an
 hour more). Submissions that wouldn't be promoted are scored exactly as before (`metrics.confirmation: not_run`).
 
+**The leader plays alongside.** In the same scoring run, while the confirmation batch plays, the **current leader's
+harness** (the `submission/` on `main`) plays the very same confirmation games: the same tasks, forts and seeds, at the
+same time. The model provider's behaviour can shift from day to day (we measured a drop of 20 OP1 points for the same
+harness between two days, `runs/s0-op1-native-2026-10-28`), and a same-window comparison cancels that. Promotion then
+also needs the **paired difference** (your games minus the leader's, game by game) to be above zero at its lower
+bound. If it isn't, Yukon records the submission as non-improving (`metrics.confirmation: failed_paired`, published
+score 0, with `metrics.score_pooled` keeping the pooled value). Your published score is still your own pooled lower
+bound; `metrics.paired_diff_point`, `paired_diff_lb` and `leader_window_point` show the comparison. It costs the
+organiser one more batch (about $4–5) per would-be promotion; nothing for you.
+
 ### 4.2 The contender band, pooled scores and weekly re-scores
+
+
+**Attribution during scoring.** The judge sees your formal dependency list only if `submission/dependencies.json`
+exists or Yukon has published the submission; otherwise it judges attribution from the note and the code, records
+`attribution_verified: false` and `attribution_basis: note+code` in the metrics, and the formal list is checked after
+publication (`RULES.md` §8a). A failed check is flagged to the organisers; it never changes the recorded score by
+itself.
 
 **Contenders.** Every complete, judge-valid submission whose published score is within **3.8 points** (about one
 standard deviation of the difference between two runs) of the leader's pooled point estimate is a **contender**
-(`metrics.band: contender`, with `metrics.band_gap`, the distance to the leader). The leader is `band: leader`.
+(`metrics.band: contender`, with `metrics.band_gap`, the distance to the leader). The leader is `band: leader`. A
+submission whose run Yukon is about to promote (judge pass, confirmation passed, and Yukon's improvement rule met) is
+`band: leader-elect`: the band is computed before Yukon reads the score, and the next run re-bands everyone
+against the new leader.
 Contenders are as good as the leader within the noise of one run, so they're worth learning from too; their PRs, notes
 and attribution are as public as the leader's.
 
@@ -119,8 +148,9 @@ and attribution are as public as the leader's.
 batch, and its re-scores. The **pooled score** is the same suite score and lower bound computed over all of them. More
 games, less noise.
 
-**Weekly re-scores.** Each week the organiser re-plays the leader and up to four contenders (those most likely to be
-ahead of it) on the full private suite, and adds the games to their pools. A contender whose pooled lower bound falls
+**Weekly re-scores.** Each week the organiser re-plays the leader and the contenders most likely to be ahead of it:
+every contender with only one run whose upper bound reaches the leader's lower bound (up to eight), and otherwise up
+to four in all. They play the full private suite, and the games are added to their pools. A contender whose pooled lower bound falls
 out of the band is dropped from the list.
 
 **Leading on pooled games.** A contender whose pooled point estimate is above the leader's, with both re-scored at
@@ -129,7 +159,7 @@ decides promotion**, and the published list doesn't change it (the organiser may
 
 **The published list** (`CONTENDERS.md`, on the challenge repo's `contenders` branch, linked from the challenge page)
 shows for each contender: its pooled score, lower and upper bounds, number of runs and games, the gap to the leader,
-and a link to its PR (note, dependencies and coauthors). Aggregates only, as everywhere else.
+and a link to its PR (note, dependencies and coauthors). Aggregates only, as everywhere else. How to read a contender's note, dependencies and code, and build on it: `SUBMITTING.md` §3a.
 
 ## 5. What `score.json` reports
 
@@ -140,9 +170,28 @@ Next to the scalar, every submission reports (per task and overall):
   `wall_capped` games, actions used and rejected;
 - the stage reached, the comparability key (`dfbench/v3`) and your harness's source digest.
 - `confirmation` (passed, failed or not_run) and, after a confirmation, `score_first_batch`;
-- `band` (leader, contender or none), `band_gap`, `band_leader_point`, `pooled_point`, `pooled_lb95`, `pooled_runs`.
+- `band` (leader, leader-elect, contender or none), `band_gap`, `band_leader_point`, `pooled_point`, `pooled_lb95`, `pooled_runs`.
+- after a confirmation, the paired comparison with the leader: `paired_diff_point`, `paired_diff_lb`,
+  `leader_window_point`, `challenger_window_point`, `paired_games`, `leader_verified`;
+- provider evidence (§6.1): `model_latency_s_per_call`, `reasoning_tokens_per_call`, `completion_tokens_per_call`,
+  `route_*` and `drift_*`.
 
 Per-game and per-seed details of the private pool are not published during the season.
+
+### 6.1 Provider drift (report only)
+
+The model is served by one pinned provider (Together, no fallbacks), and we check that it was: every run records a
+**routing fingerprint** from a sample of its calls (`route_model_snapshot`, `route_endpoint_id`, `route_providers`,
+`route_regions`, `route_attempts_max`, `route_fallbacks`, and `route_consistent`). What a pin can't fix is the
+deployment behind the provider's endpoint, so every run also compares its own early-game calls with the season's
+reference run (the import baseline): reasoning tokens and which tool the model chose, on identical requests
+(`drift_reasoning_ratio`, `drift_ks_p`, `drift_tool_mix_p`, `drift_flag`: none, watch, alert or n/a; `drift_basis` says
+what it compared: `same-harness`, `matched:<n>` identical requests, `no-matching-requests` or `no-reference`). The
+check is for **re-scores of the same harness** (the baseline, the weekly re-scores): a different submission sends
+different requests, so it normally gets `n/a` with `no-matching-requests`. These metrics
+never change a score. They tell the organiser and you when official numbers were taken in a different provider
+"weather" than earlier ones; the leader-alongside confirmation (§4.1) is what protects promotions from it. Compare
+your own local runs in the same session (`dfbench-tk compare`).
 
 ## 6. Infra failures
 

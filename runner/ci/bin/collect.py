@@ -9,7 +9,10 @@ Stdlib only; never reads harness output; prints only game ids, statuses and coun
                                                          best attempt (ok over infra, then the latest attempt); a
                                                          game whose DF crashed on two attempts gets crash_twice
   finalize SCORE_JSON STAGE1_POINT OUT                   copy score.json, add flat metrics stage1_point and
-                                                         workflow_run, check the Yukon shape ({score, metrics})
+                                                         workflow_run, check the Yukon shape ({score, metrics});
+                                                         with DFBENCH_LEADER_S1 etc. set (score.yml), also `stage2`
+                                                         (why OP1 was or wasn't played) and leader_stage1_point,
+                                                         first in the table on a stage-1-only result
   pool-verdict POOLED FIRST LEADER_SCORE BIPS MAX_INFRA  the confirmation verdict on the pooled score (both batches):
                                                          adds metrics score_first_batch, lb95_first_batch and
                                                          confirmation passed|failed; prints infra_fail=, score=
@@ -100,7 +103,7 @@ def crash_twice(causes):
     return sum(1 for c in causes if c == "game") >= 2
 
 
-def finalize(score_json, stage1_point, out):
+def finalize(score_json, stage1_point, out, env=os.environ):
     s = json.load(open(score_json))
     if not isinstance(s.get("score"), (int, float)) or not isinstance(s.get("metrics"), dict):
         sys.exit("finalize: score.json is not {score: number, metrics: {...}}")
@@ -108,7 +111,15 @@ def finalize(score_json, stage1_point, out):
         if isinstance(v, (dict, list)) and k != "harness_digest":
             sys.exit(f"finalize: metric {k} is nested; Yukon shows one row per flat key")
     s["metrics"]["stage1_point"] = float(stage1_point) if stage1_point not in ("", None) else None
-    s["metrics"]["workflow_run"] = f"{os.environ.get('GITHUB_RUN_ID', '')}/{os.environ.get('GITHUB_RUN_ATTEMPT', '')}"
+    s["metrics"]["workflow_run"] = f"{env.get('GITHUB_RUN_ID', '')}/{env.get('GITHUB_RUN_ATTEMPT', '')}"
+    if "DFBENCH_FULL_SUITE" in env:          # set by score.yml; Yukon's comment lists metrics in this order
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from gate import _num, stage2_note
+        m = s["metrics"]
+        note = stage2_note(m.get("stage"), env.get("DFBENCH_FULL_SUITE"), env.get("DFBENCH_TIER", ""),
+                           env.get("DFBENCH_RUN_STAGE2"), env.get("DFBENCH_STAGE1_UB95"), env.get("DFBENCH_LEADER_S1"))
+        add = {"stage2": note, "leader_stage1_point": _num(env.get("DFBENCH_LEADER_S1"))}
+        s["metrics"] = {**add, **m} if m.get("stage") != 2 else {**m, **add}
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     json.dump(s, open(out, "w"), indent=1)
     print(f"finalize: score {s['score']} stage {s['metrics'].get('stage')} -> {out}")

@@ -82,6 +82,13 @@ def load_prices(path):
     return table, "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
+def tool_names(resp):
+    """The names of the tools a response called, in order (names only, never arguments): the drift check's tool mix
+    (runner/ci/bin/drift.py)."""
+    msg = (((resp.get("choices") or [{}])[0] or {}).get("message") or {})
+    return [str(((c or {}).get("function") or {}).get("name"))[:64] for c in (msg.get("tool_calls") or [])][:8]
+
+
 def price_usage(usage, price):
     """Tokens and cost from an upstream usage object, or None when it can't be priced (fail closed).
 
@@ -523,7 +530,8 @@ class Handler(BaseHTTPRequestHandler):
             row.update(priced, outcome="ok" if status == 200 else "upstream_error",
                        provider=prov, generation_id=resp.get("id"),
                        provider_mismatch=bool(want and prov and str(prov).lower() != want.lower()),
-                       finish_reason=((resp.get("choices") or [{}])[0] or {}).get("finish_reason"))
+                       finish_reason=((resp.get("choices") or [{}])[0] or {}).get("finish_reason"),
+                       tools_called=tool_names(resp))
             if row["outcome"] == "upstream_error":
                 row["error"] = str((resp.get("error") or {}).get("message", ""))[:200]
             row["exceeded_reservation"] = priced["cost_usd"] > est

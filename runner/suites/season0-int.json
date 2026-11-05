@@ -1,0 +1,116 @@
+{
+ "schema": "dfbench-suite/1",
+ "name": "season0-int",
+ "description": "Internal testing suite (the internal test repo on Yukon dev): the season-0 suite's tasks, n, weights, staging and scoring, played on the PUBLIC-seed forts (pool s0-int: fort-worked-y1 / fort-neglected-y1 / my1-d120 seeds 2001, 2002, 2005 and the seed-built default fort 12345 for OP1), never on the season-0 private pool, so internal testers get no feedback on the hidden forts (D25).",
+ "seed": 12345,
+ "rules": {
+  "actions_per_game_day": 40,
+  "max_advance_days": 28
+ },
+ "budget_usd_per_game_year": 0.5,
+ "wall_s_per_game_year": 5400,
+ "weights": {
+  "OP1": 0.5,
+  "MY1": 0.3,
+  "labs": 0.2
+ },
+ "confirm_tasks": ["MY1", "OP1"],
+ "bootstrap": {
+  "resamples": 10000,
+  "seed": 20261023,
+  "alpha": 0.05
+ },
+ "lab_z": {
+  "cap": 1.5,
+  "floor": null,
+  "note": "BENCHMARK-v1 \u00a73.2: capped at 1.5, not floored (harm shows)"
+ },
+ "infra": {
+  "max_upstream_error_share": 0.1,
+  "max_throttle_share": 0.5,
+  "note": "a game is an infra re-run if usage was unknown on any call, provider-side upstream errors (5xx, 429, unreachable; not 4xx) exceed 10% of >= 10 calls, or throttle waits exceed half the game's wall time"
+ },
+ "staging": {
+  "stage2": "run OP1 only if the stage-1 ub95 >= the leader's stage-1 point (--leader-stage1); always if unset"
+ },
+ "anchors_note": "lab z: noop 0 / witness 1 on mean partial (bench/predicates.py). Native x86_64, GitHub-hosted (anchors.yml run 40640399652 on the internal test repo, 2026-10-28), n 8 per arm, on the internal PUBLIC-fort pool s0-int: noop LT01 0 / LT02 0 / LT03 0 / LT08 0.7258; witness LT01 1.0 / LT02 0.9466 / LT03 1.0 / LT08 0.9852. Internal testing only; never the season-0 private pool",
+ "tasks": [
+  {
+   "id": "LT01",
+   "kind": "lab",
+   "family": "labs",
+   "predicate": "LT01",
+   "scenario": "scenarios/season0/lt01-drought.json",
+   "n": 8,
+   "stage": 1,
+   "wall_s": 1800,
+   "anchor": {
+    "noop": 0.0,
+    "witness": 1.0
+   }
+  },
+  {
+   "id": "LT02",
+   "kind": "lab",
+   "family": "labs",
+   "predicate": "LT02",
+   "scenario": "scenarios/season0/lt02-rescue-neglected.json",
+   "n": 8,
+   "stage": 1,
+   "wall_s": 1800,
+   "anchor": {
+    "noop": 0.0,
+    "witness": 0.9466
+   }
+  },
+  {
+   "id": "LT03",
+   "kind": "lab",
+   "family": "labs",
+   "predicate": "LT03",
+   "scenario": "scenarios/season0/lt03-mood-artifact.json",
+   "n": 8,
+   "stage": 1,
+   "wall_s": 1800,
+   "strange_moods": true,
+   "anchor": {
+    "noop": 0.0,
+    "witness": 1.0
+   }
+  },
+  {
+   "id": "LT08",
+   "kind": "lab",
+   "family": "labs",
+   "predicate": "LT08",
+   "scenario": "scenarios/season0/lt08-migrant-surge.json",
+   "n": 8,
+   "stage": 1,
+   "wall_s": 1800,
+   "anchor": {
+    "noop": 0.7258,
+    "witness": 0.9852
+   }
+  },
+  {
+   "id": "MY1",
+   "kind": "outcome",
+   "family": "MY1",
+   "scenario": "scenarios/season0/my1-handover-lean.json",
+   "n": 8,
+   "stage": 1,
+   "wall_s": 3600
+  },
+  {
+   "id": "OP1",
+   "kind": "outcome",
+   "family": "OP1",
+   "scenario": "scenarios/season0/op1-start-year.json",
+   "days": 336,
+   "n": 8,
+   "stage": 2,
+   "wall_s": 5400
+  }
+ ],
+ "pool": "test-public s0-int (public seeds)"
+}

@@ -17,7 +17,7 @@ from . import tools as T
 from .dfhack import LUA_DIR, DFHack, compact, lua_json
 from .sites import SiteState
 
-OBS_SCHEMA = 7
+OBS_SCHEMA = 8
 API_VERSION = "v0"
 # result fields that are advice, never returned (bench/ablate.py's INT set for results)
 ADVICE_KEYS = {"hint", "note", "reminder", "warning", "valid", "valid_tools", "nearest_free_centre", "short"}

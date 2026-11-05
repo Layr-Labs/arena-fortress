@@ -39,6 +39,10 @@ def emit(score, mode="scalar", dossier=None, override=None, actor=None, not_run=
     m.update(extra or {})
     verdict, note = verdict_of(dossier, override, actor, not_run)
     m["judge_verdict"] = verdict if verdict != "not_run" else f"not_run: {note}"
+    att = (dossier or {}).get("attribution") or {}
+    if att:                 # how attribution was judged (verified after publication when false)
+        m["attribution_verified"] = bool(att.get("verified"))
+        m["attribution_basis"] = str(att.get("basis") or "")
     if note and verdict != "not_run":
         m["judge_note"] = note
     if mode == "pareto":

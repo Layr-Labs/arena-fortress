@@ -59,6 +59,7 @@ on:
       force_stage2: {description: "organiser: run stage 2 whatever the gate says", type: boolean, required: false, default: false}
       keep_harness_logs: {description: "organiser: keep harness stdout/stderr (sealed, ops store only)", type: boolean, required: false, default: false}
       judge_override: {description: "organiser: pass|fail; needs merge_from_run; re-scores stored games, no play", type: string, required: false, default: ""}
+      harness_from_run: {description: "organiser: run id whose harness-image artifact to reuse (if retained and built from this tree)", type: string, required: false, default: ""}
 
 permissions:
   contents: read
@@ -71,6 +72,9 @@ env:
   SEASON: ${{ vars.DFBENCH_SEASON || 's0' }}        # the ledger's season id: s0-dev on Yukon dev, s0 on prod (D17)
   SCORE_SUITE: ${{ vars.DFBENCH_SCORE_SUITE || 'runner/suites/season0.json' }}   # public ids/weights/anchors
   OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}               # organiser-only store
+  # result labels in score.json (runner/dfbenchlib/score.py result_labels): this workflow's scores are official runs
+  DFBENCH_RESULT_KIND: official
+  DFBENCH_STACK: ${{ vars.DFBENCH_STACK || 'real' }}
 
 jobs:
   admit:
@@ -79,7 +83,7 @@ jobs:
     environment: dfbench-score       # DFBENCH_OPS_TOKEN (ops store only), YUKON_API_KEY
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write     # only the last step uses write: it tells the submitter why admission failed
     outputs:
       stage1: ${{ steps.plan.outputs.stage1 }}
       stage2: ${{ steps.plan.outputs.stage2 }}
@@ -111,10 +115,24 @@ jobs:
             perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" -q .permission 2>/dev/null || echo unknown);;
           esac
           python3 -I runner/ci/bin/dispatch.py guard --actor "$ACTOR" --apps "$APPS" --permission "$perm"
+      - name: Attribution checks after publication (earlier submissions; report only, never fatal)
+        # Yukon hides declared dependencies until a submission is published, so the judge often scores with the
+        # formal list hidden (attribution_verified: false). By now earlier ones are published: re-check them
+        # against what the judge recorded (runner/ci/bin/attribution_verify.py; RUNBOOK §2.6).
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+        run: python3 -I runner/ci/bin/attribution_verify.py check --comment
       - id: kind
         name: Submission or baseline (from the dispatched ref; anything else is refused)
         run: python3 -I runner/ci/bin/dispatch.py classify --ref "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --out-dir "$RUNNER_TEMP/who" >> "$GITHUB_OUTPUT"
-      - name: Trusted paths (only submission/ may differ)
+      - id: trusted
+        name: Trusted paths (only submission/ may differ)
         # main moves on every promotion (an accepted submission fast-forwards main, so the next submissions start
         # from the leader's harness), so there is no fixed baseline commit. Two checks instead:
         #  1. the PR changes only submission/: diff against the PR's base, i.e. the merge-base with main;
@@ -131,7 +149,8 @@ jobs:
           got=$(git ls-tree HEAD | grep -v "$(printf '\tsubmission$')" | sha256sum | cut -d' ' -f1)
           [ "$got" = "$WANT" ] || { echo "::error::trusted tree $got is not the pinned $WANT (stale base, or a new export without the variable)"; exit 1; }
           echo "trusted tree OK; base $(git rev-parse --short "$base")"
-      - name: Screen submission/
+      - id: screen
+        name: Screen submission/
         run: |
           test -f submission/Dockerfile || { echo "::error::submission/Dockerfile missing"; exit 1; }
           du -sh submission
@@ -167,7 +186,7 @@ jobs:
           r = json.load(open(sys.argv[1])); l = r["limits"]
           for k, v in (("submission", r["submission"]), ("user", r["username"]), ("tier", r["tier"]),
                        ("in_flight", l["in_flight"]), ("weekly", l["weekly"]), ("suite", l["suite"]),
-                       ("benchmark", r["benchmark_id"])):
+                       ("season_cap", l.get("season") or 0), ("benchmark", r["benchmark_id"])):
               print(f"{k}={v}")
           EOF
       - id: ledger
@@ -184,8 +203,21 @@ jobs:
           r=$(python3 -I runner/ci/bin/ledger.py admit --submission "${{ steps.who.outputs.submission }}" \
                 --user "${{ steps.who.outputs.user }}" --in-flight "${{ steps.who.outputs.in_flight }}" \
                 --weekly "${{ steps.who.outputs.weekly }}" --suite "${{ steps.who.outputs.suite }}" \
+                --season-cap "${{ steps.who.outputs.season_cap || 0 }}" \
                 --global "$GLOBAL" --run "$GITHUB_RUN_ID" --tree "$(git rev-parse HEAD:submission)" "${extra[@]}")
           echo "$r"
+          echo "$r" > "$RUNNER_TEMP/who/admit.json"       # the PR comments read it (quota, retry_of, reason)
+          python3 -I - "$RUNNER_TEMP/who/admit.json" <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          r = json.load(open(sys.argv[1])); q = r.get("quota") or {}
+          print("### Admission: " + ("admitted" if r["admitted"] else "not admitted (not counted)"))
+          print(f"- {r['reason']}")
+          if q:
+              print(f"- this attempt {'counts' if q['counts'] else 'does not count'}: {q['weekly_used']}/{q['weekly_limit']} "
+                    f"this week, {q['season_used']}/{q['season_cap'] or 'no cap'} this season")
+          if r.get("retry_of"):
+              print(f"- a retry of {r['retry_of']} (infra failure, not counted)")
+          EOF
           [ "$(echo "$r" | python3 -I -c 'import json,sys;print(json.load(sys.stdin)["admitted"])')" = True ] || {
             echo "::error::not admitted: $(echo "$r" | python3 -I -c 'import json,sys;print(json.load(sys.stdin)["reason"])')"; exit 1; }
           echo "full_suite=$(echo "$r" | python3 -I -c 'import json,sys;print(str(json.load(sys.stdin)["full_suite"]).lower())')" >> "$GITHUB_OUTPUT"
@@ -231,36 +263,228 @@ jobs:
           n() { python3 -I -c 'import json,sys;print(len(json.loads(sys.argv[1])["include"]))' "$1"; }
           echo "n1=$(n "$s1")" >> "$GITHUB_OUTPUT"; echo "n2=$(n "$s2")" >> "$GITHUB_OUTPUT"
           python3 -I -c 'import json,sys;print("plan:", len(json.loads(sys.argv[1])["include"]), "stage-1 jobs,", len(json.loads(sys.argv[2])["include"]), "stage-2 jobs")' "$s1" "$s2"
+      - name: Tell the submitter (not scored, not counted)
+        # a failed admission leaves the ledger untouched; Yukon's own comment says only "benchmark_failed", so say
+        # why on the submission's PR before the run ends (tester feedback, 2026-10-28). Never changes the outcome.
+        if: failure() && steps.kind.outputs.kind == 'submission'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          TRUSTED: ${{ steps.trusted.outcome }}
+          SCREEN: ${{ steps.screen.outcome }}
+          WHO: ${{ steps.who.outcome }}
+          LEDGER: ${{ steps.ledger.outcome }}
+          OPS_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          W="$RUNNER_TEMP/who"
+          if   [ "$TRUSTED" = failure ]; then why="the submission changes files outside submission/, or was built on an older version of the challenge (stale base). Re-clone with \`yukon clone\` and resubmit. (Resolved by: you.)"
+          elif [ "$SCREEN" = failure ];  then why="submission/ has no Dockerfile, or contains credential-like files or something that looks like an API key. Fix it and resubmit. (Resolved by: you.)"
+          elif [ "$WHO" = failure ] && [ -f "$W/admit_error.json" ]; then why=$(python3 -I runner/ci/bin/failure.py render --file "$W/admit_error.json" --format comment)
+          elif [ "$WHO" = failure ];     then why="an infra failure on our side: we couldn't look up your submission or tier on Yukon or GitHub. Please resubmit. (Resolved by: organiser.)"
+          elif [ "$LEDGER" = failure ] && [ -f "$W/admit.json" ]; then why="$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["reason"])' "$W/admit.json") (Your limits: RULES.md §7.)"
+          elif [ "$LEDGER" = failure ];  then why="your submission limits (RULES.md §7) don't allow another submission right now, or the ledger couldn't be read."
+          else why="an admission step failed (see the run)."; fi
+          # an infra failure before admission: record it (infra_failed, not counted), so a resubmission of the same
+          # tree is linked to it (ledger.py infra)
+          if [ "$WHO" = failure ] && [ -f "$W/partial.json" ]; then
+            u=$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["username"])' "$W/partial.json")
+            GITHUB_TOKEN="$OPS_TOKEN" DFBENCH_OPS_REPO="$OPS_REPO" DFBENCH_SEASON="$SEASON" python3 -I runner/ci/bin/ledger.py infra \
+              --submission "${GITHUB_REF_NAME#submissions/}" --user "$u" --tree "$(git rev-parse HEAD:submission)" --run "$GITHUB_RUN_ID" \
+              --reason "$(python3 -I runner/ci/bin/failure.py render --file "$W/admit_error.json" --format log 2>/dev/null || echo admission)" || true
+          fi
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --json number -q '.[0].number')
+          [ -n "$pr" ] || { echo "no PR for $BRANCH"; exit 0; }
+          gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body "**Not scored, and not counted against your limits.** Admission stopped before your harness was built: $why
+          Run: $RUN_URL"
+      - name: Tell the submitter (admitted; quota)
+        # what this attempt costs the submitter, and the link to an earlier infra-failed attempt of the same tree
+        if: success() && steps.kind.outputs.kind == 'submission'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TIER: ${{ steps.who.outputs.tier }}
+          FULL: ${{ steps.ledger.outputs.full_suite }}
+        run: |
+          set -euo pipefail
+          body=$(python3 -I - "$RUNNER_TEMP/who/admit.json" <<'EOF'
+          import json, os, sys
+          r = json.load(open(sys.argv[1])); q = r.get("quota") or {}
+          s = (f"**Admitted** (tier `{os.environ['TIER']}`, {'full suite' if os.environ['FULL'] == 'true' else 'stage 1 only'}). "
+               f"This attempt counts: {q.get('weekly_used')}/{q.get('weekly_limit')} this week, "
+               f"{q.get('season_used')}/{q.get('season_cap') or 'no cap'} this season.")
+          if r.get("retry_of"):
+              s += f" It's a retry of `{r['retry_of']}`, whose infra failure wasn't counted."
+          print(s + f"\nScoring takes about 1-1.5 h. Run: {os.environ['RUN_URL']}")
+          EOF
+          )
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --json number -q '.[0].number')
+          [ -z "$pr" ] || gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body "$body"
 
   harness:
     needs: admit
     runs-on: ubuntu-24.04          # always GitHub-hosted: untrusted Dockerfile, a fresh VM, no secrets in the job
     timeout-minutes: 45
+    permissions: {contents: read, actions: read}     # actions: read only to fetch an earlier run's harness-image
     outputs:
       image_id: ${{ steps.build.outputs.image_id }}
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with: {persist-credentials: false}
+      - name: Reuse an earlier run's harness image (organiser re-run; RUNBOOK §2.2)
+        if: inputs.harness_from_run != ''
+        continue-on-error: true            # expired or missing: the next step builds it
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333   # v8.0.2
+        with: {name: harness-image, path: prev-img, run-id: "${{ inputs.harness_from_run }}", github-token: "${{ github.token }}"}
       - id: build
         name: Build the harness (no secrets; pinned public dependencies may be fetched)
         run: |
           set -euo pipefail
           D=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
-          env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
+          mkdir -p img
+          if [ -f prev-img/harness-image.tar.gz ] && [ "$(cat prev-img/digest.txt 2>/dev/null)" = "$D" ]; then
+            echo "reusing the harness image of run ${{ inputs.harness_from_run }} (same submission/ digest $D)"
+            gunzip -c prev-img/harness-image.tar.gz | docker load
+            mv prev-img/harness-image.tar.gz img/harness-image.tar.gz
+          else
+            [ ! -d prev-img ] || echo "the earlier run's image isn't from this submission/ (or has no digest): rebuilding"
+            env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
+          fi
           size=$(docker image inspect -f '{{.Size}}' dfbench-harness:submission)
           [ "$size" -le $(( ${{ vars.DFBENCH_MAX_IMAGE_GB || 4 }} * 1024 * 1024 * 1024 )) ] || {
             echo "::error::harness image is $((size / 1048576)) MiB, over the cap"; exit 1; }
-          mkdir -p img && docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
+          [ -f img/harness-image.tar.gz ] || docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
+          echo "$D" > img/digest.txt        # lets an organiser re-run reuse this image (harness_from_run)
           echo "image_id=$(docker image inspect -f '{{.Id}}' dfbench-harness:submission)" >> "$GITHUB_OUTPUT"
           echo "digest=$D" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
-        with: {name: harness-image, path: img/harness-image.tar.gz, retention-days: 1, compression-level: 0}
+        with: {name: harness-image, path: img/, retention-days: 1, compression-level: 0}
+
+  early-judge:
+    # The judge before any game (vars.DFBENCH_JUDGE_EARLY; RULES.md §8a): in parallel with the harness build, so it adds
+    # no wall time. A fail or hold stops the run here (early-reject); an error of the judge itself (no dossier) lets the
+    # games run and the end-of-run judge decide as before. The incumbent seen now is recorded so the end-of-run judge can
+    # reuse this dossier only if the incumbent hasn't changed.
+    needs: admit
+    if: ${{ vars.DFBENCH_JUDGE_EARLY == 'true' && needs.admit.outputs.kind != 'baseline' && inputs.judge_override == '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: dfbench-score       # DFBENCH_JUDGE_OPENROUTER_KEY (judge step only), DFBENCH_OPS_TOKEN, YUKON_API_KEY
+    permissions: {contents: read, pull-requests: write}       # the early verdict comment on the submission PR
+    outputs:
+      verdict: ${{ steps.v.outputs.verdict }}
+      go: ${{ steps.v.outputs.go }}
+      leader_id: ${{ steps.lead.outputs.leader_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {fetch-depth: 0, persist-credentials: false}
+      - name: Inputs (submitter, note, declared dependencies)
+        env: {GH_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}"}
+        run: |
+          set -euo pipefail
+          mkdir -p je/who
+          gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p submitter.tgz -D je
+          tar -xzf je/submitter.tgz -C je/who
+      - id: lead
+        name: "The incumbent now (unknown if Yukon can't be read; the end-of-run judge then always runs again)"
+        env:
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+        run: |
+          lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "${{ needs.admit.outputs.benchmark }}" 2>/dev/null \
+                  | sed -n 's/^leader_id=//p' || true)
+          echo "leader_id=${lid:-unknown}" >> "$GITHUB_OUTPUT"
+      - name: Prior work (public data only)
+        env:
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+        run: bash runner/ci/bin/judge_run.sh prior je
+      - name: Judge (runner/judge; its own key, only in this step)
+        continue-on-error: true      # a crashed judge leaves no dossier -> error: the games run, the end-of-run judge decides
+        env:
+          DFBENCH_JUDGE_OPENROUTER_KEY: ${{ secrets.DFBENCH_JUDGE_OPENROUTER_KEY }}
+          DFBENCH_JUDGE_MODEL: ${{ vars.DFBENCH_JUDGE_MODEL }}
+        run: bash runner/ci/bin/judge_run.sh judge je
+      - id: v
+        if: always()
+        run: |
+          python3 -I runner/ci/bin/early_judge.py verdict je/dossier.json >> "$GITHUB_OUTPUT"
+          python3 -I runner/ci/bin/early_judge.py verdict je/dossier.json
+      - name: Early dossier -> the ops store (dossier-early.json, summary-early.md)
+        if: always()
+        env: {GH_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}"}
+        run: |
+          mkdir -p je-out
+          [ -s je/dossier.json ] && cp je/dossier.json je-out/dossier-early.json
+          [ -s je/summary.md ] && cp je/summary.md je-out/summary-early.md
+          ls je-out/* >/dev/null 2>&1 && gh release upload "run-$GITHUB_RUN_ID" -R "$OPS_REPO" --clobber je-out/* || true
+      - name: Early verdict on the submission PR
+        if: always()
+        continue-on-error: true      # a failed comment must not stop the run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERDICT: ${{ steps.v.outputs.verdict }}
+        run: |
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$GITHUB_REF_NAME" --state all --json number -q '.[0].number')
+          [ -n "$pr" ] || exit 0
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          case "$VERDICT" in
+            pass) printf '**dfbench judge (before the games): pass.** Your games are starting. If your score would be promoted and the leader changes while they play, the judge checks attribution again at the end.\n\nRun: %s\n' "$run" > je/comment.md ;;
+            fail|hold) { echo "**dfbench judge (before the games): $VERDICT.** No games were played. This attempt counts against your limits; a hold is final for this submission (RULES.md §8a). If you think the judge is wrong, contact the organisers."; echo
+                         [ -s je/summary.md ] && head -c 60000 je/summary.md || echo "(no judge summary)"; echo; echo "Run: $run"; } > je/comment.md ;;
+            *) printf '**dfbench judge (before the games): not available** (an error on our side). Your games run as usual and the judge runs after scoring.\n\nRun: %s\n' "$run" > je/comment.md ;;
+          esac
+          gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body-file je/comment.md
+
+  early-reject:
+    # The early judge failed or held the submission: no games. Emit the score Yukon reads (0, partial, with the verdict)
+    # and record the attempt as counted (`rejected`: a result exists, so an identical tree isn't re-admitted).
+    needs: [admit, early-judge]
+    if: ${{ !cancelled() && needs.early-judge.outputs.go == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: dfbench-score
+    permissions: {contents: read}
+    env:
+      SCORE_MODE: ${{ vars.DFBENCH_SCORE_MODE || 'scalar' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false, sparse-checkout: runner/ci/bin}
+      - name: Emit the score Yukon reads (0, partial; the early verdict)
+        env:
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          TIER: ${{ needs.admit.outputs.tier }}
+        run: |
+          set -euo pipefail
+          mkdir -p j
+          gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p dossier-early.json -D j
+          python3 -I runner/ci/bin/early_judge.py stub j/stub.json
+          python3 -I runner/ci/bin/emit_score.py --mode "$SCORE_MODE" --score j/stub.json --dossier j/dossier-early.json \
+            --out .yukon/score.json --set "submitter_tier=$TIER" --set "confirmation=not_run: no games"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with: {name: dfbench-score, path: .yukon/score.json, retention-days: 90, include-hidden-files: true, if-no-files-found: error}
+      - name: "Ledger (counted; rejected before any game)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+        run: |
+          python3 -I runner/ci/bin/ledger.py finish --submission "${{ needs.admit.outputs.submission }}" --status rejected \
+            --score 0 --stage 0 --run "$GITHUB_RUN_ID"
 
   s1:
     permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
-    needs: [admit, harness]
-    if: needs.admit.outputs.n1 != '0'
+    needs: [admit, harness, early-judge]
+    # early-judge skipped (off, baseline, override) or errored: play; stopped only on its fail or hold
+    if: ${{ !cancelled() && needs.admit.result == 'success' && needs.harness.result == 'success' && needs.admit.outputs.n1 != '0' && needs.early-judge.outputs.go != 'false' }}
     uses: ./.github/workflows/play.yml
     with:
       matrix: ${{ needs.admit.outputs.stage1 }}
@@ -273,8 +497,8 @@ jobs:
     secrets: inherit
 
   s1-check:
-    needs: [admit, harness, s1]
-    if: ${{ !cancelled() && needs.harness.result != 'failure' && needs.admit.result == 'success' }}
+    needs: [admit, harness, s1, early-judge]
+    if: ${{ !cancelled() && needs.harness.result != 'failure' && needs.admit.result == 'success' && needs.early-judge.outputs.go != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: dfbench-score
@@ -320,6 +544,7 @@ jobs:
     outputs:
       run_stage2: ${{ steps.gate.outputs.run_stage2 }}
       stage1_point: ${{ steps.gate.outputs.stage1_point }}
+      stage1_ub95: ${{ steps.gate.outputs.stage1_ub95 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with: {persist-credentials: false}
@@ -422,6 +647,12 @@ jobs:
         env:
           STAGE1_POINT: ${{ needs.gate.outputs.stage1_point }}
           MAX_INFRA: ${{ vars.DFBENCH_MAX_INFRA_GAMES || '2' }}
+          # the `stage2` metric (collect.py finalize): why OP1 was or wasn't played, for the submitter
+          DFBENCH_FULL_SUITE: ${{ needs.admit.outputs.full_suite }}
+          DFBENCH_TIER: ${{ needs.admit.outputs.tier }}
+          DFBENCH_RUN_STAGE2: ${{ needs.gate.outputs.run_stage2 }}
+          DFBENCH_STAGE1_UB95: ${{ needs.gate.outputs.stage1_ub95 }}
+          DFBENCH_LEADER_S1: ${{ needs.admit.outputs.leader }}
         run: |
           set -euo pipefail
           python3 -I runner/dfbench score out/games --suite "$SCORE_SUITE" > /dev/null
@@ -442,6 +673,19 @@ jobs:
           python3 -I runner/ci/bin/ledger.py finish --submission "${{ needs.admit.outputs.submission }}" --status infra_failed --run "$GITHUB_RUN_ID"
           echo "::error::more than ${{ vars.DFBENCH_MAX_INFRA_GAMES || '2' }} games failed for infra reasons; not scored (resubmit; it doesn't count)"
           exit 1
+      - name: Provider-drift evidence (routing fingerprint + the run's own calls vs the season reference; report only, D26)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}     # OpenRouter's generation records only
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          KIND: ${{ needs.admit.outputs.kind }}
+          SUB: ${{ needs.admit.outputs.submission }}
+        run: |
+          # the baseline writes the season reference; a submission's first scored run writes its own reference
+          # (drift_refs/<id>.json), which the weekly same-harness re-scores compare against (rescore.yml)
+          w=(); [ "$KIND" = baseline ] && w=(--write-reference) || w=(--submission "$SUB")
+          python3 -I runner/ci/bin/drift.py evidence --games out/games --scored scored/scored.json --run "$GITHUB_RUN_ID" "${w[@]}" || true
       - name: The trusted score -> the ops store (the judge job turns it into dfbench-score); per-game detail sealed
         env: {GH_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}", SEAL_KEY: "${{ secrets.DFBENCH_SEAL_KEY }}"}
         run: |
@@ -459,7 +703,7 @@ jobs:
           KIND: ${{ needs.admit.outputs.kind }}
           OVERRIDE: ${{ inputs.judge_override }}
           CONFIRM: ${{ vars.DFBENCH_CONFIRM || 'true' }}
-          TASKS: ${{ vars.DFBENCH_CONFIRM_TASKS || 'MY1,OP1' }}
+          TASKS: ${{ vars.DFBENCH_CONFIRM_TASKS || '' }}     # empty: the suite's confirm_tasks
           PLAN1: ${{ needs.admit.outputs.stage1 }}
           PLAN2: ${{ needs.admit.outputs.stage2 }}
         run: |
@@ -545,8 +789,88 @@ jobs:
       keep_harness_logs: ${{ inputs.keep_harness_logs || false }}
     secrets: inherit
 
+  # ---- the leader alongside the challenger (D26): main's submission/ (promotions fast-forward main) plays the same
+  # confirmation games in the same window, so provider-side drift cancels in the paired difference (paired.py) ----
+  leader-harness:
+    needs: aggregate
+    if: ${{ !cancelled() && needs.aggregate.outputs.confirm == 'true' && vars.DFBENCH_CONFIRM_PAIRED != 'false' }}
+    runs-on: ubuntu-24.04          # like `harness`: a fresh VM, no secrets, no environment
+    timeout-minutes: 45
+    outputs:
+      sha: ${{ steps.build.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false, ref: "${{ github.event.repository.default_branch }}"}
+      - id: build
+        name: Build the leader's harness (main's submission/; no secrets)
+        run: |
+          set -euo pipefail
+          D=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+          env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
+          mkdir -p img && docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
+          docker image inspect -f '{{.Id}}' dfbench-harness:submission > img/image_id.txt
+          printf '%s' "$D" > img/digest.txt
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with: {name: leader-image, path: img/, retention-days: 1, compression-level: 0}
+
+  c1-leader:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
+    needs: [aggregate, leader-harness]
+    if: ${{ !cancelled() && needs.leader-harness.result == 'success' }}
+    uses: ./.github/workflows/play.yml
+    with:
+      matrix: ${{ needs.aggregate.outputs.confirm_matrix }}
+      stage: 3
+      attempt: 1
+      runs_on: ${{ vars.DFBENCH_RUNS_ON_S2 || vars.DFBENCH_RUNS_ON_S1 || '"ubuntu-24.04"' }}
+      harness_image_id: from-artifact
+      harness_digest: from-artifact
+      harness_artifact: leader-image
+      tag_prefix: L-                 # bundles games-L-s3-* and status-L-s3-*: kept apart from the challenger's
+    secrets: inherit
+
+  c1-leader-check:
+    needs: [aggregate, c1-leader]
+    if: ${{ !cancelled() && needs.c1-leader.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: dfbench-score
+    outputs:
+      retry: ${{ steps.r.outputs.retry }}
+      any: ${{ steps.r.outputs.any }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with: {persist-credentials: false, sparse-checkout: runner/ci/bin}
+      - id: r
+        env:
+          PLAN: ${{ needs.aggregate.outputs.confirm_matrix }}
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+        run: |
+          mkdir -p st
+          gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p "status-L-s3-*" -D st 2>/dev/null || true
+          m=$(python3 -I runner/ci/bin/collect.py retry "$PLAN" st)
+          echo "retry=$m" >> "$GITHUB_OUTPUT"
+          echo "any=$(python3 -I -c 'import json,sys;print(str(bool(json.loads(sys.argv[1])["include"])).lower())' "$m")" >> "$GITHUB_OUTPUT"
+
+  c1-leader-retry:
+    permissions: {contents: read, packages: read}   # play.yml pulls the trusted images; a caller must grant what the nested workflow asks for
+    needs: [c1-leader-check]
+    if: ${{ !cancelled() && needs.c1-leader-check.outputs.any == 'true' }}
+    uses: ./.github/workflows/play.yml
+    with:
+      matrix: ${{ needs.c1-leader-check.outputs.retry }}
+      stage: 3
+      attempt: 2
+      runs_on: ${{ vars.DFBENCH_RUNS_ON_S2 || vars.DFBENCH_RUNS_ON_S1 || '"ubuntu-24.04"' }}
+      harness_image_id: from-artifact
+      harness_digest: from-artifact
+      harness_artifact: leader-image
+      tag_prefix: L-
+    secrets: inherit
+
   confirm-pool:
-    needs: [admit, gate, aggregate, c1-check, c1-retry]
+    needs: [admit, gate, aggregate, c1-check, c1-retry, leader-harness, c1-leader-check, c1-leader-retry]
     if: ${{ !cancelled() && needs.aggregate.outputs.confirm == 'true' && needs.c1-check.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -568,6 +892,12 @@ jobs:
         env:
           STAGE1_POINT: ${{ needs.gate.outputs.stage1_point }}
           MAX_INFRA: ${{ vars.DFBENCH_MAX_INFRA_GAMES || '2' }}
+          # the `stage2` metric (collect.py finalize): why OP1 was or wasn't played, for the submitter
+          DFBENCH_FULL_SUITE: ${{ needs.admit.outputs.full_suite }}
+          DFBENCH_TIER: ${{ needs.admit.outputs.tier }}
+          DFBENCH_RUN_STAGE2: ${{ needs.gate.outputs.run_stage2 }}
+          DFBENCH_STAGE1_UB95: ${{ needs.gate.outputs.stage1_ub95 }}
+          DFBENCH_LEADER_S1: ${{ needs.admit.outputs.leader }}
           DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
           YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
           GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
@@ -581,6 +911,48 @@ jobs:
           python3 -I runner/ci/bin/collect.py pool-verdict scored/scored.json first/scored.json "$ls" \
             "$(python3 -I runner/ci/bin/gate.py bips)" "$MAX_INFRA" >> "$GITHUB_OUTPUT"
           python3 -I -c 'import json;s=json.load(open("scored/scored.json"));m=s["metrics"];print("pooled score", s["score"], "first batch", m.get("score_first_batch"), "confirmation", m.get("confirmation"), "games", m["games"])'
+      - uses: ./runner/ci/actions/unseal-games
+        if: needs.leader-harness.result == 'success'
+        with:
+          pattern: "games-L-s*"
+          seal-key: ${{ secrets.DFBENCH_SEAL_KEY }}
+          ops-repo: ${{ env.OPS_REPO }}
+          ops-token: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          out: out/leader
+      - id: paired
+        name: Paired with the leader (same games, same window; D26)
+        if: steps.score.outputs.infra_fail != 'true'
+        env:
+          PAIRED: ${{ vars.DFBENCH_CONFIRM_PAIRED || 'true' }}
+          LEADER_RAN: ${{ needs.leader-harness.result }}
+          LEADER_SHA: ${{ needs.leader-harness.outputs.sha }}
+          TASKS: ${{ vars.DFBENCH_CONFIRM_TASKS || '' }}     # empty: the suite's confirm_tasks (#119)
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          GH_TOKEN: ${{ github.token }}       # contents: read on this repo (the incumbent check)
+        run: |
+          set -euo pipefail
+          # the pooled scored.json was rebuilt from the games: drift evidence again (more calls than the first batch)
+          python3 -I runner/ci/bin/drift.py evidence --games out/games --scored scored/scored.json --run "$GITHUB_RUN_ID" || true
+          off=(); [ "$PAIRED" = true ] && [ "$LEADER_RAN" = success ] || off=(--off)
+          # is main's submission/ Yukon's incumbent? (the incumbent's scored branch's submission/ tree; unknown -> applied)
+          sub_tree() {   # the submission/ tree sha at a ref, through the API (this checkout is shallow, no credentials)
+            t=$(gh api "repos/$GITHUB_REPOSITORY/commits/$1" -q .commit.tree.sha 2>/dev/null) || return 0
+            gh api "repos/$GITHUB_REPOSITORY/git/trees/$t" -q '.tree[]|select(.path=="submission")|.sha' 2>/dev/null || true
+          }
+          ver=unknown
+          lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "${{ needs.admit.outputs.benchmark }}" 2>/dev/null | sed -n 's/^leader_id=//p' || true)
+          if [ -n "$lid" ] && [ -n "$LEADER_SHA" ]; then
+            a=$(sub_tree "$LEADER_SHA"); b=$(sub_tree "submissions/$lid")
+            if [ -n "$a" ] && [ -n "$b" ]; then [ "$a" = "$b" ] && ver=true || ver=false; fi
+          fi
+          [ -f out/leader/score_detail.json ] || { mkdir -p out/leader; python3 -I runner/dfbench score out/leader --suite "$SCORE_SUITE" > /dev/null 2>&1 || true; }
+          python3 -I runner/ci/bin/paired.py decide --challenger out/games/score_detail.json --leader out/leader/score_detail.json \
+            --suite "$SCORE_SUITE" --scored scored/scored.json --tasks "$TASKS" --leader-verified "$ver" "${off[@]}" >> "$GITHUB_OUTPUT"
       - name: Too many infra games (with the confirmation batch)
         if: steps.score.outputs.infra_fail == 'true'
         env: {GITHUB_TOKEN: "${{ secrets.DFBENCH_OPS_TOKEN }}", DFBENCH_OPS_REPO: "${{ env.OPS_REPO }}", DFBENCH_SEASON: "${{ env.SEASON }}"}
@@ -607,10 +979,10 @@ jobs:
           DFBENCH_SEASON: ${{ env.SEASON }}
         run: |
           python3 -I runner/ci/bin/ledger.py finish --submission "${{ needs.admit.outputs.submission }}" --status scored \
-            --score "${{ steps.score.outputs.score }}" --stage 2 --run "$GITHUB_RUN_ID"
+            --score "${{ steps.paired.outputs.score || steps.score.outputs.score }}" --stage 2 --run "$GITHUB_RUN_ID"
 
   judge:
-    needs: [admit, aggregate, confirm-pool]
+    needs: [admit, aggregate, confirm-pool, early-judge]
     # a confirmation that was due but didn't complete never falls back to the first batch alone
     if: ${{ !cancelled() && needs.aggregate.result == 'success' && (needs.confirm-pool.result == 'success' || (needs.confirm-pool.result == 'skipped' && needs.aggregate.outputs.confirm != 'true')) }}
     runs-on: ubuntu-24.04
@@ -646,52 +1018,55 @@ jobs:
                  | sed -n 's/^leader_score=//p' || true)
           python3 -I runner/ci/bin/gate.py judge --score j/scored.json --leader-score "$ls" \
             --min-gain "$MIN_GAIN" --bips "$(python3 -I runner/ci/bin/gate.py bips)" >> "$GITHUB_OUTPUT"
+      - id: reuse
+        name: "The early dossier (DFBENCH_JUDGE_EARLY); reuse it when the incumbent hasn't changed since the start"
+        if: needs.early-judge.outputs.verdict == 'pass' && inputs.judge_override == ''
+        env:
+          GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+          EARLY_LEADER: ${{ needs.early-judge.outputs.leader_id }}
+        run: |
+          set -euo pipefail
+          gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p dossier-early.json -p summary-early.md -D j || true
+          lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "${{ needs.admit.outputs.benchmark }}" 2>/dev/null \
+                  | sed -n 's/^leader_id=//p' || true)
+          if [ -s j/dossier-early.json ]; then
+            python3 -I runner/ci/bin/early_judge.py reuse --early pass --early-leader "$EARLY_LEADER" --leader "${lid:-unknown}" >> "$GITHUB_OUTPUT"
+            echo "early=true" >> "$GITHUB_OUTPUT"
+          else
+            printf 'reuse=false\nreason=early dossier missing\nearly=false\n' >> "$GITHUB_OUTPUT"
+          fi
       - name: Prior work (base producer, declared dependencies, an overlap scan of every published submission, the last accepted; public data only)
-        if: steps.need.outputs.judge == 'true' && inputs.judge_override == ''
+        if: steps.need.outputs.judge == 'true' && inputs.judge_override == '' && steps.reuse.outputs.reuse != 'true'
         env:
           DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
           YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
           DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
           DFBENCH_SEASON: ${{ env.SEASON }}
-        run: |
-          set -euo pipefail
-          # base producer: Yukon's incumbent (promoted); the leader file's submission only if Yukon can't be read
-          # the overlap scan compares each published submission's added lines with this diff. The checkout's
-          # fetch-depth: 0 already brought every submissions/* branch; prior.py's own re-fetch is best effort (no
-          # credentials persisted: it works on a public repo only). If Yukon or git fail it degrades to the fixed
-          # context and says so in j/prior/_scan.json, which the judge copies into the dossier
-          python3 -I runner/ci/bin/prior.py --submitter-json j/who/submitter.json --out j/prior --last 5 --repo-dir . \
-            --base "$(git merge-base HEAD origin/main)" --head HEAD --scan-max 500 --scan-top 4 --scan-timeout 300 \
-            --fallback-base-producers "$(python3 -I runner/ci/bin/ledger.py leader-get --field submission || true)"
+        run: bash runner/ci/bin/judge_run.sh prior j     # the overlap scan needs this checkout's fetch-depth: 0
       - name: Judge (runner/judge; its own key, only in this step)
-        if: steps.need.outputs.judge == 'true' && inputs.judge_override == ''
+        if: steps.need.outputs.judge == 'true' && inputs.judge_override == '' && steps.reuse.outputs.reuse != 'true'
         continue-on-error: true      # a crashed judge leaves no dossier -> hold (emit_score.py fails closed)
         env:
           # the judge's own spend-limited key; never the gateway's OPENROUTER_API_KEY (judge.py doesn't read it)
           DFBENCH_JUDGE_OPENROUTER_KEY: ${{ secrets.DFBENCH_JUDGE_OPENROUTER_KEY }}
           DFBENCH_JUDGE_MODEL: ${{ vars.DFBENCH_JUDGE_MODEL }}
+        run: bash runner/ci/bin/judge_run.sh judge j j/scored.json
+      - name: Use the early dossier (reused for a would-be promotion; the record of the early pass otherwise)
+        if: inputs.judge_override == '' && steps.reuse.outputs.early == 'true' && (steps.reuse.outputs.reuse == 'true' || steps.need.outputs.judge != 'true')
         run: |
-          set -euo pipefail
-          base=$(git merge-base HEAD origin/main)     # needs fetch-depth: 0 (checkout above)
-          producers=$(cat j/prior/base_producers.txt 2>/dev/null || true)
-          python3 -I - j/who/submitter.json > j/who/args.env <<'EOF'
-          import json, shlex, sys
-          r = json.load(open(sys.argv[1]))
-          print("COAUTHORS=" + shlex.quote(",".join(r.get("coauthors") or [])))
-          print("SUBMITTER=" + shlex.quote(r["username"]))
-          EOF
-          . j/who/args.env
-          python3 -I runner/judge/judge.py --repo-dir . --base "$base" --head HEAD \
-            --note j/who/note.md --dependencies j/who/deps.json --coauthors "$COAUTHORS" --submitter "$SUBMITTER" \
-            --context-dir j/prior --base-producers "$producers" --score-json j/scored.json \
-            --out j/dossier.json --md j/summary.md
-          # the verdict is read from the dossier (emit_score.py), never from the exit code
+          cp j/dossier-early.json j/dossier.json
+          [ -s j/summary-early.md ] && cp j/summary-early.md j/summary.md || true
+          echo "early dossier used: ${{ steps.reuse.outputs.reason }}"
       - name: Emit the score Yukon reads (one place, runner/ci/bin/emit_score.py)
         env:
           OVERRIDE: ${{ inputs.judge_override }}
           NEED: ${{ steps.need.outputs.judge }}
           WHY: ${{ steps.need.outputs.reason }}
+          EARLY: ${{ steps.reuse.outputs.early }}
+          REUSED: ${{ steps.reuse.outputs.reuse }}
           TIER: ${{ needs.admit.outputs.tier }}
           CONFIRMED: ${{ needs.confirm-pool.result }}
           CONFIRM_REASON: ${{ needs.aggregate.outputs.confirm_reason }}
@@ -701,9 +1076,33 @@ jobs:
           [ "$CONFIRMED" = success ] || args+=(--set "confirmation=not_run: ${CONFIRM_REASON:-not needed}")
           if [ -n "$OVERRIDE" ]; then args+=(--override "$OVERRIDE" --actor "$GITHUB_ACTOR")
           elif [ "$NEED" = true ]; then args+=(--dossier j/dossier.json)
+            [ "$REUSED" = true ] && args+=(--set "judge_stage=early (reused: the incumbent didn't change)")
+          elif [ "$EARLY" = true ]; then args+=(--dossier j/dossier.json --set "judge_stage=early")
           else args+=(--not-run "$WHY"); fi
           python3 -I runner/ci/bin/emit_score.py "${args[@]}"
           python3 -I -c 'import json;print("verdict=" + json.load(open(".yukon/score.json"))["metrics"]["judge_verdict"])' >> "$GITHUB_ENV"
+      - name: Ledger (how attribution was judged; checked after publication when unverified)
+        if: (steps.need.outputs.judge == 'true' || steps.reuse.outputs.early == 'true') && inputs.judge_override == ''
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+        run: |
+          set -euo pipefail
+          [ -s j/dossier.json ] || exit 0
+          python3 -I - j/dossier.json > j/att.args <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1])); att = d.get("attribution") or {}
+          declared = set((d.get("inputs") or {}).get("declared_dependencies") or [])
+          sus = sorted({o.get("context_id") for o in (d.get("evidence") or {}).get("overlap") or []
+                        if not o.get("declared") and not o.get("own") and not o.get("produced_base")
+                        and (o.get("shared_lines", 0) >= 8 or o.get("fraction", 0) >= 0.1) and o.get("context_id")} - declared)
+          print(json.dumps(["--verified", "true" if att.get("verified", True) else "false", "--basis", att.get("basis", "yukon"),
+                            "--base-producers", (d.get("inputs") or {}).get("base_producers") or "", "--suspects", ",".join(sus)]))
+          PY
+          mapfile -t args < <(python3 -I -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))))' j/att.args)
+          python3 -I runner/ci/bin/ledger.py attribution --submission "${{ needs.admit.outputs.submission }}" "${args[@]}"
       - name: Contender band (band.py; report only, never changes promotion; a failure leaves the score as is)
         if: inputs.judge_override == ''
         continue-on-error: true
@@ -724,11 +1123,13 @@ jobs:
           kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
           bash runner/ci/bin/seal.sh open j/score_detail.json.enc j/score_detail.json "$kf" >/dev/null; rm -f "$kf" j/score_detail.json.enc
           lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "${{ needs.admit.outputs.benchmark }}" | sed -n 's/^leader_id=//p')
-          lp=$(python3 -I runner/ci/bin/gate.py leader --benchmark "${{ needs.admit.outputs.benchmark }}" 2>/dev/null | sed -n 's/^leader_point=//p' || true)
+          ld=$(python3 -I runner/ci/bin/gate.py leader --benchmark "${{ needs.admit.outputs.benchmark }}" 2>/dev/null || true)
+          lp=$(printf '%s\n' "$ld" | sed -n 's/^leader_point=//p'); ls=$(printf '%s\n' "$ld" | sed -n 's/^leader_score=//p')
           python3 -I runner/ci/bin/band.py tag --score .yukon/score.json --detail j/score_detail.json --suite "$SCORE_SUITE" \
             --submission "${{ needs.admit.outputs.submission || 'baseline' }}" --kind "$KIND" \
             --solver "${{ needs.admit.outputs.user }}" --tree "$(git rev-parse HEAD:submission)" --branch "$GITHUB_REF_NAME" \
-            --run "$GITHUB_RUN_ID" --source "$SOURCE" --leader "$lid" --leader-point "$lp"
+            --run "$GITHUB_RUN_ID" --source "$SOURCE" --leader "$lid" --leader-point "$lp" --leader-score "$ls" \
+            --bips "$(python3 -I runner/ci/bin/gate.py bips)"
           rm -f j/score_detail.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         # Yukon selects exactly one artifact named runner.scoreArtifactName (benchmark.json) and reads scorePath, or
@@ -755,13 +1156,14 @@ jobs:
           pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$GITHUB_REF_NAME" --state all --json number -q '.[0].number')
           [ -n "$pr" ] || exit 0
           { echo "**dfbench judge: ${verdict:-hold}**"; echo
+            [ "${{ steps.reuse.outputs.reuse }}" = true ] && { echo "(the check before your games, reused: ${{ steps.reuse.outputs.reason }})"; echo; }
             [ -s j/summary.md ] && head -c 60000 j/summary.md || echo "(no judge summary: see the dfbench-judge artifact)"
             echo; echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; } > j/comment.md
           gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body-file j/comment.md
 
   release:
-    needs: [admit, harness, aggregate, confirm-pool, judge]
-    if: ${{ cancelled() || (failure() && needs.admit.result == 'success' && (needs.aggregate.result != 'success' || needs.confirm-pool.result == 'failure')) }}
+    needs: [admit, harness, aggregate, confirm-pool, judge, early-reject]
+    if: ${{ cancelled() || (failure() && needs.admit.result == 'success' && needs.early-reject.result != 'success' && (needs.aggregate.result != 'success' || needs.confirm-pool.result == 'failure')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: dfbench-score
@@ -780,4 +1182,5 @@ jobs:
           [ "${{ needs.aggregate.result }}" = failure ] && st=infra_failed
           [ "${{ needs.confirm-pool.result }}" = failure ] && st=infra_failed
           [ "${{ needs.harness.result }}" = failure ] && st=rejected
+          [ "${{ needs.early-reject.result }}" = failure ] && st=infra_failed
           python3 -I runner/ci/bin/ledger.py finish --submission "${{ needs.admit.outputs.submission }}" --status "$st" --run "$GITHUB_RUN_ID" || true

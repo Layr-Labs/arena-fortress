@@ -6,6 +6,7 @@
   pool/dfpool build   --season s0 [--tasks LT01,MY1]   build the forts from the seeds (Docker, one container at a time)
   pool/dfpool verify  --season s0 [--sample 2]         integrity of every fort + rebuild a sample from its seed
   pool/dfpool stage   --season s0                      tarball + MANIFEST for the verifier; pool/seasons/s0/POOL.json
+  pool/dfpool stage-public --season s0-int --suite S --snapshots DIR   the same bundle from public-seed forts (D25)
   pool/dfpool unpack  TAR --into DIR                   (verifier) check the tarball against its manifest, install it
   pool/dfpool reveal  --season s0 --season-closed      seeds + salt + build ledger -> pool/seasons/s0/REVEAL.json
   pool/dfpool check-reveal --season s0                 (anyone) recompute the commitment from the reveal
@@ -23,8 +24,11 @@ POOL = os.path.join(ROOT, "pool")
 DEFAULT_SPEC = os.path.join(POOL, "season0.pool.json")
 SEASONS = os.environ.get("DFPOOL_PUBLIC") or os.path.join(POOL, "seasons")   # override: tests only
 IN_CONTAINER = os.path.join(POOL, "fort_in_container.sh")
-COMMIT_SCHEMA = "dfpool-commit/1"
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "framework"))
+# the environment-agnostic pool core (commitment, selection rule, deterministic staging); DF fort building stays here
+from harnessarena.pool import (COMMIT_SCHEMA, canon, commitment_of, lp_sha, preimage_fields,  # noqa: E402,F401
+                               selection_check, sha_file, tar_add)
 
 # files whose bytes decide what a fort of each kind is (hashed into the commitment as the task definition)
 BUILD_FILES = {
@@ -44,27 +48,6 @@ def die(msg):
 
 def now():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def canon(obj):
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
-
-
-def lp_sha(*fields):
-    """sha256 over length-prefixed fields (8-byte big-endian length + bytes), as bench/key.py _sha."""
-    h = hashlib.sha256()
-    for f in fields:
-        b = f if isinstance(f, bytes) else str(f).encode()
-        h.update(len(b).to_bytes(8, "big")); h.update(b)
-    return h.hexdigest()
-
-
-def sha_file(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def rel_files(rel):
@@ -212,18 +195,6 @@ def image_digest(image):
 
 
 # ------------------------------------------------------------------------------------------------------- commitment
-def preimage_fields(season, salt_hex, seeds, pub):
-    """The commitment's preimage (dfpool-commit/1), in order. `pub` = COMMITMENT.json's public_inputs."""
-    return [COMMIT_SCHEMA, season, bytes.fromhex(salt_hex),
-            canon({t: sorted(int(s) for s in v) for t, v in seeds.items()}),
-            canon(pub["rules_sha256"]), pub["image_digest"], canon(pub["task_def_sha256"]),
-            canon({k: pub[k] for k in ("spec_sha256", "repo_commit", "seed_mode", "seed_space", "forts", "candidates")})]
-
-
-def commitment_of(season, salt_hex, seeds, pub):
-    return "sha256:" + lp_sha(*preimage_fields(season, salt_hex, seeds, pub))
-
-
 def load_commitment(season):
     p = os.path.join(public_dir(season), "COMMITMENT.json")
     if not os.path.exists(p):
@@ -599,23 +570,6 @@ def staged_task_hash(task_file, snapshots):
     return sc["name"], BK._sha(*parts)
 
 
-def tar_add(tf, path, arc):
-    """Deterministic tar members: sorted, uid/gid 0, mtime 0."""
-    paths = [(path, arc)]
-    if os.path.isdir(path):
-        paths = []
-        for d, ds, fs in os.walk(path):
-            ds.sort()
-            for f in sorted(fs):
-                p = os.path.join(d, f)
-                paths.append((p, os.path.join(arc, os.path.relpath(p, path))))
-    for p, n in paths:
-        ti = tarfile.TarInfo(n)
-        ti.size, ti.mtime, ti.mode, ti.uid, ti.gid, ti.uname, ti.gname = os.path.getsize(p), 0, 0o644, 0, 0, "", ""
-        with open(p, "rb") as f:
-            tf.addfile(ti, f)
-
-
 def cmd_stage(a):
     c, secret, spec = check_commitment(a.season, drift_ok=a.allow_drift)
     sd = season_dir(a.season)
@@ -651,13 +605,26 @@ def cmd_stage(a):
             if sc_path == t["scenario"]:
                 by_task[task] = os.path.relpath(fn, st)
     suite = load_json(os.path.join(ROOT, a.suite or spec["suite"]))
-    suite["name"] = suite["name"] + "-private"
-    suite["pool"] = f"test-private {a.season}, commitment {c['commitment']}"
+    write_bundle(a.season, sd, st, suite, by_task, forts, tasks, suffix="-private",
+                 pool_label=f"test-private {a.season}, commitment {c['commitment']}", commitment=c["commitment"],
+                 image=c["public_inputs"]["image"], image_digest=c["public_inputs"]["image_digest"],
+                 note=("Public at season open. bench_key = the private task's bench/key.py task hash (name:sha8). "
+                       "fort_id_sha256 = sha256 of bench/key.py's snapshot id of each fort (embark id + recipe hashes; "
+                       "for MY1 the day-120 save's bytes). After the reveal, a rebuild from the revealed seed on the "
+                       "verifier's host class must give the same fort id (MY1: the same source embark)."))
+
+
+def write_bundle(season, sd, st, suite, by_task, forts, tasks, suffix, pool_label, commitment, image, image_digest,
+                 note):
+    """suite.json + MANIFEST.json + the deterministic tarball in <sd>, and the public POOL.json (shared by `stage`
+    and `stage-public`, so both bundles have one format: runner/ci/bin/pool-install.py reads either)."""
+    suite["name"] = suite["name"] + suffix
+    suite["pool"] = pool_label
     for t in suite["tasks"]:
         if t["id"] in by_task:
             t["scenario"] = os.path.join(st, by_task[t["id"]])   # absolute; `unpack` rewrites it for its target dir
         else:
-            die(f"suite task {t['id']} has no pool task in the spec")
+            die(f"suite task {t['id']} has no pool task")
     write_json(os.path.join(st, "suite.json"), suite)
     files = {}
     for d, ds, fs in os.walk(st):
@@ -665,14 +632,14 @@ def cmd_stage(a):
         for f in sorted(fs):
             p = os.path.join(d, f)
             files[os.path.relpath(p, st)] = {"sha256": sha_file(p), "bytes": os.path.getsize(p)}
-    man = {"schema": "dfpool-manifest/1", "season": a.season, "created_utc": now(), "commitment": c["commitment"],
-           "image": c["public_inputs"]["image"], "image_digest": c["public_inputs"]["image_digest"],
+    man = {"schema": "dfpool-manifest/1", "season": season, "created_utc": now(), "commitment": commitment,
+           "image": image, "image_digest": image_digest,
            "forts": forts, "tasks": tasks, "files": files,
            "run": ("pool/dfpool unpack <tar> --into DIR; then DFBENCH_SNAPSHOTS_DIR=DIR/snapshots runner/dfbench suite run "
                    "--harness <submission> --suite DIR/suite.json (the game image must contain this repo's "
                    "scenarios/lua/, including trim_stocks.lua)")}
     write_json(os.path.join(st, "MANIFEST.json"), man)
-    tar = os.path.join(sd, f"{a.season}-pool.tar.gz")
+    tar = os.path.join(sd, f"{season}-pool.tar.gz")
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as tf:
         for n in ("MANIFEST.json", "suite.json", "tasks", "snapshots"):
@@ -682,20 +649,64 @@ def cmd_stage(a):
         f.write(gzip.compress(buf.getvalue(), mtime=0))
     os.chmod(tar, 0o600)
     tsha = sha_file(tar)
-    pub = {"schema": "dfpool-pool/1", "season": a.season, "staged_utc": now(), "commitment": c["commitment"],
+    pub = {"schema": "dfpool-pool/1", "season": season, "staged_utc": now(), "commitment": commitment,
            "tarball_sha256": tsha, "manifest_sha256": sha_file(os.path.join(st, "MANIFEST.json")),
-           "image_digest": c["public_inputs"]["image_digest"],
+           "image_digest": image_digest,
            "tasks": {v["task"] + ("" if v["suite_task"] else ":" + os.path.basename(k)): v["bench_key"]
                      for k, v in sorted(tasks.items())},
            "forts": {pid: f["fort_id_sha256"] for pid, f in sorted(forts.items())},
-           "note": ("Public at season open. bench_key = the private task's bench/key.py task hash (name:sha8). "
-                    "fort_id_sha256 = sha256 of bench/key.py's snapshot id of each fort (embark id + recipe hashes; "
-                    "for MY1 the day-120 save's bytes). After the reveal, a rebuild from the revealed seed on the "
-                    "verifier's host class must give the same fort id (MY1: the same source embark).")}
-    write_json(os.path.join(public_dir(a.season), "POOL.json"), pub)
+           "note": note}
+    os.makedirs(public_dir(season), exist_ok=True)
+    write_json(os.path.join(public_dir(season), "POOL.json"), pub)
     print(f"staged {len(forts)} forts, {len(tasks)} tasks -> {tar}\n  sha256 {tsha}\n"
-          f"  public: {os.path.relpath(os.path.join(public_dir(a.season), 'POOL.json'), ROOT)}")
-    print(f"  verifier: pool/dfpool unpack {tar} --into /srv/dfbench/{a.season} --expect-sha256 {tsha}")
+          f"  public: {os.path.relpath(os.path.join(public_dir(season), 'POOL.json'), ROOT)}")
+    print(f"  verifier: pool/dfpool unpack {tar} --into /srv/dfbench/{season} --expect-sha256 {tsha}")
+
+
+def cmd_stage_public(a):
+    """Stage a pool from PUBLIC-seed forts (no draw, no commitment: the seeds are in the task files), in the same
+    bundle format as `stage`. For internal testing (D25): the s0-int pool scores the internal test repo on public
+    forts, so testers never get feedback on the private pool. --snapshots holds the public forts the suite's task
+    files name (scenarios/snapshots/<name>; fort_start_snapshot = the seed-built default fort)."""
+    from bench import key as BK
+    sd = season_dir(a.season, create=True)
+    snaps = os.path.realpath(a.snapshots)
+    st = os.path.join(sd, "stage")
+    shutil.rmtree(st, ignore_errors=True)
+    os.makedirs(os.path.join(st, "snapshots")); os.makedirs(os.path.join(st, "tasks"))
+    suite = load_json(os.path.join(ROOT, a.suite))
+    forts, tasks, by_task = {}, {}, {}
+    for t in suite["tasks"]:
+        sc_path = t["scenario"]
+        sc = load_json(os.path.join(ROOT, sc_path))
+        pool = sc.get("snapshot_pool") or [sc.get("snapshot") or BK.LEGACY_START]
+        names = [os.path.basename(BK.SEED_START) if s == BK.LEGACY_START else os.path.relpath(s, "scenarios/snapshots")
+                 for s in pool]
+        for i, n in enumerate(names):
+            src = os.path.join(snaps, n)
+            if not os.path.exists(os.path.join(src, "world.sav")):
+                die(f"{t['id']}: public fort {n} isn't in {snaps}")
+            if n not in forts:
+                shutil.copytree(src, os.path.join(st, "snapshots", n))
+                fid, wsha = fort_ids(src)
+                forts[n] = {"task": t["id"], "index": i, "kind": "public", "fort_id_sha256": fid,
+                            "world_sav_sha256": wsha}
+        sc.pop("snapshot", None)
+        sc["snapshot_pool"] = ["scenarios/snapshots/" + n for n in names]
+        sc["split"] = "test-internal"
+        sc["name"] = re.sub(r"(-int)?$", "-int", sc.get("name") or os.path.basename(sc_path)[:-5], count=1)
+        sc["pool"] = {"season": a.season, "public_seeds": True, "staged_from": sc_path}
+        fn = os.path.join(st, "tasks", os.path.basename(sc_path))
+        write_json(fn, sc)
+        name, h = staged_task_hash(fn, os.path.join(st, "snapshots"))
+        tasks[os.path.relpath(fn, st)] = {"task": t["id"], "suite_task": True, "bench_key": f"{name}:{h[:8]}",
+                                          "sha256_full": h}
+        by_task[t["id"]] = os.path.relpath(fn, st)
+    write_bundle(a.season, sd, st, suite, by_task, forts, tasks, suffix="",
+                 pool_label=f"test-public {a.season} (public seeds)", commitment="none: public seeds",
+                 image=a.image, image_digest=a.image_digest,
+                 note=("Internal-testing pool (D25): public-seed forts only, so nothing here is secret. bench_key = "
+                       "the staged task's bench/key.py task hash; fort_id_sha256 = sha256 of each fort's snapshot id."))
 
 
 def cmd_unpack(a):
@@ -766,18 +777,10 @@ def check_reveal(season):
     print(f"commitment {'OPENS' if got == c['commitment'] else 'DOES NOT OPEN'}: {c['commitment']}")
     ok &= got == c["commitment"]
     for task, cands in sorted(r["seeds"].items()):
-        att = {}
-        for e in r["attempts"]:
-            if e["task"] == task and e["status"] in ("accepted", "rejected"):
-                att[e["seed"]] = e
-        acc = [s for s in sorted(cands) if att.get(s, {}).get("status") == "accepted"]
         need = pub["forts"][task]
-        # the rule: every candidate below the last used one was tried, and the used ones are the first `need` accepted
-        last = acc[need - 1] if len(acc) >= need else None
-        untried = [s for s in sorted(cands) if last is not None and s < last and s not in att]
-        used = sorted(p["seed"] for p in r["pool"].values() if p["task"] == task)
-        good = last is not None and not untried and used == acc[:need] and len(acc) == need
-        print(f"  {task}: {len(acc)} accepted, {sum(e['status'] == 'rejected' for e in att.values())} rejected, "
+        used = [p["seed"] for p in r["pool"].values() if p["task"] == task]
+        acc, n_rej, good = selection_check(cands, [e for e in r["attempts"] if e["task"] == task], need, used)
+        print(f"  {task}: {len(acc)} accepted, {n_rej} rejected, "
               f"pool seeds = first {need} accepted in ascending order: {'yes' if good else 'NO'}")
         ok &= good
     pp = os.path.join(public_dir(season), "POOL.json")
@@ -868,6 +871,9 @@ def main():
                    "reproduces the canonical embark ~5/6 times; research/seed-portability.md)")
     x.add_argument("--integrity-only", action="store_true"); x.add_argument("--allow-drift", action="store_true")
     x = p("stage", cmd_stage); x.add_argument("--suite"); x.add_argument("--allow-drift", action="store_true")
+    x = p("stage-public", cmd_stage_public)
+    x.add_argument("--suite", required=True); x.add_argument("--snapshots", required=True)
+    x.add_argument("--image"); x.add_argument("--image-digest")
     x = p("unpack", cmd_unpack, season=False)
     x.add_argument("tar"); x.add_argument("--into", required=True); x.add_argument("--expect-sha256")
     x = p("reveal", cmd_reveal); x.add_argument("--season-closed", action="store_true")

@@ -17,6 +17,12 @@ distinctive idea; `no` if not; `unclear` if you can't tell. Say concretely what 
 - A used, undeclared context submission is a `fatal` attribution finding, citing the matching lines on both sides.
 - A context submission that produced the base and isn't declared is a `fatal` finding: starting from the promoted
   `main` counts as using it (unless the diff demonstrably replaces the whole base, which you must show).
+- **When `attribution_metadata.declaration` is `hidden`,** the formal dependency list exists but Yukon doesn't show
+  it to anyone but the author until the submission is published (it is verified after publication). Then
+  "undeclared" means "not known": judge attribution from the NOTE and the code. A note that clearly credits the
+  context submission it uses (by submission id, the submitter's name or an unambiguous description), including the
+  base producer, is adequate: don't report it. Report a used context submission the note doesn't credit at all as
+  `major` (an organiser decides), not `fatal`, since the formal list may still name it.
 - A declared dependency that isn't visibly used is fine (over-crediting costs nothing): don't report it.
 - `own: true` marks the submitter's own earlier submission. Reusing one's own work undeclared is not an attribution
   breach: at most a `minor` finding suggesting the link (RULES §8). It still counts if that earlier submission itself

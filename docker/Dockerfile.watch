@@ -1,0 +1,26 @@
+# LOCAL watch mode (runner/README.md "Watching your games"; `dfbench local run|suite|smoke --watch`): the game server
+# image with DF rendered into a virtual X display (Xvfb :99, 1200x800) and recorded by ffmpeg into the game's
+# artifacts dir. The runner builds it from the game image it plays (DFBENCH_GAME_IMAGE, default yukon-df:s0) and tags
+# it dfbench-watch:<hash>; it is never pushed anywhere and is never used for official scoring.
+#
+# NOT comparable: DF draws every frame here (PRINT_MODE:SOFTWARE, G_FPS_CAP:20, windowed, no sound) instead of
+# running headless, so it plays slower and with different prefs; the runner marks such results `watch: true`.
+#
+# Build by hand (the runner does this for you):
+#   docker build --platform linux/amd64 --build-arg BASE=yukon-df:s0 -f docker/Dockerfile.watch -t dfbench-watch:dev docker/watch
+ARG BASE=yukon-df:s0
+FROM --platform=linux/amd64 ${BASE}
+ARG BASE
+RUN apt-get update -qq \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends xvfb ffmpeg procps x11vnc \
+    && rm -rf /var/lib/apt/lists/*
+COPY start_df.sh stop_rec.sh finish.sh vnc_stdio.sh /opt/dfwatch/
+# the server starts DF through /root/dfprobe/start_df.sh (reset_fort.sh): swap in the rendering one
+RUN chmod +x /opt/dfwatch/*.sh && cp /opt/dfwatch/start_df.sh /root/dfprobe/start_df.sh \
+    && cd /root/dfprobe/df/prefs \
+    && sed -i -e 's/\[PRINT_MODE:[A-Z0-9_]*\]/[PRINT_MODE:SOFTWARE]/' -e 's/\[SOUND:YES\]/[SOUND:NO]/' \
+              -e 's/\[WINDOWED:[A-Z]*\]/[WINDOWED:YES]/' -e 's/\[G_FPS_CAP:[0-9]*\]/[G_FPS_CAP:20]/' \
+              -e 's/\[WINDOWEDX:[0-9]*\]/[WINDOWEDX:1200]/' -e 's/\[WINDOWEDY:[0-9]*\]/[WINDOWEDY:800]/' init.txt \
+    && grep -q "PRINT_MODE:SOFTWARE" init.txt && grep -q "WINDOWED:YES" init.txt && grep -q "G_FPS_CAP:20" init.txt
+LABEL org.dfbench.watch="1" org.dfbench.watch.base="${BASE}"
+ENV DFWATCH=1

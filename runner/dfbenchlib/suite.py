@@ -134,7 +134,8 @@ def local_task(scenario, seed, n, budget, wall_s=None, suite_path=DEFAULT_SUITE)
                 t["wall_s"] = wall_s
             keep = {k: base[k] for k in ("rules", "budget_usd_per_game_year", "wall_s_per_game_year", "weights",
                                          "bootstrap", "lab_z", "infra", "anchors_note") if k in base}
-            return {"schema": "dfbench-suite/1", "name": f"local-{t['id']}", "seed": seed, **keep, "tasks": [t]}
+            return {"schema": "dfbench-suite/1", "name": f"local-{t['id']}", "seed": seed, **keep,
+                    "anchors_from": base.get("name"), "tasks": [t]}
     tid = scenario_task_id(sc, scenario)
     lab = bool(re.match(r"^LT\d\d$", tid))
     days = int(sc.get("days") or 60)

@@ -24,7 +24,7 @@ runs:
         PREV: ${{ inputs.merge-from-run }}
       run: |
         set -euo pipefail
-        B=$RUNNER_TEMP/bundles; mkdir -p "$B/cur-enc" "$B/prev-enc"
+        B=$RUNNER_TEMP/bundles; rm -rf "$B"; mkdir -p "$B/cur-enc" "$B/prev-enc"   # fresh: a job may unseal twice (D26)
         gh release download "run-$GITHUB_RUN_ID" -R "$OPS_REPO" -p "$PATTERN.tgz.enc" -D "$B/cur-enc" || true
         [ -z "$PREV" ] || gh release download "run-$PREV" -R "$OPS_REPO" -p "$PATTERN.tgz.enc" -D "$B/prev-enc"
         kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"

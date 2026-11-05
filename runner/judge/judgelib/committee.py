@@ -15,9 +15,21 @@ ATTRIBUTION_SIGNALS = {"base_producer_undeclared", "undeclared_overlap"}
 SEVERITY_ORDER = {"minor": 0, "major": 1, "fatal": 2}
 
 
+ENV_HOST = "game:8090"     # the environment host the prompts name; HA_ENV_HOST / DFBENCH_ENV_HOST override it
+
+
+def env_host():
+    for k in ("HA_ENV_HOST", "DFBENCH_ENV_HOST"):
+        if os.environ.get(k):
+            return os.environ[k]
+    return ENV_HOST
+
+
 def load_prompt(name):
     with open(os.path.join(PROMPTS, name + ".md"), encoding="utf-8") as f:
-        return f.read()
+        text = f.read()
+    host = env_host()
+    return text if host == ENV_HOST else text.replace(ENV_HOST, host)
 
 
 def system_prompt(role):
@@ -43,6 +55,13 @@ def block(kind, content, trusted=False):
 
 def _j(v):
     return json.dumps(v, ensure_ascii=False, indent=1)
+
+
+def _declaration(ev):
+    """How the dependency list was obtained: "yukon" (Yukon's record), "in-tree" (submission/dependencies.json) or
+    "hidden" (Yukon shows it only to the author until publication; see prompts/attribution.md)."""
+    b = (ev.get("attribution") or {}).get("basis", "yukon")
+    return "hidden" if b == "note+code" else b
 
 
 class Committee:
@@ -98,7 +117,8 @@ class Committee:
 
     def _common_blocks(self, chunk_text):
         ev = self.ev
-        meta = {"submitter": ev["submitter"], "coauthors": ev["coauthors"], "dependencies": ev["deps"]}
+        meta = {"submitter": ev["submitter"], "coauthors": ev["coauthors"], "dependencies": ev["deps"],
+                "declaration": _declaration(ev)}
         return [block("file_inventory", ev["sub"]["inventory"]),
                 block("diff", chunk_text),
                 block("note", ev["note"] or "(empty note)"),
@@ -161,7 +181,8 @@ class Committee:
                block("cited_files", "\n\n".join(parts) or "(no file of the diff was cited)"),
                block("note", self.ev["note"] or "(empty note)"),
                block("attribution_metadata", _j({"submitter": self.ev["submitter"], "coauthors": self.ev["coauthors"],
-                                                 "dependencies": self.ev["deps"]}))]
+                                                 "dependencies": self.ev["deps"],
+                                                 "declaration": _declaration(self.ev)}))]
         for c in self.ev["contexts"]:
             if c["id"] in ctx:
                 out.append(block(f"context:{c['id']}", f"note:\n{c['note']}\n--- lines it added ---\n{c['text']}"))

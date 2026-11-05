@@ -1,23 +1,56 @@
-# The season-0 game server image (docs/GAME-API.md §2: the `game` service): the DF image plus gameapi/ and an
-# entrypoint that starts the server, which resets DF headless (reset_fort.sh -> docker/start_df.sh) with the task's
-# settings and serves the API on 8090. docker/Dockerfile is unchanged; build it first from the same tree.
-# Build:
-#   docker buildx build --platform linux/amd64 --build-context dl=$HOME/df-dl --build-context harness=. \
-#     -f docker/Dockerfile -t yukon-df:53.16 --load docker
-#   docker buildx build --platform linux/amd64 --build-context harness=. --build-arg BASE=yukon-df:53.16 \
-#     -f docker/Dockerfile.game -t yukon-df:game --load docker
+# The season-0 game server image (docs/GAME-API.md §2: the `game` service): DF + DFHack from the base image, the
+# public challenge tree's runtime files, and an entrypoint that starts the server, which resets DF headless
+# (reset_fort.sh -> start_df.sh) with the task's settings and serves the API on 8090.
+#
+# Trimmed (DEV-LAUNCH §7 item 1): the base image (docker/Dockerfile) copies its whole build context into
+# /root/dfprobe, and the s0 pool commitment pins that base (yukon-df:s0pool), so the base is left as it is. This file
+# keeps only the base's OS and DF install (/root/dfprobe/df) and squashes them into one fresh layer (`COPY --from=os
+# / /`), so no earlier layer of the base, with its research tree, ends up in this image. The code comes from the
+# PUBLIC challenge export (scripts/public_export.py --profile challenge), so the image holds nothing the challenge
+# repo doesn't: no withheld starter, no witness code (policies.py is the export's witness-stripped copy; the anchors
+# workflow adds the witnesses from its sealed kit), no runs/, research/ or docs/, no DF saves (forts are mounted).
+# Build (harness = a challenge export of the same commit, NOT the research tree):
+#   python3 -I scripts/public_export.py --profile challenge --out /tmp/x --commit <ref>
+#   docker buildx build --platform linux/amd64 --build-context harness=/tmp/x --build-arg BASE=yukon-df:s0pool \
+#     -f docker/Dockerfile.game -t dfbench-df:<tag> --load docker
 # Run (one game):
 #   docker run -d --init --name game1 --platform linux/amd64 --security-opt seccomp=unconfined --memory 2500m \
-#     -p 127.0.0.1:8090:8090 -e GAMEAPI_TASK=scenarios/start-year.json yukon-df:game
+#     -p 127.0.0.1:8090:8090 -e GAMEAPI_TASK=scenarios/start-year.json dfbench-df:<tag>
 ARG BASE=yukon-df:53.16
-FROM --platform=linux/amd64 ${BASE}
-# gameapi/ and the key again, so a rebuild of this layer alone picks up server changes
+ARG DF_PLATFORM=linux/amd64
+
+FROM --platform=${DF_PLATFORM} ${BASE} AS os
+# keep the OS and the DF install (with the repo's prefs and DFHack config already applied); drop the copied tree
+RUN find /root/dfprobe -mindepth 1 -maxdepth 1 ! -name df -exec rm -rf {} + \
+    && rm -rf /root/dfprobe/df/save /root/dfprobe/df/data/save && mkdir -p /root/dfprobe/df/save
+
+FROM scratch
+COPY --from=os / /
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    HOME=/root LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TERM=xterm
+WORKDIR /root/dfprobe
+# the runtime allowlist, from the public export: the frozen game layer (root *.py/*.lua/*.sh), the server, the scorers
+# and key, the reference arms' automation and (witness-stripped) policies, task files and their setup Lua, and the
+# fort tooling the image runs (embark/, pool/ and framework/ for dfpool build-public)
+COPY --from=harness *.py *.lua *.sh /root/dfprobe/
 COPY --from=harness gameapi /root/dfprobe/gameapi
-COPY --from=harness bench/key.py /root/dfprobe/bench/key.py
+COPY --from=harness bench /root/dfprobe/bench
+COPY --from=harness automation /root/dfprobe/automation
+COPY --from=harness scenarios /root/dfprobe/scenarios
+COPY --from=harness embark /root/dfprobe/embark
+COPY --from=harness pool /root/dfprobe/pool
+COPY --from=harness framework /root/dfprobe/framework
+COPY --from=harness docker /root/dfprobe/docker
 COPY --from=harness gateway/prices.json /root/dfprobe/gateway/prices.json
+COPY --from=harness LICENSE NOTICE /root/dfprobe/
 COPY game_entrypoint.sh /root/dfprobe/docker/game_entrypoint.sh
-RUN chmod +x /root/dfprobe/docker/game_entrypoint.sh && find /root/dfprobe/gameapi -name __pycache__ -prune -exec rm -rf {} + \
-    && mkdir -p /root/dfprobe/df/save
+# the base image runs docker/start_df.sh (headless, no systemd), not the repo root's: keep the base's choice
+COPY start_df.sh /root/dfprobe/start_df.sh
+RUN chmod +x /root/dfprobe/*.sh /root/dfprobe/docker/*.sh /root/dfprobe/df/dfhack /root/dfprobe/df/dfhack-run \
+    && find /root/dfprobe -name __pycache__ -prune -exec rm -rf {} + \
+    && rm -rf /root/dfprobe/scenarios/snapshots && mkdir -p /root/dfprobe/scenarios/snapshots /root/dfprobe/df/save \
+    && test ! -e /root/dfprobe/baseline && test ! -e /root/dfprobe/runs && test ! -e /root/dfprobe/research \
+    && test ! -e /root/dfprobe/docs && ! grep -q "^class Witness" /root/dfprobe/policies.py
 ENV GAMEAPI_PORT=8090 GAMEAPI_OUT=/root/dfprobe/runs/game PYTHONUNBUFFERED=1
 EXPOSE 8090
 HEALTHCHECK --interval=10s --timeout=5s --start-period=120s CMD python3 -c "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=4)" || exit 1

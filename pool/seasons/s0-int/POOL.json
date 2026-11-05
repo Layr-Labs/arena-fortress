@@ -1,0 +1,30 @@
+{
+ "schema": "dfpool-pool/1",
+ "season": "s0-int",
+ "staged_utc": "2026-10-28T05:16:50Z",
+ "commitment": "none: public seeds",
+ "tarball_sha256": "f2561f284eeddc0c06d6463deb52b8c649b3f4e50a37bfeb32b5f58c568b6a20",
+ "manifest_sha256": "3c7e8f9863ebb720253baffe060841e739ac18b595372a0ef9e07b9907b635ba",
+ "image_digest": "sha256:fb56fb0592a17afe2327f09b75d06afabed9814c49e9138e0ca648f63ce42380",
+ "tasks": {
+  "LT01": "lt01-drought-s0-int:dfd85fa1",
+  "LT02": "lt02-rescue-neglected-s0-int:64e7f005",
+  "LT03": "lt03-mood-artifact-s0-int:7e2db1ab",
+  "LT08": "lt08-migrant-surge-s0-int:fc7de5ec",
+  "MY1": "my1-handover-lean-s0-int:e7b222b3",
+  "OP1": "op1-start-year-s0-int:a215426e"
+ },
+ "forts": {
+  "embark-default-fort-12345": "a89551a854d489690228b1eedac3b4979fd4ffd91b6fec0c3eabacc94af780c7",
+  "fort-neglected-y1-2001": "535aaf6d16f1fde5b36049b68ad92c4f8402b8dfa81e783ed1daa43e1f5fcf24",
+  "fort-neglected-y1-2002": "40a8dde6b507dcee3b0639d167dae745bf7bef78ef86d7f9007dec8cb1410de6",
+  "fort-neglected-y1-2005": "662631f2854cbdb9f094b259d4020bd9c9ac1d23fc70926fd60d8f862c52de87",
+  "fort-worked-y1-2001": "18642cd32f47479bf08010b0d207de760c82a49ada0d46045ebb2f5fdf0872e4",
+  "fort-worked-y1-2002": "cb19897173916ebab890235eebd3b5e1e210e717cac41eac6108843c227d618d",
+  "fort-worked-y1-2005": "5a2d9668ee13d708c39ec6bd8e3636dbf819697cefb69c0355fbacfabc09a9d2",
+  "my1-d120-2001": "b2a414da2438307c8bba006824ac0583d76d323a70229f7cfef000549347389f",
+  "my1-d120-2002": "eeff2e36cdd159459bcc974026f22ff40f1b7e6874be5bae6adaae55b6ad6083",
+  "my1-d120-2005": "fa872be6cb51ba8de1e198f4c2bfe7c9c44e0d546c32ceae51e47176bb752bc9"
+ },
+ "note": "Internal-testing pool (D25): public-seed forts only, so nothing here is secret. bench_key = the staged task's bench/key.py task hash; fort_id_sha256 = sha256 of each fort's snapshot id."
+}

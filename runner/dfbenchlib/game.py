@@ -9,6 +9,8 @@ import hashlib, json, os, re, shutil, subprocess, sys, tempfile, time
 
 from . import RUNNER, ROOT, RUNNER_VERSION
 
+ENV_URL = "http://game:8090"     # the environment service as the harness reaches it (spec or task "env_url" overrides)
+
 COMPOSE_DIR = os.path.join(RUNNER, "compose")
 FAKES_DIR = os.path.join(RUNNER, "fakes")
 FAKES_IMAGE = "s0run-fakes:latest"
@@ -203,6 +205,10 @@ class Game:
         if os.path.isdir(self.dir):
             self._keep_previous_attempt()    # a fresh attempt; the earlier one's artifacts move to attempt-<n>/
         self.prepare()
+        watch = None
+        if self.opt.get("watch"):        # local watch mode only (runner/dfbenchlib/watch.py); never set in CI
+            from . import watch
+        live = watch.start_live(self) if watch and self.opt.get("watch_live") else None
         t0 = time.time()
         self.rec["t_start"] = t0
         try:
@@ -214,10 +220,19 @@ class Game:
             log(f"{self.spec['game_id']}: infra error: {e}")
         finally:
             try:
+                if watch:
+                    watch.stop_recording(self)
                 self._collect_logs()
             finally:
+                if live:
+                    live.close()
                 self.compose("down", "-v", "--remove-orphans", "-t", "5", timeout=180, check=False)
         self.rec["wall_s"] = round(time.time() - t0, 1)
+        if watch:
+            try:
+                watch.finish(self)
+            except Exception as e:  # noqa: BLE001 - a failed video never changes the game's result
+                self.rec["notes"].append(f"watch: post-processing failed: {e}")
         self._check_artifacts()
         json.dump(self.rec, open(os.path.join(self.dir, "game.json"), "w"), indent=1)
         log(f"{self.spec['game_id']}: {self.rec['status']} ({self.rec.get('finished_by')}) in {self.rec['wall_s']} s")
@@ -279,7 +294,7 @@ class Game:
             self.rec["notes"].append(f"{e} (started the harness anyway)")
         rules = task.get("rules") or {}
         dtask = {"schema": "dfbench-task/1", "run_id": self.run_id, "api": task.get("api", "v0"),
-                 "game_url": "http://game:8090",
+                 "game_url": s.get("env_url") or task.get("env_url") or ENV_URL,
                  "model": {"base_url": "http://gateway:8080/v1", "name": o.get("model", DEFAULT_MODEL),
                            "api": "openai-chat", "api_key": "placeholder",
                            "prices": model_prices(o.get("model", DEFAULT_MODEL))},

@@ -2,7 +2,9 @@
 # Build:  docker buildx build --platform linux/amd64 \
 #           --build-context dl=<dir with the two tarballs> --build-context harness=<repo root> \
 #           -f docker/Dockerfile -t yukon-df:53.16 docker
-FROM --platform=linux/amd64 debian:bookworm-slim
+# DF is x86_64 only. The platform is an ARG so buildx doesn't warn (FromPlatformFlagConstDisallowed); same image.
+ARG DF_PLATFORM=linux/amd64
+FROM --platform=${DF_PLATFORM} debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bzip2 ca-certificates procps python3 locales \
       libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0 libsdl2-ttf-2.0-0 \

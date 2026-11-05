@@ -232,6 +232,33 @@ def read_text(path, limit=None, what="file"):
     return s, sha256_bytes(b)
 
 
+def declaration_of(path):
+    """The `declaration` field of the workflow's deps.json ("provided", "none", "unavailable", ...), or None for a
+    plain Yukon-format array (a hand-written file)."""
+    try:
+        d = json.loads(read_text(path, LIMITS["max_deps_bytes"], "dependencies file")[0])
+    except (ValueError, LimitHit, InputError, OSError):
+        return None
+    return d.get("declaration") if isinstance(d, dict) else None
+
+
+def attribution_source(deps_path, repo_dir):
+    """-> (deps_path_to_use, basis, verified). Yukon's record when the workflow could read it (basis "yukon",
+    verified); else the submitter's in-tree submission/dependencies.json (basis "in-tree", not Yukon-verified but
+    a formal list); else nothing formal (basis "note+code": the reviewers judge from the note and the code, and the
+    published record is verified afterwards)."""
+    if declaration_of(deps_path) != "unavailable":
+        return deps_path, "yukon", True
+    tree = os.path.join(repo_dir or ".", "submission", "dependencies.json")
+    if os.path.isfile(tree):
+        try:
+            load_dependencies(tree)
+            return tree, "in-tree", False
+        except (InputError, LimitHit):
+            pass
+    return deps_path, "note+code", False
+
+
 def load_dependencies(path):
     s, h = read_text(path, LIMITS["max_deps_bytes"], "dependencies file")
     try:

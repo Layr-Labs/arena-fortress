@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       submissions: {description: "comma list of submission ids (or baseline); empty = band.py select", type: string, required: false, default: ""}
-      k: {description: "contenders to re-score besides the leader (empty: vars.DFBENCH_BAND_RESCORES_PER_WEEK or 4)", type: string, required: false, default: ""}
+      k: {description: "minimum contenders to re-score besides the leader (empty: vars.DFBENCH_BAND_RESCORES_PER_WEEK or 4); single-run contenders that could be ahead are all picked, up to vars.DFBENCH_BAND_RESCORES_MAX or 8", type: string, required: false, default: ""}
 permissions:
   contents: read
 concurrency:
@@ -29,6 +29,8 @@ env:
   SEASON: ${{ vars.DFBENCH_SEASON || 's0' }}
   SCORE_SUITE: ${{ vars.DFBENCH_SCORE_SUITE || 'runner/suites/season0.json' }}
   OPS_REPO: ${{ vars.DFBENCH_OPS_REPO || 'Layr-Labs/dfbench-ops' }}
+  DFBENCH_RESULT_KIND: official     # result labels (score.py): an organiser re-score is an official run
+  DFBENCH_STACK: ${{ vars.DFBENCH_STACK || 'real' }}
 
 jobs:
   plan:
@@ -53,6 +55,15 @@ jobs:
           perm=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" -q .permission 2>/dev/null || echo unknown)
           [ "$perm" = admin ] || { echo "::error::$ACTOR is not a repo admin ($perm); re-scores are organiser-only"; exit 1; }
           echo "organiser $ACTOR on $REF"
+      - name: Attribution checks after publication (report only, never fatal; runner/ci/bin/attribution_verify.py)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+        run: python3 -I runner/ci/bin/attribution_verify.py check --days 30 --max 50
       - id: pick
         name: Picks (the leader + K contenders) and the commit each was scored on
         env:
@@ -65,15 +76,17 @@ jobs:
           BENCHMARK: ${{ vars.DFBENCH_YUKON_CHALLENGE_ID }}
           ONLY: ${{ inputs.submissions }}
           K: ${{ inputs.k || vars.DFBENCH_BAND_RESCORES_PER_WEEK || '4' }}
+          CAP: ${{ vars.DFBENCH_BAND_RESCORES_MAX || '8' }}   # single-run contenders that could be ahead (band.py select)
         run: |
           set -euo pipefail
           [[ "$ONLY" =~ ^[a-z0-9,-]*$ ]] || { echo "::error::submissions: ids only"; exit 1; }
           [[ "$K" =~ ^[0-9]+$ ]] && [ "$K" -le 16 ] || { echo "::error::k must be 0..16"; exit 1; }
+          [[ "$CAP" =~ ^[0-9]+$ ]] && [ "$CAP" -le 16 ] || { echo "::error::DFBENCH_BAND_RESCORES_MAX must be 0..16"; exit 1; }
           lid=""
           [ -z "$BENCHMARK" ] || lid=$(python3 -I runner/ci/bin/gate.py leader-id --benchmark "$BENCHMARK" | sed -n 's/^leader_id=//p')
           echo "leader=$lid" >> "$GITHUB_OUTPUT"
           if [ -n "$ONLY" ]; then picks=$(python3 -I -c 'import json,os;print(json.dumps([x for x in os.environ["ONLY"].split(",") if x]))')
-          else picks=$(python3 -I runner/ci/bin/band.py select --k "$K" --leader "$lid"); fi
+          else picks=$(python3 -I runner/ci/bin/band.py select --k "$K" --cap "$CAP" --leader "$lid"); fi
           # each pick's scored commit: its submissions/<id> branch, else its PR's head (Yukon closes, never deletes PRs);
           # the baseline: the branch stored with it
           inc=$(python3 -I - "$picks" <<'EOF'
@@ -180,15 +193,20 @@ jobs:
           DFBENCH_SEASON: ${{ env.SEASON }}
           DFBENCH_BAND_PTS: ${{ vars.DFBENCH_BAND_PTS || '3.8' }}
           SEAL_KEY: ${{ secrets.DFBENCH_SEAL_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}     # OpenRouter's generation records only (fingerprint)
           LEADER: ${{ needs.plan.outputs.leader }}
           SUB: ${{ matrix.submission }}
         run: |
           set -euo pipefail
           python3 -I runner/dfbench score out/games --suite "$SCORE_SUITE" > /dev/null
+          # same-harness drift check against this harness's own reference + routing fingerprint (report only, D26)
+          d=$(python3 -I runner/ci/bin/drift.py rescore --games out/games --submission "$SUB" --run "$GITHUB_RUN_ID" \
+                || echo '{"drift_flag": "n/a", "drift_basis": "unavailable"}')
           r=$(python3 -I runner/ci/bin/band.py record --detail out/games/score_detail.json --suite "$SCORE_SUITE" \
-                --submission "$SUB" --run "$GITHUB_RUN_ID" --leader "$LEADER")
+                --submission "$SUB" --run "$GITHUB_RUN_ID" --leader "$LEADER" --drift "$d")
           echo "$r"
           echo "$SUB $(python3 -I -c 'import json,sys;r=json.loads(sys.argv[1]);p=r.get("pooled") or {};print(r.get("status"), "pooled point", p.get("point"), "lb", p.get("lb95"), "runs", p.get("runs"), "leading" if r.get("leading_on_pooled") else "")' "$r")" >> "$GITHUB_STEP_SUMMARY"
+          echo "$SUB drift $(python3 -I -c 'import json,sys;d=json.loads(sys.argv[1]);print(d.get("drift_flag"), d.get("drift_basis"), "ratio", d.get("drift_reasoning_ratio"), "ks_p", d.get("drift_ks_p"), "route_consistent", d.get("route_consistent"), d.get("route_model_snapshot"))' "$d")" >> "$GITHUB_STEP_SUMMARY"
           kf=$(mktemp "$RUNNER_TEMP/seal.XXXX"); printf '%s' "$SEAL_KEY" > "$kf"
           tar -czf "$RUNNER_TEMP/r.tgz" -C out games
           bash runner/ci/bin/seal.sh seal "$RUNNER_TEMP/r.tgz" "$RUNNER_TEMP/results-p${{ matrix.i }}.tgz.enc" "$kf" >/dev/null; rm -f "$kf"

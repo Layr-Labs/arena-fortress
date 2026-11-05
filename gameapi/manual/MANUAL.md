@@ -114,18 +114,21 @@ are capped, so the list is not every possible place; the `map` query is the raw 
 
 - **Listed or not.** A candidate stays listed while the search still finds it. When it stops qualifying (built on,
   dug, designated) it drops out, and its id then gets `site_used` ("no longer listed").
-- **R rooms.** An R site is undug while listed. Once dug it is no longer a candidate, but its id keeps working for
-  build_farm, place_furniture, make_zone and create_burrow (before that, they get `room_not_dug_yet`). A dug room
+- **R rooms.** An R site is undesignated while listed. Once `dig_room` designates it, it is no longer a candidate
+  (`designated: true`), but its id keeps working for build_farm, place_furniture, make_zone and create_burrow
+  (before that, they get `room_not_dug_yet`). Digging takes days: `dug` turns true only when every tile of the box
+  is floor (`tiles.floor == tiles.tiles`). Until then DF can refuse room tools on the solid tiles (`tile_hidden`), and
+  a zone can be made over rock. A dug room
   is `used` once a farm plot covers it (then build_farm, place_furniture and make_zone get `site_used`) or a zone
   covers it (then make_zone gets `site_used`).
 - **`map.sites[]`**: every listed candidate and every R room of the game, ordered by kind and number, unranked:
-  `{id, kind, x, y, z, w, h, soil (null = not checked), free, dug (R only, else null), used_by?, anchor? (W:
+  `{id, kind, x, y, z, w, h, soil (null = not checked), free, designated (R only, else null: dig ordered), dug (R
+  only, else null: every tile excavated), used_by?, anchor? (W:
   "centre"), subterranean?, tiles? (R: {tiles, floor, soil_floor, designated, hidden} for the 3x3 box), stair? (R:
   the stair's x,y), open_tiles? (A), building? (E: a building on the stair tile)}`.
 - **Resolution.** A tool given `site` re-reads the candidates first, so a site seen in an older observation is
   checked against the current map. A site resolves to the tool's coordinates (W: the centre; boxes: top-left plus
-  the site's w,h; S for dig_stairs: `z_top` = the site's z). Raw `x, y, z` (and `w, h`, `z_top`) are also accepted
-  in place of `site` by the site tools, though the schemas don't list them. With neither: `missing_location`.
+  the site's w,h; S for dig_stairs: `z_top` = the site's z). The site tools take `site` only.
 
 ## 5. Tools
 
@@ -334,7 +337,7 @@ none. A tripwire not listed is recorded and the advance goes on. Result: `advanc
 `stopped` (null or `{reason, detail, after_ticks, abs_tick}`), `tripwires_ignored?`, `interruptions?` (DF popups
 dismissed during the advance), `wall_capped?`, `hands_off?`, `end_reason?` (when the game ended).
 
-## 6. The observation (obs schema 6)
+## 6. The observation (obs schema 8)
 
 `GET /observe` → `{"observation": {...}}`. Empty lists may be left out.
 
@@ -347,7 +350,9 @@ dismissed during the advance), `wall_capped?`, `hands_off?`, `end_reason?` (when
   BROKER, the holder's name or `VACANT`, and `<CODE>_id`; `manager_active_for_orders` (DF has someone with the
   manage-production responsibility); `manager_required_office`; `manager_office` (`{zone_id, chair}` or `none`).
 - **`stocks`** (revealed items; counts are stack sums unless noted):
-  - `drink`; `food_edible` (DF's good-food item list *(unverified whether rotten items are in it)*);
+  - `drink`; `food_edible` (edible food the way the score counts it: FOOD, MEAT, FISH, CHEESE, EGG, PLANT and
+    PLANT_GROWTH items, unrotten; not seeds, empty bags or raw fish); `food_any_good` (the stack sum of DF's
+    good-food item list, which also holds seeds, bags and raw fish: what `food_edible` reported before schema 8);
     `prepared_meals` (FOOD items);
   - `plants_total` (unrotten, unforbidden plants), `plants_brewable` (of those, with a DRINK_MAT product),
     `plants_rotten`, `plants_by_kind {name: {n, brewable, cookable}}`;
@@ -444,7 +449,14 @@ report.
 - **Drink and food.** Dwarves drink water when they can reach it and none is in stock, and get unhappy thoughts
   and work slower without alcohol. Brewing needs a brewable plant and an empty barrel; cooking and brewing can use
   up the same plants. Dwarves get a happier thought from eating prepared meals than raw food. Rotten and forbidden
-  items aren't used.
+  items aren't used. Uncooked meat and fish rot within a few weeks; prepared meals keep. Raw fish (FISH_RAW) isn't
+  food until a Fishery workshop cleans it.
+- **Seeds.** A crop's seeds come back when the harvested plant is brewed or processed at a workshop, or when a
+  plant that's edible raw is eaten raw; cooking a plant returns no seed. The start fort's kitchen bans cooking seeds.
+  Of the six starting crops, only plump helmets are eaten raw; plump helmets, pig tails, cave wheat and sweet pods
+  are brewed; pig tails (thread), cave wheat (flour), sweet pods (sugar, syrup) and quarry bushes (leaves and rock
+  nuts, its seeds) are processed; dimple cups are milled to dye and have no seed route. A crop that's neither brewed
+  nor processed is gone once its seeds are planted.
 - **Rooms.** Dwarves get unhappy thoughts sleeping without a bed and eating without a table and chair.
 - **Labors.** A job is done only by a dwarf with its labor enabled (`units` query: `labors[]`); no tool sets labors
   except `autolabor`.
