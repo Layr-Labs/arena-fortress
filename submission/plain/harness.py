@@ -7,7 +7,8 @@ One turn:
   3. one chat call through the gateway (tool_choice required)
   4. run the first tool call (POST /act); its result goes back to the model as JSON
   5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
-     actions are used up; stop calling the model near the end of the credits
+     actions are used up; advance without the model while spend runs ahead of the calendar (credit pacing); stop
+     calling the model near the end of the credits
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
@@ -34,6 +35,7 @@ MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
+PACE_SLACK = 0.10
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
@@ -98,8 +100,10 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0, "pace_advances": 0}
         self.stop_reason = None
+        self.span = None
+        self.paced_at = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
 
@@ -121,6 +125,25 @@ class Plain:
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
 
+    def pace_days(self, resp):
+        """Days to advance without the model so the credits last the managed part of the run: 0 while the share of
+        the usable credits spent stays within PACE_SLACK of the share of that span gone. The span is the first
+        observed distance to the hands-off window (else to the end of the run). Never twice at the same distance, so a
+        refused advance cannot loop."""
+        left = resp.get("hands_off_in_days")
+        if not isinstance(left, (int, float)):
+            left = resp.get("days_left")
+        if not self.task.credits or not isinstance(left, (int, float)) or left <= 0 or left == self.paced_at:
+            return 0
+        if self.span is None:
+            self.span = left
+        gone = 1.0 - left / self.span
+        ahead = self.spent() / (BUDGET_STOP * self.task.credits) - gone - PACE_SLACK
+        if ahead <= 0:
+            return 0
+        self.paced_at = left
+        return max(1, min(MAX_DAYS, int(left), int(ahead * self.span) + 1))
+
     def run(self, max_turns=None):
         self.setup()
         idle = streak = 0
@@ -132,6 +155,12 @@ class Plain:
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
                 break
+            lag = self.pace_days(resp)
+            if lag:
+                self.stats["pace_advances"] += 1
+                if not self.advance(lag, "credit_pace"):
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(

@@ -32,6 +32,10 @@ Guards:
   manager's validation, and a model can loop on it until the credits are gone.
 - **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
   unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
+- **Credit pacing:** before each model call it compares the share of the usable credits spent with the share of the
+  managed span gone (from the first observation to the hands-off window). When spend is more than 10% of the span
+  ahead, it advances the game itself (up to 14 days, no model call) until the calendar catches up, so the credits
+  last to the hands-off window instead of running out in the first weeks.
 - **A failing model:** after 5 failed model turns in a row it exits.
 
 ## What it doesn't do
