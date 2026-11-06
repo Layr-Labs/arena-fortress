@@ -1,5 +1,5 @@
 import sys
 
-from .harness import main
+from .main import main
 
 sys.exit(main())
