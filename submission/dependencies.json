@@ -1,0 +1,17 @@
+[
+ {
+  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+  "rationale": "e-man07's hybrid architecture: a deterministic daily layer (the overseer package: manager and office, plugins, workshops, digging, farms, standing orders, furniture, zones, moods, defence) run once per game day in front of the organiser's plain model loop, plus the prompt paragraph telling the model what is handled. This submission keeps that architecture and most of that layer.",
+  "evidence": "submission/overseer/harness.py (the Overseer class and its steps) and the Overseer.step call in submission/plain/harness.py, against the same files in 6e775ed2."
+ },
+ {
+  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+  "rationale": "e-man07's revision of the same layer after real-DF games: seat counting inside dining zones, rezoning loose furniture, beds first and extra Carpenters, the office made in one pass with a reserved chair, cooking on any food, butchering when food is short, housing on its own level, the 200/1000 brew caps, per-pass site consumption, the 3-day advance cap and the budget-mode loop. The overseer package here starts from this version.",
+  "evidence": "submission/overseer/harness.py (office, workshops, digging, supply, seats, bed_target, rank, rezone, low_food, furnish, dine_over_existing) and submission/plain/harness.py (MAX_DAYS, quiet_days, the budget branch), against the same files in efac22bf."
+ },
+ {
+  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+  "rationale": "mpjunior92's public note: raising the brewing target during the final stretch of a game without a hands-off window, because drink declined through the scored interval after production paused. The endgame supply mode here is a reimplementation of that idea (no code taken).",
+  "evidence": "submission/overseer/harness.py, endgame_supply (the o_brew_end order with a cap that rises with the population), against that note's 'Changes since the previous archive' section."
+ }
+]
