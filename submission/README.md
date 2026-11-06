@@ -1,53 +1,28 @@
-# The plain baseline harness (season 0)
+# Fortress harness: public-facts advisor and recoverable failure memory
 
-This is where `submission/` starts: a language model playing the fort from the raw game API, one tool call per turn.
-It is deliberately plain. It does what the contract needs and some basic hygiene, and nothing that interprets the
-fort for the model.
+Starts from the organisers' plain baseline at main commit `75d40aa6adc8ee1b3f3b5ad1d74c3674f1ff3abf`.
+Only `submission/` is modified. The task still supplies the fixed model and metered gateway.
 
-| file (in `submission/`) | what |
-|---|---|
-| `plain/harness.py` | the loop and its guards (~300 lines) |
-| `plain/prompt.py` | the system prompt: the role, the run's rules and what it is scored on, plus sections 4 and 6 of the game API's own manual. No DF strategy |
-| `plain/__main__.py` | the entrypoint (`python -m plain`) |
-| `dfbench_client/` | a small stdlib client for the game API and the model gateway (retries, the credit stop) |
-| `Dockerfile` | the image: `dfbench_client/` and `plain/`, stdlib only |
+## Changes
 
-(`baseline/plain/` holds the same package with its files at the top level, next to `baseline/dfbench_client/`.)
+- Retains raw observations and adds bounded `harness_status`: manager/office and production prerequisites,
+  distinct-time stock trends, built-furniture housing facts, dug soil rooms, and hands-off reminders.
+- Remembers at most eight deterministic action failures beyond the conversation window. Refuses identical retries
+  only while tick, public facts and successful-action epoch remain unchanged. Progress unlocks retries.
+- Offers `inspect_fort` for the intersection of documented read-only query names and `/task` capabilities.
+  Query arguments are allowlisted; output is bounded valid JSON with explicit truncation.
+- Adds a public-manual-based production/verification checklist. The model still chooses all game actions.
+- Pins the Python Linux amd64 image digest; no extra Python dependencies.
 
-## What it does each turn
+## Verification status
 
-1. `GET /observe`. The observation goes to the model **as the API returns it** (compact JSON), with
-   `days_left_in_run`, `hands_off_in_days`, the task's `goal` and `scenario`.
-2. History: the system prompt and the last 12 messages. Older observations become a one-line stub, and older tool
-   results are cut to 300 characters.
-3. One chat call through the gateway: `tool_choice` required, temperature 0, `max_tokens` 4000, reasoning effort low.
-4. The first tool call runs (`POST /act`); its result goes back as JSON. Extra calls in the same reply are answered
-   `one_tool_per_turn`.
+26 focused regression/existing HTTP-fake integration tests pass. See `NOTE.md` for the exact reproducer,
+provenance, limitations and measurements still needed. Fake games are not strategy or score evidence.
 
-Guards:
-- **Time keeps moving:** after 10 actions in a row without an advance, or when the day's 40 actions are used up,
-  the harness advances one day itself. `advance_days` is capped at 14 days.
-- **Order churn**, refused locally with `order_churn`: cancelling an order the harness added under 2 days ago, and
-  re-adding an order identical to one it cancelled in the last 3 days. Cancelling and re-adding restarts the
-  manager's validation, and a model can loop on it until the credits are gone.
-- **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
-  unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
-- **A failing model:** after 5 failed model turns in a row it exits.
+Real DF smoke, Docker image build, paid hosted-model runs and baseline-vs-candidate public-suite comparisons
+are pending: Docker socket access, participant-supplied DF/DFHack downloads and an OpenRouter key are needed.
+No official submission or score has been produced.
 
-## What it doesn't do
-
-Everything else is yours. The obvious directions, none of them done here:
-- **Make the state legible.** The raw observation is long and flat. What matters this turn (drink running low, an
-  order that isn't moving, a mood waiting for a workshop) is in there, but the model has to find it every turn.
-- **Explain failures.** A rejected action comes back as the API's error code and text. Why an order isn't
-  progressing (no manager, no workshop, no input, still waiting for validation) is for the harness to work out.
-- **Remember.** The model sees only the last 12 messages, so it forgets what it tried and what failed.
-- **Use the read-only queries** (`GET /query/...`: stocks, units, jobs, orders, buildings, zones, map). They're free:
-  no actions, no game time.
-- **Plan and pace.** When to call the model, how far to advance, several actions between advances, sub-calls,
-  where to spend the credits.
-- **Know DF.** The prompt says nothing about how DF works: what the manager does, what a workshop needs, how to
-  keep drink and food coming, farming, moods, defence. The model plays from whatever it already knows.
-
-The organiser's reference harness (score published at launch) gets above this baseline by working on these. How is
-up to you.
+`NOTE.md` is the candidate method note; `dependencies.json` declares material published-note inspiration.
+Use these files directly with `--note-file submission/NOTE.md --dependencies-file submission/dependencies.json`
+when a measured candidate is ready. Do not copy credentials into this directory.

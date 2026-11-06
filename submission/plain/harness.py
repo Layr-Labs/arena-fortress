@@ -11,8 +11,7 @@ One turn:
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
-There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
-reads the raw facts. README.md lists the obvious places to improve.
+The raw facts are retained alongside bounded advisory diagnostics and recent deterministic action failures.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -25,7 +24,8 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
-from . import prompt
+from . import inspect, prompt
+from .advisor import Advisor
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
@@ -98,14 +98,18 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "retry_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.advisor = Advisor()
 
     def setup(self):
         t = self.game.task()
         self.tools = prepare_tools(t.get("tools") or [])
+        self.query_names = inspect.advertised(t.get("queries"))
+        if self.query_names:
+            self.tools.append(inspect.tool(self.query_names))
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
@@ -134,6 +138,7 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
+            obs["harness_status"] = self.advisor.observe(obs, self.tick())
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
                 obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
@@ -205,9 +210,18 @@ class Plain:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
             resp = {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
+        elif name == "inspect_fort":
+            resp = inspect.run(self.game, args, self.query_names)
+            self.messages.append({"role": "tool", "tool_call_id": call.get("id"),
+                                  "content": json.dumps(resp, ensure_ascii=False)})
+            log("inspect", query=args.get("name"), ok=bool(resp.get("ok")), truncated=resp.get("truncated", False))
+            return False
         elif refused:
             resp = refused
             self.stats["churn_refused"] += 1
+        elif (retry_refusal := self.advisor.refuse(name, args, tick)):
+            resp = retry_refusal
+            self.stats["retry_refused"] += 1
         else:
             if name == "advance_days":
                 try:
@@ -221,6 +235,7 @@ class Plain:
                 self.advance(1, "action_limit")
                 return True
             self.remember(name, args, resp, tick)
+            self.advisor.remember(name, args, resp, tick)
         self.result(call, name, args, resp)
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved

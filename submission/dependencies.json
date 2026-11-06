@@ -1,0 +1,7 @@
+[
+  {
+    "submissionId": "6ad71ca7-3685-4d4b-8117-1bd6f63624df",
+    "rationale": "Used the published note's recommendation to expose public jobs/stocks/orders context and diagnose production bottlenecks. No code from that submission was restored or copied; this candidate starts from the organisers' plain baseline on main.",
+    "evidence": "Read yukon submission-note 6ad71ca7-3685-4d4b-8117-1bd6f63624df and its empty declared dependency list. Its note describes periodic jobs/orders/stocks diagnostics and future bottleneck investigation. Candidate submission/plain/inspect.py exposes model-selected, allowlisted read-only inspection; submission/plain/advisor.py supplies bounded public-facts diagnostics. These are independently implemented alternatives, not the predecessor's every-fourth-turn query schedule. The public game API/manual independently documents all queried fields and production prerequisites."
+  }
+]

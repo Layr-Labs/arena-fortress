@@ -5,10 +5,9 @@ system prompt = MANUAL (the role, the rules of the run, what it is scored on)
               + OBSERVATION (how this harness sends the state, and its own guard)
               + the game API's own reference for the observation and the sites (GET /task `manual`, sections 4 and
                 6: facts about the wire format, no advice).
-The observation itself is sent as the API returns it: compact JSON, no summary, no interpretation.
+The raw observation is retained alongside advisory status derived from public facts.
 
-This prompt deliberately carries no Dwarf Fortress strategy: nothing on what to build first, how to keep drink and
-food flowing, what the manager needs, moods or defence. The model plays from what it already knows about DF.
+Adds a concise, public-manual-based production and verification checklist. The model chooses all actions.
 
 PLUG-IN: everything here is yours to change: DF knowledge, examples, a plan the model keeps.
 Every token is paid for at every call, and the credits are per game.
@@ -37,10 +36,35 @@ and material_category, with the same repeat/when; it runs at whichever built wor
 
 OBSERVATION = """
 THE OBSERVATION. Each turn you get the game's observation as JSON ("OBSERVATION {...}"), as the game API returns it,
-plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
+plus `days_left_in_run`, `hands_off_in_days` (if any), `goal`, `scenario` and `harness_status`. Older observations in the conversation
 are omitted: the latest one is the current state. A cancelled order that you add again waits for the manager's
 validation again; this harness refuses cancelling an order it added under 2 days ago, and re-adding an order identical
-to one it cancelled in the last 3 days (error_code order_churn)."""
+to one it cancelled in the last 3 days (error_code order_churn).
+
+HARNESS STATUS is advisory, derived only from public observations. Missing facts are unknown, not zero. Net stock
+rates cover a short interval, not a guarantee about future consumption/production. Recent failures persist beyond
+the conversation window. An identical deterministic failed action in unchanged state is refused locally as
+unchanged_failure. Read its original error, fix a prerequisite/change arguments, or let time pass; do not loop.
+
+OPERATING CHECKLIST. Follow this game's goal and urgency, not a rigid opening. First stabilize survival and ongoing
+drink/food production. Manager orders need an active manager; new orders can take a day to validate. Around 20+
+citizens an assigned office with a built chair may be needed. Preserve valid orders; cancelling resets validation.
+Brewing requires a built Still, plants (or a suitable fruit reaction) and empty barrels. Make barrels at a built
+Carpenters using usable logs; wagon logs may be unusable. Use repeat orders with stock conditions for continuing
+supply, rather than endlessly adding duplicates. Cooking plants destroys their seeds; brewing returns seeds.
+Match farm soil/light to available seeds and use autofarm/seedwatch for sustainable crops. Consider autolabor and
+autochop if jobs/materials stall. A designated room is not dug yet; a planned workshop is not built yet. Use the
+latest site ids and check the previous action's result before assuming success.
+Allow 1-3 days for essential construction/validation, then verify stocks and jobs actually progress; use longer
+advances only after stabilization. If stuck, use inspect_fort (when offered) to query public jobs/orders/stocks instead
+of cancelling/re-adding. A bed item is not a placed bed; only built furniture helps housing. Dining needs tables
+and chairs in dining space, not a stockpile of them. Before hands-off, finish and verify production and beds, not
+just designations. Attend strange moods and visible threats promptly using public facts and tools. Never invent
+ids, map visibility, items, crop compatibility or tool arguments; the game manual and tool schemas are authoritative.
+inspect_fort is a read-only harness tool: choose a query name advertised in its schema, omit unrelated arguments,
+and narrow by filters/limit if the reply is truncated. It neither calls /act nor advances time. Use it only to
+resolve uncertainty: model turns still cost credits, and the normal stall guard still lets time pass.
+"""
 
 API_SECTIONS = ("4", "6")   # of the served manual: "## 4. Sites", "## 6. The observation"
 
