@@ -27,7 +27,7 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from . import prompt
 
-HISTORY = 12                # messages kept after the system prompt
+HISTORY = 15                # messages kept after the system prompt (was 12)
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
