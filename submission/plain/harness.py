@@ -25,12 +25,14 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
+from overseer.harness import Overseer
+
 from . import prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
-MAX_DAYS = 14               # advance_days cap (the API allows 28)
+MAX_DAYS = 3                # advance_days cap (the API allows 28); short, so the daily layer keeps up
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
@@ -102,6 +104,8 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
+        self.guard_day = None
 
     def setup(self):
         t = self.game.task()
@@ -118,6 +122,13 @@ class Plain:
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
             system_chars=len(self.messages[0]["content"]))
 
+    def quiet_days(self, resp):
+        obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
+        left = resp.get("hands_off_in_days")
+        if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
+            return 1
+        return 2
+
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
 
@@ -129,9 +140,18 @@ class Plain:
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 break
+            if resp.get("day") != self.guard_day:   # the deterministic layer runs once per game day and costs no credits
+                self.guard_day = resp.get("day")
+                try:
+                    if self.guard.step(resp):
+                        resp = self.game.observe()
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
-                self.stop_reason = "budget"
-                break
+                if not self.advance(self.quiet_days(resp), "budget"):   # no model left; the layer still runs
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
@@ -212,6 +232,9 @@ class Plain:
             if name == "advance_days":
                 try:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
+                    left = (self.game.last or {}).get("hands_off_in_days")
+                    if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
+                        args["days"] = 1
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
             try:
