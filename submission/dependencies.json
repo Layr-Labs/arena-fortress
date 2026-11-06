@@ -1,0 +1,7 @@
+[
+  {
+    "submissionId": "6ad71ca7-3685-4d4b-8117-1bd6f63624df",
+    "rationale": "Uses the bounded action-journal design described in the public research note, independently implemented alongside the deterministic caretaker.",
+    "evidence": "The source submission/plain/harness.py stores the last 60 non-advance actions and sends recent_actions in observations. Our submission/plain/harness.py stores the last 60 action records and sends the last 25 as action_memory. We read both the public note and its candidate harness. The caretaker, query_game transport, population scaling and site-aware room maintenance are new here. No source code was copied from that candidate."
+  }
+]

@@ -26,6 +26,7 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from . import prompt
+from .caretaker import Caretaker
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
@@ -101,11 +102,19 @@ class Plain:
                       "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
+        self.caretaker = Caretaker()
+        self.journal = []
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
 
     def setup(self):
         t = self.game.task()
         self.tools = prepare_tools(t.get("tools") or [])
+        self.tools.append({"type": "function", "function": {
+            "name": "query_game", "description": "Read-only facts. No time or action cost. Use units kind animals for mood materials.",
+            "parameters": {"type": "object", "properties": {
+                "name": {"type": "string", "enum": ["stocks", "units", "jobs", "orders", "buildings", "zones", "map", "manager_order_types", "workshop_types"]},
+                "params": {"type": "object", "description": "Optional query parameters: kind, id, limit; map x,y,z,radius,z2; stocks item_type."}},
+                "required": ["name"], "additionalProperties": False}}})
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
@@ -134,6 +143,26 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
+            if idle >= STALL_AFTER:
+                idle = 0
+                if not self.advance(1, "routine_work"):
+                    break
+                continue
+            routine = self.caretaker.step(obs, resp.get("tick"))
+            if routine:
+                name, args = routine
+                call = {"id": "routine-" + str(self.stats["turns"]), "type": "function",
+                        "function": {"name": name, "arguments": json.dumps(args)}}
+                try:
+                    self.run_call(call)
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
+                # Routine calls aren't in the model conversation; retain them as facts.
+                self.messages.pop()
+                idle += 1
+                continue
+            obs["action_memory"] = self.journal[-25:]
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
                 obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
@@ -205,6 +234,14 @@ class Plain:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
             resp = {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
+        elif name == "query_game":
+            allowed = {"stocks", "units", "jobs", "orders", "buildings", "zones", "map", "manager_order_types", "workshop_types"}
+            try:
+                if args.get("name") not in allowed or not isinstance(args.get("params", {}), dict):
+                    raise ValueError("invalid query")
+                resp = self.game.query(args["name"], **args.get("params", {}))
+            except (GameAPIError, TypeError, ValueError) as e:
+                resp = {"ok": False, "error_code": "query_failed", "error": str(e)[:300]}
         elif refused:
             resp = refused
             self.stats["churn_refused"] += 1
@@ -258,6 +295,10 @@ class Plain:
 
     def result(self, call, name, args, resp):
         ok = bool(resp.get("ok"))
+        if name != "advance_days":
+            self.journal.append({"tick": self.tick(), "tool": name, "args": args,
+                                 "ok": ok, "error": resp.get("error_code")})
+            self.journal = self.journal[-60:]
         self.stats["actions"] += 1
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]

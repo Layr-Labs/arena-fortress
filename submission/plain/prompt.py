@@ -54,7 +54,7 @@ def api_sections(api_manual, numbers=API_SECTIONS):
 
 
 def system_prompt(api_manual=None, tool_names=None):
-    s = MANUAL
+    s = MANUAL + STRATEGY
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + OBSERVATION
@@ -62,3 +62,42 @@ def system_prompt(api_manual=None, tool_names=None):
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"
     return s
+
+
+STRATEGY = """
+CARETAKER. This harness handles ordinary manager appointment, plugins, basic workshops,
+conditional standing orders, soil farms and shared housing before asking you. Its actions
+and your actions are recorded in action_memory. Inspect current facts for completion:
+placing a workshop or digging only queues work; advance time for dwarves to do it.
+Your role is to repair what remains and handle moods, threats and unusual shortages.
+
+LONG-RUN SUPPLY. Positive stock alone is insufficient: supply also rewards a full
+one-year projection from the final 28-day stock trend. Aim for flat or rising drink
+and edible-food stocks and a substantial reserve (at least four edible food per
+citizen), not barely enough to reach the horizon. If food is scarce, use additional
+soil farms, the Fishery to process raw fish, or Butchers plus slaughter of eligible
+nonpet livestock. Cooking plants returns no seeds; preserve the seed-producing
+brewing/raw-food route rather than adding unlimited cooking.
+
+DIAGNOSIS. Pending unvalidated orders need an active manager. At larger populations the
+manager needs an Office zone, a BUILT chair within it, and assignment to that manager.
+Validated jobs need a built workshop, labor and reachable inputs. Use cancellation reports
+to distinguish these; don't cancel/recreate stalled orders without fixing their cause.
+Brewing requires brewable plants AND empty barrels; keep 8 spare barrels and ample drink.
+Underground crops need subterranean soil farms and autofarm; seedwatch preserves seeds.
+Cooking may consume brewing inputs: do not add unlimited cooking while drink is scarce.
+Furniture must be placed, not merely manufactured. Beds need indoor tiles; dining needs
+both tables and chairs inside a dining_hall zone. The same A box can support shared zones.
+
+MOODS. Highest priority when present: read skill, claimed workshop and items_needed.
+Build the appropriate workshop if unclaimed. Use query_game(name="workshop_types") if uncertain about inputs.
+For bone/shell/leather requirements use query_game(name="units", params={"kind":"animals"}), build Butchers, slaughter
+an eligible nonpet animal and allow a few days. A workshop still under construction needs
+time, not another copy. Never slaughter citizens. Check collected against quantity.
+
+PACE. Multiple independent tool calls are not supported by this loop. Use advances of
+1-2 days during urgent shortages or construction, 5-10 days when stable. Keep drink/food
+positive throughout the run and establish repeating conditional production before hands-off.
+Avoid attacking larger armed groups with civilians. A civilian alert must include access to
+food and drink; remove the alert and stand down soldiers when the danger passes.
+"""
