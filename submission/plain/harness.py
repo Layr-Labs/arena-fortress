@@ -7,9 +7,9 @@ One turn:
   3. one chat call through the gateway (tool_choice required)
   4. run the first tool call (POST /act); its result goes back to the model as JSON
   5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
-     actions are used up; stop calling the model near the end of the credits
-The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
-low; the server then runs the fort on unmanaged to the horizon (contract §2).
+     actions are used up; stop calling the model near the end of the credits or of the run's wall time
+The harness exits when the game is over, the hands-off window starts, the model keeps failing, the credits run
+low, or the wall clock nears its cap; the server then runs the fort on unmanaged to the horizon (contract §2).
 
 There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
 reads the raw facts. README.md lists the obvious places to improve.
@@ -34,6 +34,9 @@ MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
+WALL_STOP = 0.85
+WALL_DEFAULT_S = 5400
+WALL_RESERVE_S = 120
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
@@ -100,6 +103,10 @@ class Plain:
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
                       "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
         self.stop_reason = None
+        self.t0 = time.monotonic()
+        self.slowest = 0.0
+        wall = self.task.wall_s
+        self.wall_s = float(wall) if isinstance(wall, (int, float)) and wall > 0 else WALL_DEFAULT_S
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
 
@@ -132,6 +139,11 @@ class Plain:
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
                 break
+            elapsed = time.monotonic() - self.t0
+            if elapsed + max(self.slowest, WALL_RESERVE_S) >= WALL_STOP * self.wall_s:
+                self.stop_reason = "wall"
+                break
+            started = time.monotonic()
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
@@ -175,7 +187,9 @@ class Plain:
                 self.stats["stall_advances"] += 1
                 if not self.advance(1, "stall_guard"):
                     break
-        log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            self.slowest = max(self.slowest, time.monotonic() - started)
+        log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4),
+            elapsed_s=round(time.monotonic() - self.t0, 1), wall_s=self.wall_s)
         return self.stats
 
     def chat(self):

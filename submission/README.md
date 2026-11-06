@@ -32,6 +32,8 @@ Guards:
   manager's validation, and a model can loop on it until the credits are gone.
 - **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
   unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
+- **Wall clock:** it stops calling the model and exits once the time used, plus the slowest turn so far (at least
+  2 minutes), reaches 85% of the run's `limits.wall_s` (90 minutes when the task names none).
 - **A failing model:** after 5 failed model turns in a row it exits.
 
 ## What it doesn't do
