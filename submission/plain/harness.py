@@ -27,7 +27,7 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from . import prompt
 
-HISTORY = 12                # messages kept after the system prompt
+HISTORY = 16                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
@@ -39,6 +39,10 @@ FRESH_DAYS = 2              #   and no cancel of an order this harness added und
 ORDER_TOOLS = ("add_order", "add_manager_order")
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
+JOURNAL = 25                # recent actions shown to the model every turn
+QUERY_EVERY = 4             # turns between the free orders/buildings queries added to the observation
+QUERY_CHARS = 1800          # per query, compact JSON
+QUERIES = ("orders", "buildings")
 DAY = 1200                  # ticks per game day
 
 
@@ -102,6 +106,7 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.journal = []     # (day, tool, args, outcome) of recent actions
 
     def setup(self):
         t = self.game.task()
@@ -134,6 +139,10 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
+            if self.journal:
+                obs["recent_actions"] = [f"d{d} {t} {a} -> {o}" for d, t, a, o in self.journal[-JOURNAL:]]
+            if self.stats["turns"] % QUERY_EVERY == 1:
+                obs.update(self.queries())
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
                 obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
@@ -177,6 +186,17 @@ class Plain:
                     break
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
+
+    def queries(self):
+        out = {}
+        for name in QUERIES:
+            try:
+                text = json.dumps(self.game.query(name), separators=(",", ":"), ensure_ascii=False, default=str)
+            except Exception as e:   # a query is a convenience: never let it stop the game
+                log("query_error", query=name, error=str(e)[:200])
+                continue
+            out["query_" + name] = text[:QUERY_CHARS] + ("...(cut)" if len(text) > QUERY_CHARS else "")
+        return out
 
     def chat(self):
         params = {**CHAT, "seed": self.seed}
@@ -262,6 +282,10 @@ class Plain:
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
+        if name != "advance_days" or not ok:
+            outcome = "ok" if ok else f"FAILED {resp.get('error_code')}: {str(resp.get('error') or '')[:120]}"
+            day = (self.game.last or {}).get("day")
+            self.journal = (self.journal + [(day, name, json.dumps(args, separators=(",", ":"))[:160], outcome)])[-60:]
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
