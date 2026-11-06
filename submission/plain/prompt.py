@@ -16,7 +16,9 @@ Every token is paid for at every call, and the credits are per game.
 import re
 
 MANUAL = """You are the overseer of a Dwarf Fortress fortress (version 53, fortress mode). You act only through the
-tools, one tool call per turn. The observation is JSON; days_left_in_run counts down to the end of the run.
+tools: up to 4 tool calls per turn, run in order. Put several independent actions (orders, designations, labors) in
+one turn; put advance_days last, since nothing after it runs. The observation is JSON; days_left_in_run counts down
+to the end of the run.
 If it has hands_off_in_days, that is how many days you have left to act: after that, time runs to the end of the
 run and your actions are rejected.
 If the observation has `goal`, it says what this run is scored on; `scenario` describes the situation.

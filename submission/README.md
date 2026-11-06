@@ -1,6 +1,7 @@
 # The plain baseline harness (season 0)
 
-This is where `submission/` starts: a language model playing the fort from the raw game API, one tool call per turn.
+This is where `submission/` starts: a language model playing the fort from the raw game API, up to 4 tool calls per
+turn.
 It is deliberately plain. It does what the contract needs and some basic hygiene, and nothing that interprets the
 fort for the model.
 
@@ -21,8 +22,8 @@ fort for the model.
 2. History: the system prompt and the last 12 messages. Older observations become a one-line stub, and older tool
    results are cut to 300 characters.
 3. One chat call through the gateway: `tool_choice` required, temperature 0, `max_tokens` 4000, reasoning effort low.
-4. The first tool call runs (`POST /act`); its result goes back as JSON. Extra calls in the same reply are answered
-   `one_tool_per_turn`.
+4. The reply's tool calls run in order (`POST /act`), at most 4; each result goes back as JSON. A call that moves game
+   time (an advance, or the day's action limit) ends the batch, and later calls are answered `not_run`.
 
 Guards:
 - **Time keeps moving:** after 10 actions in a row without an advance, or when the day's 40 actions are used up,

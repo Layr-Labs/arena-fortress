@@ -1,11 +1,12 @@
-"""The plain baseline harness: the model plays the fort from the raw game API, one tool call per turn.
+"""The plain baseline harness: the model plays the fort from the raw game API, up to MAX_CALLS tool calls per turn.
 
 One turn:
   1. GET /observe -> the observation as the API returns it, plus days_left_in_run, hands_off_in_days, goal, scenario
   2. the user message "OBSERVATION {...}"; the history window (system prompt + last HISTORY messages, older
      observations stubbed, older tool results trimmed)
   3. one chat call through the gateway (tool_choice required)
-  4. run the first tool call (POST /act); its result goes back to the model as JSON
+  4. run the reply's tool calls in order (POST /act), at most MAX_CALLS, stopping after one that moves game time;
+     each result goes back to the model as JSON
   5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
      actions are used up; stop calling the model near the end of the credits
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
@@ -33,6 +34,7 @@ TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+MAX_CALLS = 4
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
@@ -98,7 +100,7 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0, "batched_calls": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
@@ -161,15 +163,23 @@ class Plain:
                 idle += 1
             else:
                 self.messages.append({k: msg[k] for k in ("role", "content", "tool_calls") if k in msg})
-                try:
-                    moved = self.run_call(calls[0])
-                except (HandsOff, GameOver) as e:
-                    self.stop_reason = type(e).__name__
+                moved, ran = False, 0
+                for c in calls:
+                    if moved or ran >= MAX_CALLS:
+                        self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
+                            {"ok": False, "error_code": "not_run", "error": "not run: game time moved or more than "
+                             f"{MAX_CALLS} tool calls in one turn"})})
+                        continue
+                    try:
+                        moved = self.run_call(c)
+                    except (HandsOff, GameOver) as e:
+                        self.stop_reason = type(e).__name__
+                        break
+                    ran += 1
+                    idle = 0 if moved else idle + 1
+                if self.stop_reason:
                     break
-                for c in calls[1:]:
-                    self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
-                        {"ok": False, "error_code": "one_tool_per_turn", "error": "not run: one tool call per turn"})})
-                idle = 0 if moved else idle + 1
+                self.stats["batched_calls"] += max(0, ran - 1)
             if idle >= STALL_AFTER:
                 idle = 0
                 self.stats["stall_advances"] += 1
