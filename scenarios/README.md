@@ -25,7 +25,7 @@ A scenario is one JSON file. Run any arm on it with `smoke.py --scenario scenari
 | `days` | Horizon. `--days` overrides it. |
 | `goal` | Plain-language success condition, shown to agents as `obs.goal` (`{days}` becomes the actual horizon). Say what is scored and which way, not the weights or formula, and nothing the agent can't see in game (spawn times, invader ids). |
 | `brief` | Optional text for v2 agents. |
-| `split` | `train`, or absent (= test-public; BENCHMARK-v1 §5.4). Only `train` runs may be used for training: `smoke.py --require-split train`, `bench/sft.py` |
+| `split` | `train`, or absent (= test-public; BENCHMARK-v1 §5.4). |
 | `setup_seeds` | `[lo, hi]`: run k gets setup seed `lo + k`, substituted for `{seed}` in `setup` (refused outside the range). Train: within 0–999. `scenarios/lua/seeded.lua SEED SCRIPT ARGS` runs a script with `math.random` seeded |
 | `metrics` | Summary fields to score, each `1` (higher is better) or `-1` (lower is better). Any numeric field in a summary row works; see `smoke.py` `summary` and `daily_metrics`. Default: `analyze.METRICS`. Agents never see it; they get `goal`. For wealth use `credited_value_final`: it credits only production from orders the arm created and workshops it built during the run, so a snapshot's existing orders, workshops and order-creating automation earn the arm nothing (`produced_value_final` counts them; `wealth_crafted_final` counts placed furniture three times). `credit.lua` starts after `setup`, so buildings or orders a setup script creates count as pre-existing. Runs are pooled only when both `name` and `metrics` match. |
 
@@ -41,7 +41,6 @@ A scenario is one JSON file. Run any arm on it with `smoke.py --scenario scenari
 | `lt03-mood-artifact` | lab task LT03, validated (n=8, 2026-10-10): noop 0/8, witness 8/8 | `bench/predicates.py LT03` |
 | `lt08-migrant-surge` | lab task LT08, built, not admitted: noop 0/8, best witness 2/8 | `bench/predicates.py LT08` (and `LT08-items`) |
 | `lt04-stress-relief` | lab task LT04, dropped: no witness passes (`calib/` holds the stress sweep) | `bench/predicates.py LT04` |
-| `heldout-embark` | experimental (split test-heldout): start-year's open play on 4 fresh TEMPERATE_SOIL forts (first accepted seeds from 2000), generated on the eval VM by `scripts/lambda/heldout_eval.sh`; an eval of fine-tuned models on unseen maps, not a validated task | credited_value (as start-year 60 d) |
 | `seed/lt01-drought` (`lt01-drought-seed`) | seed-built LT01 on `worked-y1` forts (2026-10-14, Mac, n=4): see docs/SEED-FORTS.md §3 | `bench/predicates.py LT01` |
 | `seed/lt02-rescue-neglected` | seed-built LT02 on `neglected-y1` forts: see docs/SEED-FORTS.md §3 | `bench/predicates.py LT02` |
 | `seed/lt03-mood-artifact` | seed-built LT03 on `worked-y1`: see docs/SEED-FORTS.md §3 | `bench/predicates.py LT03` |
@@ -69,10 +68,6 @@ still separate scripted from random, but random isn't expected to beat noop.
 **Snapshots keep DFHack plugin state.** A mid-game snapshot keeps whatever automation was on (autofarm,
 seedwatch, autochop...), so `noop` on it means "the fort's existing automation keeps running", not "nothing
 happens". Design crises the existing automation can't absorb, or turn the plugins off in `setup`.
-
-**Train split** (`scenarios/train/`, written by `bench/train_scenarios.py`; don't edit by hand): each validated task
-on the train snapshots (`scripted-1..3-y1/-y2`, `noop-1..3-y1`), for teacher data and SFT. Not validated on those
-snapshots; never reported as benchmark results.
 
 ## Rules for adding one
 1. **Validate it with the reference arms before using it on models:** at least 5 runs each of `noop`, `random`

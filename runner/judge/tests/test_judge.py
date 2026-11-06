@@ -351,6 +351,23 @@ class JudgeTests(unittest.TestCase):
         self.assertLess(len(fake.calls[0]["user"]), 60_000)
         self.assertEqual(d["verdict"], "pass", d["reasons"])
 
+    def test_bytecode_caches_skipped(self):
+        """__pycache__/*.pyc (local runs make them) aren't reviewed; a sourceless .pyc elsewhere still is."""
+        f = self.fx(GOOD_HEAD)
+        os.makedirs(os.path.join(f.repo, "submission", "plain", "__pycache__"), exist_ok=True)
+        for name in ("submission/plain/__pycache__/harness.cpython-312.pyc", "submission/loose.pyc"):
+            with open(os.path.join(f.repo, name), "wb") as fh:
+                fh.write(b"\xcb\r\r\n\0\0\0\0" + bytes(range(256)))
+        git(f.repo, "add", "-A")
+        git(f.repo, "commit", "-qm", "pyc")
+        f.head = git(f.repo, "rev-parse", "HEAD")
+        d, fake = f.run()
+        paths = {x["path"] for x in d["evidence"]["files"]}
+        self.assertNotIn("submission/plain/__pycache__/harness.cpython-312.pyc", paths)
+        self.assertIn("submission/loose.pyc", paths)
+        self.assertIn("1 Python bytecode cache file(s)", fake.calls[0]["user"])
+        self.assertNotIn("harness.cpython-312.pyc", "".join(c["user"] for c in fake.calls))
+
     # ------------------------------------------------------------------ prompt injection
 
     def test_injection_naive_model_cannot_flip_to_pass(self):

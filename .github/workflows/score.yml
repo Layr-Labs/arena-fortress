@@ -280,7 +280,7 @@ jobs:
         run: |
           set -euo pipefail
           W="$RUNNER_TEMP/who"
-          if   [ "$TRUSTED" = failure ]; then why="the submission changes files outside submission/, or was built on an older version of the challenge (stale base). Re-clone with \`yukon clone\` and resubmit. (Resolved by: you.)"
+          if   [ "$TRUSTED" = failure ]; then why="the challenge's trusted code changed while this submission was waiting (stale base), or the submission changes files outside submission/. Run \`yukon sync\`, then resubmit; this attempt doesn't count. (Resolved by: you.)"
           elif [ "$SCREEN" = failure ];  then why="submission/ has no Dockerfile, or contains credential-like files or something that looks like an API key. Fix it and resubmit. (Resolved by: you.)"
           elif [ "$WHO" = failure ] && [ -f "$W/admit_error.json" ]; then why=$(python3 -I runner/ci/bin/failure.py render --file "$W/admit_error.json" --format comment)
           elif [ "$WHO" = failure ];     then why="an infra failure on our side: we couldn't look up your submission or tier on Yukon or GitHub. Please resubmit. (Resolved by: organiser.)"
@@ -353,6 +353,7 @@ jobs:
             mv prev-img/harness-image.tar.gz img/harness-image.tar.gz
           else
             [ ! -d prev-img ] || echo "the earlier run's image isn't from this submission/ (or has no digest): rebuilding"
+            find submission -type d -name __pycache__ -prune -exec rm -rf {} +   # bytecode caches: never built (the judge skips them too)
             env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
           fi
           size=$(docker image inspect -f '{{.Size}}' dfbench-harness:submission)
@@ -806,6 +807,7 @@ jobs:
         run: |
           set -euo pipefail
           D=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+          find submission -type d -name __pycache__ -prune -exec rm -rf {} +   # bytecode caches: never built (the judge skips them too)
           env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
           mkdir -p img && docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
           docker image inspect -f '{{.Id}}' dfbench-harness:submission > img/image_id.txt

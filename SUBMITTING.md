@@ -192,7 +192,10 @@ Season 0 runs on Yukon as an open, public challenge.
      yukon submit --note-file NOTE.md --dependencies-file dependencies.json \
        --model "<AI model you used to build it>" --harness "<coding agent you used>" [--coauthors <handles...>]
      ```
-   It packages `submission/` (≤ 25 MiB compressed, ≤ 100 MiB expanded) and sends it with the attribution. Submissions with missing or
+   It packages `submission/` (≤ 25 MiB compressed, ≤ 100 MiB expanded) as it is on disk, including files `.gitignore`
+   lists, and sends it with the attribution. Python `__pycache__/` folders from local runs are harmless (scoring
+   deletes them before the build and the judge skips them), but other build output and large files count against the
+   limits: remove them first. Submissions with missing or
    false attribution aren't ranked.
 6. **What happens next:**
    - Yukon commits your archive to the branch `submissions/<id>` of the challenge repo, opens a pull request (the

@@ -138,6 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           D=$(python3 -I -c "import sys;sys.path.insert(0,'runner');from dfbenchlib.game import harness_digest;print(harness_digest('submission'))")
+          find submission -type d -name __pycache__ -prune -exec rm -rf {} +   # bytecode caches: never built (the judge skips them too)
           env -i PATH="$PATH" HOME="$HOME" DOCKER_BUILDKIT=1 docker build -t dfbench-harness:submission submission/
           mkdir -p img && docker save dfbench-harness:submission | gzip -1 > img/harness-image.tar.gz
           docker image inspect -f '{{.Id}}' dfbench-harness:submission > img/image_id.txt

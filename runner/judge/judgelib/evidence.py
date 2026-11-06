@@ -20,6 +20,10 @@ LIMITS = {
 }
 
 SUB = "submission/"
+# Python bytecode caches: local runs make them and `yukon submit` packs them. They aren't reviewed: the scoring workflow
+# deletes every submission/**/__pycache__/ before the build, and Python never imports a __pycache__ file without its
+# source. A sourceless .pyc elsewhere (importable) is still reviewed as a binary file.
+BYTECODE_CACHE = re.compile(r"(^|/)__pycache__/[^/]+\.py[co]$")
 
 
 class LimitHit(Exception):
@@ -157,6 +161,8 @@ def split_patch_files(patch):
 def collect_submission(repo, base, head):
     base_sha, head_sha = resolve(repo, base), resolve(repo, head)
     changes = _raw_changes(repo, base_sha, head_sha)
+    caches = [c for c in changes if BYTECODE_CACHE.search(c["path"]) and BYTECODE_CACHE.search(c["old_path"])]
+    changes = [c for c in changes if c not in caches]
     if len(changes) > LIMITS["max_changed_files"]:
         raise LimitHit(f"{len(changes)} changed files in submission/, over the {LIMITS['max_changed_files']} limit")
     files, segments, scan_lines = [], [], []
@@ -212,10 +218,14 @@ def collect_submission(repo, base, head):
     inventory = [f"{f['path']}  status={f['status']} size={f['size']} sha256={f['sha256']} "
                  f"{'binary' if f['binary'] else 'text'} +{f['added']} -{f['deleted']} shown={f['shown']}"
                  for f in files]
+    if caches:
+        inventory.append(f"({len(caches)} Python bytecode cache file(s) under __pycache__/ not listed: the scoring "
+                         "workflow deletes them before the build, so they never run; not a finding)")
     return {"base": base_sha, "head": head_sha, "files": files, "chunks": chunks or ["(no changes in submission/)"],
             "chunk_files": chunk_files or [[]], "segments": dict(segments),
             "inventory": "\n".join(inventory) or "(no changed files)", "scan_lines": scan_lines,
-            "diff_sha256": sha256_text("".join(t for _, t in segments))}
+            "diff_sha256": sha256_text("".join(t for _, t in segments)),
+            "bytecode_caches_ignored": [c["path"] for c in caches]}
 
 
 # ----------------------------------------------------------------------------------------------- other inputs

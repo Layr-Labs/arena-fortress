@@ -48,22 +48,6 @@ python3 analyze.py runs/my-batch/*/
 Arguments after `--` go to `smoke.py` (e.g. `--scenario scenarios/<name>.json`; the scenario and its snapshot
 must be in the image, so rebuild the image after adding one).
 
-**Claude on Amazon Bedrock** (instead of OpenRouter): run `bench/bedrock_proxy.py` on the host. It is an
-OpenAI-compatible endpoint that calls Claude through the Anthropic SDK's `AnthropicBedrockMantle` client, using
-your normal AWS credentials (`AWS_PROFILE`), so no AWS secrets go into the containers:
-```sh
-uv run --with "anthropic[bedrock]" bench/bedrock_proxy.py --log runs/bedrock-proxy.jsonl &   # 127.0.0.1:8011
-docker/batch.sh --arms model2 ... -- --model anthropic/claude-sonnet-5 --base-url http://host.docker.internal:8011/v1
-```
-Sonnet 5, Sonnet 5.5 and Opus 5.5 are checked. The proxy:
-- caches the fixed tools-plus-manual prefix;
-- drops sampling parameters;
-- sets `effort` to low (`--effort`), like the harness's `CHAT_EXTRA`;
-- turns `tool_choice=required` into `auto` plus a one-line instruction for models that reject forced tool use (Opus 5.5, Sonnet 5.5).
-
-Each request's translation, usage and estimated cost (at Anthropic list prices; Bedrock billing may differ) goes
-to `--log`. `bench/debrief.py --base-url http://127.0.0.1:8011/v1` uses it too.
-
 **Batch metadata and the comparability key** (`bench/key.py`, `docs/BENCHMARK-v1.md` §1.1): each run writes
 `BATCH.json` with a key computed from the files in its image: tool schemas, tool code, manual, observation,
 loop, scoring, task, budget. `batch.sh` writes `<out>/BATCH.host.json` with the commit, dirty-tree flag, image
@@ -80,22 +64,6 @@ Makes a fresh fort from a world seed and site rules in a throwaway container and
 `scenarios/snapshots/embark-<rules>-<seed>/` (about 1-5 min per fort; `--check` makes it twice and compares).
 Details, determinism and pools: `scenarios/README.md`, "Embark snapshots". Copy the snapshots into the image (or
 rebuild after generating them) before a batch uses a scenario that names them.
-
-### The `dfai` image (experimental df-ai arm)
-`docker/Dockerfile.dfai` compiles DFHack 53.16-r2 and the df-ai fork from pinned commits, applies the two
-checksum-verified patches in `research/df-ai/`, and adds `df-ai.plug.so`, its blueprints and the arm's config
-(`docker/dfai/df-ai.json`) to an existing `yukon-df` image. Build `yukon-df` first.
-
-```sh
-docker buildx build --platform linux/amd64 --build-context harness=. --build-arg BASE=yukon-df \
-  -f docker/Dockerfile.dfai -t yukon-df:dfai --load docker
-docker run -d --name df_dfai_1 --platform linux/amd64 --security-opt seccomp=unconfined \
-  --memory 2g --memory-swap 2g yukon-df:dfai
-docker exec df_dfai_1 bash -c 'mkdir -p df/save && python3 smoke.py --only dfai --runs 3 --days 60 --out runs/dfai'
-```
-The compile stage takes ~6.5 min on an Apple Silicon Mac under Rosetta (`JOBS=3`, the default; higher values
-ran libdfhack out of memory at 3 GB). Two `--no-cache` builds gave a bit-identical plugin. Details and the
-fairness audit: `research/df-ai-fairness-audit.md`.
 
 ## Things the container had to change
 | Problem | Fix |

@@ -111,10 +111,6 @@ explained (CPU count visible to DF, Rosetta floating point, ...). Consequences:
 - Competitors on another host get different test-public forts from the same seeds, and a different task hash for
   test-public (`bench/key.py` hashes the embark's tile and map). Harmless for local scores, but `yukon run` should
   print a note when a local pool's embark ids don't match the published ones.
-- **TODO:** test whether two *native* x86_64 Linux hosts (no Rosetta; e.g. the Lambda VM and another x86 box or
-  CI runner) give identical embark sites and map fingerprints for the same seeds (`docker/embark.sh --check` on each,
-  then `embark/compare.py` across them). The Mac/VM difference may be Rosetta floating point rather than host type in
-  general; if native hosts agree, published seed lists reproduce for every x86_64 competitor.
 - Before season 0: run `docker/embark.sh --check` for the pool seeds on the verifier box itself, and measure a
   Lambda-vs-Mac pair on purpose (same seed, `--cpuset-cpus`, native x86 vs Rosetta) to find the cause.
 
@@ -187,9 +183,6 @@ needed a second try in these 29.
 
 ## 5. What is still a save
 
-- **Train variants.** `scenarios/train/*.json` (teacher data, SFT; `bench/train_scenarios.py`) still start from the
-  `scripted-1..3-y1/-y2` and `noop-1..3-y1` saves. For the public repo, generate them on seed-built train forts
-  instead: `docker/task_forts.sh --seeds <train seeds>` then `embark/pool_task.py --split train` (not done here).
 - **OP1 start-year / the default start** now has a seed-built replacement (§6), used automatically when
   `fort_start_snapshot/` has no save. Its task hash differs from the legacy save's, so OP1 references need re-running
   on it before it can replace the legacy rows.

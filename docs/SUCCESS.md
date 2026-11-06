@@ -1,9 +1,7 @@
 # What success means in fortress mode, and how it is scored
 
-Status: **adopted for v2, 2026-10-13** (branch `success-metrics`, off `v2-harness`). The user agreed to all six
-recommendations in §8. The score is `bench/outcomes.py` (`OUTCOME_VERSION` 1, in `score_hash` from `SCORE_VERSION`
-5). The recorder fields are in `outcome.lua`. The
-back-computed table is in `runs/outcome-rescore-2026-10-13/`.
+This document defines the per-game outcome score O and its gates (`bench/outcomes.py`; the recorder fields are in
+`outcome.lua`). `SCORING.md` builds the season's suite score on it.
 
 ## Why
 
@@ -15,7 +13,6 @@ fort alive, supplied, sane and growing, and DF tracks its own milestones for tha
 - grounds each outcome in DF 53.x mechanics, with the memory fields that measure it (each one read in game);
 - proposes a **gated** score in place of a weighted sum;
 - maps the lab tasks onto the outcomes;
-- re-scores every cited batch on outcomes. Several "tuned beats X" conclusions don't hold on outcomes (§6).
 
 Sources:
 - DF wiki main namespace, which is the v50+ text. The `DF2014:` pages describe 0.47 and give different numbers.
@@ -49,7 +46,7 @@ DS = `https://github.com/DFHack/df-structures/blob/53.16-r2/`.
   ledger recorded `died`.
   - The lab predicates that read `citizen_deaths` share this blind spot. LT04's "Δdeaths == 0" clause passed on
     that run.
-- **Fixed in `SCORE_VERSION` 5 (§8, decision 5):**
+- **Fixed in `SCORE_VERSION` 5:**
   - `score.lua` also counts Death incidents whose victim is in the recorder's ledger.
   - The ledger re-labels an `insane` citizen who later dies as `died`.
   - `bench/outcomes.run_deaths` (used by `outcomes.py` and every lab predicate) takes the largest of `score.lua`'s
@@ -256,7 +253,7 @@ Tier is a strict reading ("a tier-2 fort is safe and supplied"). O is the contin
 
 | Parameter | Value | Note |
 |---|---|---|
-| `T_STAR` | 336 d | One DF year of supply in hand counts as sustained. At 84 d (one season), a 60 d embark fort living off its wagon stock nearly passes: held-out 60 d noop scores 69.9 vs scripted 75.0 (55.0 vs 72.8 at 336 d). The ordering of the main comparisons is stable from 168 d to 336 d (§6.3) |
+| `T_STAR` | 336 d | One DF year of supply in hand counts as sustained. At 84 d (one season), a 60 d embark fort living off its wagon stock nearly passes: held-out 60 d noop scores 69.9 vs scripted 75.0 (55.0 vs 72.8 at 336 d). |
 | `STRESSED_OK` | 10% | for G3 |
 | `F` | the hands-off window, else the last quarter (7–28 d) | |
 | breakdown scale | `max(3, C̄/10)` | so a 100-dwarf fort isn't zeroed by 3 tantrums a year |
@@ -265,7 +262,7 @@ Tier is a strict reading ("a tier-2 fort is safe and supplied"). O is the contin
 
 | Exploit seen | What credited / DR did | What the outcome score does |
 |---|---|---|
-| Furniture and order spam (fort-gym's 26 chairs; the Opus teacher's 20-40 tables per fort) | Counted at full value up to 2 per citizen per type (DR), then at 10% | Nothing counts items. Only **placed** beds and **zoned** dining seats count, capped at per-capita need, and only behind three other tiers |
+| Furniture and order spam (fort-gym's 26 chairs) | Counted at full value up to 2 per citizen per type (DR), then at 10% | Nothing counts items. Only **placed** beds and **zoned** dining seats count, capped at per-capita need, and only behind three other tiers |
 | Drink stockpiling before the window | DR caps drink at 2× consumption, but the stock is still credited when it is made | A draining stock is credited only through its projected days left. A big stock past one year earns nothing, and a working system earns as much as a stockpile |
 | Queueing barrels or bins with nothing to fill | DR barrel cap | Ignored |
 | Orders that never produce (the ≥ 20-citizen stall) | 0 credit | Shows up where it matters: drink runs out in F |
@@ -277,7 +274,6 @@ Residual risks:
   exploit in the game's terms.
 - The decline estimate is noisy over a 7-day F (LT03), where a brew batch on the last day reads as "infinite". Use
   coverage there.
-- Old runs miss inputs (§6.1), which biases s3 and s4 upward or toward zero respectively.
 
 ### 2.2 Progression rule (decision 3)
 
@@ -342,7 +338,7 @@ should differ. The others are guard rails.
 | Task | Survival | Supply | Wellbeing | Security | Growth / progression | Current predicate vs outcomes |
 |---|---|---|---|---|---|---|
 | LT01 drought | guard | **core** (drink in W, days left) | guard | – | – | The predicate is drink > 0 in W, end ≥ 1 per dwarf, and credited drink in W. Outcomes add the projection (a W-end stock that is falling fast fails G2) and the food min |
-| LT02 rescue | guard | **core** | **core** (starts stressed) | – | guard | v1 rewarded credited value ≥ 300 and a built Still and farm. Tuned Qwen3-8B passed the credited clause and failed G2 in 8/8 (§6). **rescue_v2** (score_version 5) replaces the credited clause with "food > 0 every day of W", next to drink > 0 every day of W. Partial `0.4·drink days in W + 0.3·food days in W + 0.15·Still + 0.15·planted farm` |
+| LT02 rescue | guard | **core** | **core** (starts stressed) | – | guard | v1 rewarded credited value ≥ 300 and a built Still and farm. **rescue_v2** (score_version 5) replaces the credited clause with "food > 0 every day of W", next to drink > 0 every day of W. Partial `0.4·drink days in W + 0.3·food days in W + 0.15·Still + 0.15·planted farm` |
 | LT03 mood | guard | guard | **core** (artifact vs insanity) | – | – | Close to an outcome already (artifact made, dwarf sane). Outcomes add the death ledger |
 | LT04 stress | **core** | guard | **core** | – | guard | Breakdowns after day 7 and stressed ≤ 1. Outcomes see the berserk death the predicate's Δdeaths misses |
 | LT05 goblin raid | **core** | guard | guard | **core** | – | `goblin_raid_v2` is survival-only, as here. Outcomes add "raiders gone at H" |
@@ -380,181 +376,3 @@ Adopted (decisions 1 and 6):
 
 ---
 
-## 6. Back-computed outcomes vs credited value
-
-### 6.1 Inputs available in old runs
-
-- **All cited batches:** deaths, daily drink, food and citizens, and `stressed`.
-- **Since lab-tasks (2026-10-10):** per-day `ev` (breakdown announcements), `moods`, and `beds_placed` /
-  `S.zones` (dining).
-- **Lambda refs (2026-10-10 morning):** no beds or zones, so their s4 is 0 even for automation, which places
-  dormitories.
-- **Nothing before 2026-10-13:** needs, the ledger, or progression. s3 uses stress alone. On 336 d, s4 has no
-  progression term (it is 0, alike for every arm).
-
-### 6.2 Table: means, n = 8 unless noted
-
-Full table with every batch, including the teacher batches: `runs/outcome-rescore-2026-10-13/table.md`.
-
-| Scenario | Arm | Outcome [95% CI] | Tiers 0/1/2/3/4 | Gross credited | DR |
-|---|---|---|---|---|---|
-| held-out 60 d | noop | 55.1 [55.0, 55.2] | 0/8/0/0/0 | 0 | 0 |
-| held-out 60 d | scripted | 72.8 [68.2, 75.0] | 0/1/0/7/0 | 1311 | 1034 |
-| held-out 60 d | automation | 84.9 [71.1, 96.5] | 0/4/0/4/0 | 1243 | 871 |
-| held-out 60 d | round-1 Qwen3-8B | 64.9 [60.1, 69.6] | 0/8/0/0/0 | 1579 | 1416 |
-| held-out 60 d | round-1 Qwen3.5-9B | 70.3 [65.1, 74.4] | 0/3/0/5/0 | 1249 | 1041 |
-| held-out 90 d | scripted | 62.9 [58.1, 68.3] | 0/6/0/2/0 | 1729 | 1248 |
-| held-out 90 d | round-1 Qwen3-8B | 71.8 [67.4, 75.0] | 0/2/0/6/0 | 2134 | 1876 |
-| start-year 60 d | scripted | 71.0 [67.2, 74.0] | 0/3/0/5/0 | 1134 | 868 |
-| start-year 60 d | automation | 95.5 [90.0, 98.2] | 1/0/0/7/0 | 1328 | 1026 |
-| start-year 60 d | round-1 Qwen3-8B | 53.7 [50.3, 55.8] | 1/7/0/0/0 | 1440 | 1289 |
-| start-year 60 d | round-1 Qwen3.5-9B | 72.4 [69.3, 74.9] | 0/4/0/4/0 | 1074 | 903 |
-| rescue 90 d | noop | 25.0 | 0/8/0/0/0 | 0 | 0 |
-| rescue 90 d | scripted | 53.5 [42.0, 63.6] | 0/7/0/1/0 | 580 | 580 |
-| rescue 90 d | automation | 53.5 [48.1, 60.3] | 0/8/0/0/0 | 727 | 727 |
-| rescue 90 d | round-1 Qwen3-8B | **25.0** | 0/8/0/0/0 | 746 (all furniture and food; drink 0) | 746 |
-| rescue 90 d | round-1 Qwen3.5-9B | 64.3 [57.9, 70.0] | 0/4/3/1/0 | 866 | 866 |
-| drought 60 d | noop | 25.0 | 0/8/0/0/0 | 0 | 0 |
-| drought 60 d | scripted / automation / both round-1 | 72-75 | mostly tier 3 | 976-2005 | 486-1594 |
-| goblin raid 25 d | noop / scripted / automation / round-1 | 7-13 | all tier 0 | 0-128 | 0-128 |
-| start-year 336 d (n = 10) | noop | 23.8 | 2/8/0/0/0 | 0 | 0 |
-| start-year 336 d (n = 10) | scripted | 63.0 [56.6, 69.4] | 4/2/0/4/0 | 4306 | 3567 |
-| start-year 336 d (n = 10) | automation | 60.1 [51.0, 69.1] | 5/0/0/5/0 | 8570 | 6243 |
-
-**Teacher batches** (Opus 5.5; gitignored artifacts on disk: `wt-batch1/runs/teacher-batch-1`,
-`wt-round2/runs/teacher-batch-2`):
-
-- **Embark, 90 d:** O is 69-71 on all four forts, with s4 = 0. Its 20-40 tables, chairs and bins per fort earn DR
-  1467-1586, but none ends up as a placed bed per dwarf or a zoned dining seat.
-- **Rescue:** 56-60, mostly tier 1. Drink is dry on some days of W.
-- **Goblin raid:** 0-36, all tier 0.
-- **Drought on the ≥ 20-citizen `-y2` forts:** about 22-25, the v1 order stall.
-
-Ranking teacher runs for export by O instead of DR would drop the raid and stalled-drought runs. DR already scores
-those near 0, but it keeps the unhoused embark runs at the top.
-
-### 6.3 Comparisons that change
-
-These are difference of means with a two-sided permutation p (10,000); the full list is in `table.md`.
-
-| Comparison | Outcome A − B, p | DR A − B, p | Reading |
-|---|---|---|---|
-| held-out 60 d: tuned Qwen3-8B − scripted | **−7.8, 0.03** | +382, < 0.001 | **reverses**: below scripted. Its food stock is falling with no food system at day 60 (about 100 days left vs scripted's flat stock) |
-| held-out 90 d: tuned Qwen3-8B − scripted | +8.9, 0.03 | +628, < 0.001 | holds, but by 9 points, not 150% |
-| start-year 60 d: tuned Qwen3-8B − scripted | **−17.4, < 0.001** | +422, < 0.001 | **reverses**: 7/8 runs stop at tier 1 (food draining) |
-| start-year 60 d: tuned Qwen3-8B − frozen base | **−17.2, < 0.001** | +1101, < 0.001 | **reverses**: the frozen base keeps its wagon food. Tuning taught production, not a working food supply |
-| held-out 60 d / 90 d: tuned − base (both models) | −1 to +7.5, all p > 0.05 | +679 to +1691, < 0.001 | **vanishes**: on outcomes, round-1 tuning is indistinguishable from the base on the opening forts |
-| rescue 90 d: tuned Qwen3-8B − scripted | **−28.5, 0.001** | +167, < 0.001 | **reverses**: drink is 0 on every day of W in 8/8 runs. Its credited value is furniture (656-744☼) and a little food, with 0 drink |
-| rescue 90 d: tuned Qwen3.5-9B − automation | +10.8, 0.04 | +139, 0.05 | now significant |
-| drought 60 d: tuned Qwen3-8B − scripted | +1.3, 0.73 | −62, 0.02 | "below scripted" → level (both keep drink through the window) |
-| goblin raid: tuned − base; scripted − noop | about 0, all n.s. | ±51-82, < 0.001 | **vanishes**: nobody defends. Credited value there was noise |
-| 336 d: automation − scripted | −2.9, 0.63 | +2676, < 0.001 | **vanishes**: automation's 2× production buys nothing at year end. It has more deaths (5/10 runs vs 4/10 tier 0) and worse wellbeing (0.69 vs 0.86): one run ends with 92% of citizens stressed, and strange moods end without artifacts |
-| scripted − noop (held-out, 336 d) | +17.8 / +39.2, < 0.001 | large | holds |
-
-**Does tuned Qwen3-8B still beat scripted on outcomes?**
-- On held-out 90 d, narrowly (+9).
-- On held-out 60 d and start-year 60 d, it is below.
-- On rescue it is far below.
-
-It doesn't hold as a general claim. Its credited lead is items, and on outcomes it lacks a food system on the
-opening forts and drink on rescue. Round-1 Qwen3.5-9B is level with scripted on start-year and held-out 60 d, and
-above it on rescue, so on outcomes it is the better of the two tuned models.
-
-**Sensitivity to `T_STAR`** (held-out 60 d, tuned Qwen3-8B / scripted; start-year 60 d, the same):
-
-| T_STAR | held-out 60 d | start-year 60 d |
-|---|---|---|
-| 84 | 74.0 / 75.0 | 68.3 / 75.0 |
-| 168 | 70.9 / 73.6 | 58.8 / 74.8 |
-| 336 | 64.9 / 72.8 | 53.7 / 71.0 |
-
-Tuned Qwen3-8B is at or below scripted at every value. At 84 the 60 d held-out comparison is a tie: a season of
-wagon food covers everyone.
-
-**A second finding.** On 60 d opening forts, no arm is threatened: noop survives with s1 = 1 and supply 0.6. The
-outcome spread between noop and the best arm is about 20-40 points, almost all of it in supply and housing. Short
-opening-fort tasks mostly measure preparation, not outcomes. That is an argument for the 3-year long arm and for
-hands-off windows long enough to drain a stockpile.
-
----
-
-## 7. What the long arm should report
-
-- O and the tier at days 336, 672 and 1008, each with its own F (the last 28 d before each).
-- Per-year progression: rank and positions (mayor at 50), and the first invasion survived.
-- Deaths from the ledger, plus the berserk deaths `score.lua` misses.
-- The image must include `outcome.lua`. The `daily.json` dump then carries every field above.
-
-### 7.1 Hand-off liabilities and the death audit (report-only)
-
-These two refinements come from `research/community-saves-and-scenarios.md` §5.2 (PR #63), approved before the
-long arm.
-
-**Hand-off block.** `final_state.lua` writes `S.handoff`, using `outcome.handoff`:
-
-| Field | What it counts |
-|---|---|
-| `unburied_dead` | corpses of the fort's civ and race that are not inside a building (coffin) |
-| `ghosts` | active units with `flags3.ghostly` (the unit itself is dead) |
-| `stranded` | citizens outside the largest walkable group (`dfhack.maps.getWalkableGroup`) |
-| `wounded` and `hospitals` | citizens whose `unit.health.flags.needs_healthcare` is set (healed wounds don't count), and Hospital zones. `wounded_no_hospital` is the wounded count when there are no Hospital zones |
-| `moods_pending` and `moods_missing_items` | citizens in a strange mood, and those whose mood job has fewer attached items than it needs |
-| `mood_timeout_min` | the shortest mood timeout left |
-| `hostiles` and `invaders` | live hostile units on the map, and those that are invaders |
-
-- `total` sums the liabilities.
-- `outcomes.py` reports the block as `handoff` with a summary line, "hand-off: N liabilities (...)". The line
-  also appears in the `summarize_run.py` digest.
-- It is not in O or the tier.
-- "Mood materials not on the map" is approximated by "the job still lacks items". DF has no cheap matcher for
-  whether a mood's materials exist.
-
-**Death audit.** The recorder dump adds `hist_deaths`: world-history `history_event_hist_figure_diedst` at
-`plotinfo.site_id` since the run started, whose victim's `hist_figure_id` is a citizen in the ledger (the ledger
-now stores `hf`).
-- `outcomes.death_sources` gives four counts: `score` (score.lua), `ledger`, `announced` (`CITIZEN_DEATH`) and
-  `history`.
-- `run_deaths` takes the largest of them.
-- `inputs.deaths_disagree` flags runs where the four counts disagree.
-
-Checked in game (DF 53.16, 2026-10-13):
-- **`scripted-2-y2`** (the known-damaged snapshot): `unburied_dead` 3 and `ghosts` 2. The ghost units are
-  `isDead`, so the reader counts `flags3.ghostly` alone. The history reader finds the 4 site deaths of that save.
-- **`scripted-y1`** (clean): every count is 0. A raw `#body.wounds > 0` test had counted 8 healed dwarves, so
-  wounded uses `needs_healthcare`.
-- **LT04 noop, 4 d:** a dwarf struck down on day 0. history 1 = ledger 1 = announced 1 = score.lua 1, with no
-  disagreement. The hand-off block shows that corpse as `unburied_dead` 1, plus 1 wounded and no hospital.
-
----
-
-## 8. Decisions (the user, 2026-10-13)
-
-All six recommendations were agreed.
-
-1. **Headline.** O and the tier lead on OP1 and the long arm, and `analyze.py`'s normalized score uses outcome.
-   Credited value and DR are info.
-2. **`T_STAR` = 336 d** for v2. 84 and 168 are kept in `sensitivity.md`.
-3. **Progression:** only on year-plus horizons, capped at 2 steps, weighted toward exports (§2.2).
-4. **Housing** stays beds + dining seats. Bedroom quality, noble rooms and temples are to be revisited after the
-   3-year runs.
-5. **Deaths** come from the citizen ledger in `score.lua` and the predicates (`SCORE_VERSION` 5; §1.1).
-   Re-scoring every saved LT04 and LT05 row:
-   - **LT04** (`runs/lab-tasks-2026-10-10`, 39 runs): the Δdeaths clause flips from pass to fail in 10 runs. These
-     are lt04c2 1, lt04c4 2, lt04p1 2, lt04s0 noop 3 and witness 1, plus the 2026-10-13 check run. In each,
-     `CITIZEN_DEATH` was announced but `score.lua` missed the death. Pass counts and partial credit are unchanged
-     (all 0/n already; LT04's partial doesn't use deaths).
-   - **LT05** (7 goblin-raid batches): no change. Raid victims die inside the group, so `score.lua` already counted
-     them.
-   - Outcome scores of every cited batch: unchanged (to 0.1).
-6. **LT02 / LT09:** credited clauses become supply over W (`rescue_v2`, `embark_production_v2`; §4).
-   Re-scoring the six rescue batches under `rescue_v2` changes **no pass count**:
-   - noop partial 0.00 → 0.30, because the rescue fort keeps its food through W;
-   - frozen Qwen3-8B 0.15 → 0.40, frozen Qwen3.5-9B 0.22 → 0.50;
-   - scripted, automation and both round-1 models are within 0.02.
-
-   The task JSON edits are pending with the v2 agent.
-
-Still open:
-- Hard-economy thresholds: record `custom_difficulty` in `prog`.
-- Room value and noble rooms, after the 3-year runs.
-- Validating LT09 on 120 d runs.

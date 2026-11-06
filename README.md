@@ -14,6 +14,17 @@ A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yu
 > from*, so every submission must say what it builds on (prior submissions, people, published ideas) and what it
 > adds. A submission that doesn't credit what it uses isn't ranked. See `RULES.md` §8 and `SUBMITTING.md` §3.
 
+> **Start here.** You edit one directory, `submission/` (your harness); everything else is the fixed challenge
+> (the game server, the model gateway, the runner and the scorers). The `.lua`, `.py` and `.sh` files at the repo root
+> are the game server's internals: you never need to touch them.
+>
+> 1. `yukon clone OWNER/arena-fortress-s0/harness-glm-5-3-flash`, then `yukon setup` (builds the game
+>    image and the practice forts from your own Dwarf Fortress download; `SUBMITTING.md` §2).
+> 2. `runner/dfbench local smoke`: a free check that your harness runs against the real game (fake model, no key).
+> 3. Improve `submission/`, test with `yukon run` (your own OpenRouter key), and read the contenders for ideas
+>    (`SUBMITTING.md` §3a).
+> 4. Write `NOTE.md` and `dependencies.json`, then `yukon submit` (`SUBMITTING.md` §3).
+
 > **Limits at a glance** (full rules: `RULES.md` §2 and §7)
 >
 > - **Who can enter:** anyone with a Yukon account (sign in with GitHub), subject to the [Terms](TERMS.md). There is
@@ -219,6 +230,11 @@ promoted (`RULES.md` §8a). No cash prizes or rewards of any kind: you compete f
 | `embark/` | world generation, embark rules and fort recipes (seed → fort) |
 | `docker/` | the DF image recipe |
 | root `*.py`, `*.lua` | the frozen game layer the server wraps (tool implementations, probes, recorder) |
+| `framework/` | the reusable harness-arena package the runner and scorer are built on |
+| `pool/` | the season pools' public commitments and the fort-pool tooling (`dfpool`) |
+| `automation/` | the DFHack automation reference (MY1's mid-year forts are played to day 120 with it) |
+| `.yukon/` | what `yukon setup` and `yukon run` call |
+| `df/` | the DF settings the game image applies |
 | `docs/` | the API contract, the outcome score, seed-built forts |
 
 ## Licence
