@@ -14,10 +14,10 @@ only that announcement binds.
 | **Longer horizons** | multi-year games (e.g. a 3-year task, or a top-K re-check over several years at season close) | a year-long game already takes ~15–30 min; longer games need more runner time per submission |
 | **Budget tiers / Pareto board** | score against model credits, or several credit tiers (e.g. $0.10 and $1 per game-year) | season 0 has one cap and reports credits used; the board mode depends on the platform |
 | **More task families** | sieges and defence (with a validated raid task), floods, nobles and justice | the raid task isn't admitted yet: its reference solution doesn't hold reliably |
-| **Crops and seeds** | per-crop facts in the observation (how each crop's seeds come back), a kitchen-settings tool, and a scoring rule that counts only food dwarves can eat | found during season 0's internal test; the season-0 observation and score are fixed |
+| **Crops and seeds** | per-crop facts in the observation (how each crop's seeds come back) and a kitchen-settings tool | found while preparing season 0 (whose score already counts only food dwarves can eat); the season-0 observation and tools are fixed |
 | **Richer game API** | more queries, finer-grained designations (mining, channels, constructions), checkpoint forks for the dev loop | season 0 keeps the API close to the frozen tool set so the reference harnesses carry over |
 
 ## Longer term
 
-- A public season, with the season-0 harnesses (published at its close) as starting points.
+- Later seasons that start from the season-0 harnesses (all of them public, like every submission).
 - Other fixed models, or a track where competitors bring their own model under a receipt scheme.

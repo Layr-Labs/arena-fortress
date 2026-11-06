@@ -1,13 +1,12 @@
-# Game API v0 and the season-0 stack: the contract (draft, 2026-10-23)
+# Game API v0 and the season-0 stack: the contract
 
-This file is the interface every season-0 component builds against. Spec and rationale: `docs/HARNESS-CHALLENGE.md`
-(§2.1 limits, §3 architecture, §3.2 the facts/interpretation boundary, §4 suite). Inputs: `docs/game-api-audit.md`
-(what the agent sees today), the Phase 0 runs, and the user's decisions of 2026-10-23:
-- fixed model **glm-5.3-flash** (Together pinned);
-- strange moods **off** (`[ARTIFACTS:NO]`) except in the dedicated mood tasks;
+This file is the interface every season-0 component builds against: the game API a harness plays through, the
+trusted gateway and runner around it, and the artifacts scoring reads. In short:
+- one fixed model, **glm-5.3-flash** (provider pinned to Together);
+- strange moods **off** (`[ARTIFACTS:NO]`) except in the dedicated mood task;
 - season 0 adds **read-only queries**, **build_workshop for every workshop type**, **add_order for DF's manager
-  orders**, and a **slaughter** action;
-- no trade, no new site classes (season 1).
+  orders**, and a **slaughter** action to the frozen tool set;
+- no trade, no new site classes (`ROADMAP.md`).
 
 Changes to this file are contract changes: say so in the commit, and update the components.
 

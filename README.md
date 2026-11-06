@@ -2,15 +2,44 @@
 
 A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yukon.org/arena-fortress`).
 
-> **Pre-release, work in progress.** This repository is being assembled for season 0, an **open, public** challenge. The
-> game server, model gateway, runner and baseline harness are still being built: some directories are stubs, and
-> the commands below describe the intended interface. Nothing here is final until the season opens.
+> **Versioning.** The rules that apply to your submission are the ones in this repository at the commit your
+> submission is based on (the `main` you cloned or synced). Changes during the season are announced and dated.
 
-> **Attribution is the point of this challenge, and it is required.** Season 0 is collaborative and points-only:
+> **Season 0 dates:** opens **Friday 6 November 2026** and closes **Monday 23 November 2026, 23:59:59 UTC** (about 2.5 weeks). Submissions after the close aren't accepted.
+
+> **Attribution is the point of this challenge, and it is required.** Season 0 is collaborative, with no cash prizes or
+> rewards of any kind (you compete for rank and credit):
 > every submission is open to all participants, the leading harness becomes everyone's starting point, and you're
 > encouraged to build on anyone's work. What we want to learn is *which ideas move the score and where they came
 > from*, so every submission must say what it builds on (prior submissions, people, published ideas) and what it
 > adds. A submission that doesn't credit what it uses isn't ranked. See `RULES.md` §8 and `SUBMITTING.md` §3.
+
+> **Limits at a glance** (full rules: `RULES.md` §2 and §7)
+>
+> - **Who can enter:** anyone with a Yukon account (sign in with GitHub), subject to the [Terms](TERMS.md). There is
+>   no allowlist, invitation or application.
+> - **Per account, by tier.** Your tier is set automatically at each submission; there's nothing to apply for.
+>
+>   | tier | who | submissions per week | suite |
+>   |---|---|---|---|
+>   | **established** | a promoted result on another Yukon challenge, or a scored submission here already | 7 | full |
+>   | **new** | everyone else | 2 | your **first** scored submission here plays **stage 1 only**, then full |
+>   | **probation** | a GitHub account younger than 30 days | 1 | stage 1 only |
+>
+>   Stage 1 is the four lab tasks and MY1. A stage-1-only result is shown but **can't be promoted**, so a new
+>   account's first submission can't top the board. Once a submission of yours has been scored here, you are
+>   established: 7 a week and the full suite from your next submission. **Probation lasts the full 30 days**, even
+>   after a scored submission (new GitHub account? Ask the organisers (a known person can be moved to established)).
+> - **One submission in flight** per account. Yukon's own limits apply too: 1 in flight and 10 submissions an hour.
+> - **A global weekly allowance** covers everyone (the organiser pays for the model and the runners). When it's used
+>   up, new submissions wait until the next week; the refusal says when. Weeks start Monday 00:00 UTC, so season 0
+>   has a short first week (6-8 Nov), two full weeks (9-15 and 16-22 Nov) and its last day (23 Nov), each with
+>   its own weekly limits.
+> - **What counts against your week:** a submission that is scored, one the judge fails or holds, and one whose
+>   image doesn't build. **What doesn't:** a submission refused at admission (over a limit, an unchanged harness),
+>   one you cancel, and infra failures on our side.
+> - **Per game:** $0.50 of model credits and 90 minutes of wall time per game-year, 40 actions per game-day, a
+>   1 vCPU / 2 GB harness container with no network except the game API and the model gateway.
 
 You write the **harness**: the program that runs a Dwarf Fortress fortress for a year by calling **one fixed, cheap,
 hosted language model** and a **fixed game API**. Everything inside the harness is yours: prompts, memory and
@@ -141,7 +170,7 @@ seeds of the same site class.
 ### What's private
 
 - The season's **private seeds and forts** (the official task pool). A salted commitment to the pool is published
-  when the season opens and revealed at close.
+  (`pool/seasons/s0/COMMITMENT.json`); the seeds and the salt are revealed at close.
 - The organiser's **reference witnesses** (scripted solutions for the lab tasks). Their scores are published.
 - The organiser's **reference harness** (status_v3: the frozen prompt plus a deterministic layer that interprets the
   observation, diagnoses stuck orders, remembers failures and says what to fix first). Whether and when its code is
@@ -152,9 +181,10 @@ seeds of the same site class.
 ## How to take part
 
 Season 0 is an **open, public** challenge on Yukon: anyone with a Yukon account can take part, alone or with
-collaborators (credited with `--coauthors`; there are no formal teams). Submission limits are per user and depend on
-your Yukon track record (`RULES.md` §7). Every improving submission is checked by an automated judge before it's
-promoted (`RULES.md` §8a). Season 0 has no prizes. `SUBMITTING.md` has the flow.
+collaborators (credited with `--coauthors`; there are no formal teams). There is no allowlist or application.
+Submission limits are per account and depend on your Yukon track record (`RULES.md` §7, and *Limits at a glance*
+above). Every improving submission is checked by an automated judge before it's
+promoted (`RULES.md` §8a). No cash prizes or rewards of any kind: you compete for rank and credit. `SUBMITTING.md` has the flow.
 
 ## The dev loop
 

@@ -263,8 +263,16 @@ class Tier(unittest.TestCase):
         self.assertEqual((r["tier"], r["limits"]["suite"]), ("probation", "stage1"))
         r = res(ENV, fake_http(routes(created=young, participations=[part("other", "accepted")])))
         self.assertEqual(r["tier"], "established")
+        # probation lasts the whole window: a scored stage-1 run here doesn't lift it
         r = res(ENV, fake_http(routes(created=young)), valid=True)
+        self.assertEqual((r["tier"], r["limits"]["suite"]), ("probation", "stage1"))
+        # an older account with a valid score here is established
+        r = res(ENV, fake_http(routes()), valid=True)
         self.assertEqual((r["tier"], r["reason"]), ("established", "valid score on this benchmark"))
+        # an organiser override still wins over probation
+        env = {**ENV, "DFBENCH_TIER_OVERRIDES": json.dumps({"alice": "established"})}
+        r = res(env, fake_http(routes(created=young)))
+        self.assertEqual(r["tier"], "established")
 
     def test_promoted_or_superseded_counts(self):
         r = res(ENV, fake_http(routes(participations=[part("other", "rejected", promotion="superseded")])))

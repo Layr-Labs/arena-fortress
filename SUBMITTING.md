@@ -1,7 +1,8 @@
 # Submitting (season 0)
 
-> Pre-release draft. Steps marked **[awaiting Yukon]** depend on answers from the Yukon team and may change. The
-> `runner/` commands describe the interface being built; check `runner/README.md` for the current state.
+> **Versioning.** The rules that apply to your submission are the ones in this repository at the commit your
+> submission is based on. Changes during the season are announced and dated. `runner/README.md` has every runner
+> flag.
 
 ## 1. The harness contract
 
@@ -35,7 +36,7 @@ submission/
 - **Exit:** when your harness exits, the server runs the rest of the horizon with no actions. Exiting early is
   allowed and is rarely a good idea.
 - **State:** each game starts a fresh container. Nothing persists between games except what is in your image.
-- **Resources:** 1 vCPU, 2 GB RAM (*provisional*); network only to `game` and `gateway` (`RULES.md` §3). The
+- **Resources:** 1 vCPU, 2 GB RAM; network only to `game` and `gateway` (`RULES.md` §3). The
   container's filesystem is **read-only** except `/tmp`, a 1 GiB in-memory scratch that counts against the 2 GB
   (`HOME` and `TMPDIR` are `/tmp`, and `PYTHONDONTWRITEBYTECODE=1`). Write caches and logs there; anything that
   must exist at start goes in the image. At most 512 processes; output beyond 10 MB is dropped. At most 4 model
@@ -130,22 +131,43 @@ Try it for free first: `runner/dfbench local smoke --watch`.
   Official runs keep per-game data sealed (the private forts), but their aggregate `score.json` and the run's log
   are public.
 
-Cost: one game-year at the baseline's rate is a few cents of inference (*provisional*); the cap is $0.50.
+Cost: one game-year at the baseline's rate is a few cents of inference; the cap is $0.50.
 
 ## 3. The Yukon submission flow
 
 Season 0 runs on Yukon as an open, public challenge.
 
-1. **Get a Yukon account** (sign in with GitHub). No invitation is needed. Your submission limits come from your
-   Yukon record (`RULES.md` §7).
+1. **Get a Yukon account** (sign in with GitHub). The season is open to anyone with a Yukon account, subject to
+   the Terms of Service: there is no allowlist, invitation or application. Your submission limits come from your
+   Yukon record (`RULES.md` §7, and *Your limits* below).
 2. **Install the Yukon CLI and log in:** `yukon login <api-key>`.
-3. **Clone the challenge:** `yukon clone <challenge>` **[awaiting Yukon: the challenge's name and ref]**. It
-   gives you this repository with `submission/` as the editable path.
+3. **Clone the challenge:**
+   ```sh
+   yukon clone OWNER/arena-fortress-s0/harness-glm-5-3-flash
+   ```
+   It gives you this repository (in `arena-fortress-s0/` unless you name a directory) with `submission/` as the
+   editable path.
 4. **Set up and test locally:**
    - `yukon setup` runs the setup command (builds the DF image and the public forts; needs your DF download,
      see `benchmark.json`'s `hardware` text);
    - `yukon run` runs the public suite on your machine and prints its score. Local scores are for your guidance:
      they are not ranked, and Yukon doesn't use them.
+
+> **Your limits** (`RULES.md` §7; read this before your first submission)
+>
+> - **Tiers, set automatically at each submission:** **established** (a promoted result on another Yukon challenge,
+>   or a scored submission here): 7 submissions a week, full suite. **New** (everyone else): 2 a week. **Probation**
+>   (a GitHub account younger than 30 days): 1 a week, stage 1 only, for the full 30 days (new GitHub account? Ask the organisers (a known person can be moved to established)). One submission in flight per account; Yukon's
+>   own limits (1 in flight, 10 an hour) apply too.
+> - **A new account's first submission plays stage 1 only** (the four lab tasks and MY1), so it **can't be
+>   promoted**, however well it does. Once it has been scored you are established, and your next submission plays
+>   the full suite. Treat your first submission as the one that unlocks the full suite.
+> - **A global weekly allowance** covers all accounts. When it's used up, new submissions wait until the next week
+>   (Monday 00:00 UTC); the refusal on your pull request says when.
+> - **Counts against your week:** a scored submission, a judge fail or hold, a harness that doesn't build.
+>   **Doesn't count:** a refusal at admission (a limit, the global allowance, an unchanged harness), a submission
+>   you cancel, infra failures on our side.
+
 5. **Write your attribution, then submit.** Attribution is required (`RULES.md` §8) and it is what the season is
    for:
    - `dependencies.json`: every prior submission your harness uses, including the submission(s) that produced the
@@ -170,14 +192,23 @@ Season 0 runs on Yukon as an open, public challenge.
      ```
    It packages `submission/` (≤ 25 MiB compressed, ≤ 100 MiB expanded) and sends it with the attribution. Submissions with missing or
    false attribution aren't ranked.
-6. **What happens next** **[awaiting Yukon: runner, minutes, private-pool staging]**:
-   - Yukon commits your archive to a branch of the challenge repo, opens a pull request (the record) and starts
-     the scoring workflow on it;
-   - the workflow builds your image (no secrets present), then plays stage 1 on the private pool, every game in
-     parallel, each in its own three-container stack with the organiser's key held by the gateway only;
-   - if stage 1 could still lead, stage 2 (OP1) runs (`SCORING.md` §4);
-   - the trusted scorer writes `score.json`; Yukon posts the score and metrics on the pull request and the board.
-   Expected wall time: ~1–1.5 h for a full submission, ~45 min for stage 1 only (*provisional*).
+6. **What happens next:**
+   - Yukon commits your archive to the branch `submissions/<id>` of the challenge repo, opens a pull request (the
+     record) and dispatches the scoring workflow (`score.yml`, GitHub Actions) on it. Scoring runs on GitHub-hosted
+     runners; when several submissions are scoring at once, yours may wait in Yukon's queue first;
+   - **admission:** the workflow checks that the pull request changes only `submission/` and is based on the
+     current challenge tree, screens `submission/`, reads your tier and checks your limits. It comments on the pull
+     request either way: admitted (with what this attempt costs you this week) or not admitted (why, and that it
+     doesn't count);
+   - it builds your image on a fresh VM with no secrets present, then plays stage 1 on the season's **private
+     pool**: 40 games (8 per lab task and 8 MY1), each in its own job and its own three-container stack, with the
+     organiser's model key held by the gateway only. A game lost to the infrastructure is played again;
+   - if stage 1 could still lead and your tier plays the full suite, stage 2 runs: 8 OP1 games (`SCORING.md` §4);
+   - the trusted scorer writes `score.json`. A score that would be promoted then plays the confirmation batch (8
+     more MY1 and 8 more OP1, with the leader's harness alongside; `SCORING.md` §4.1) and goes to the judge
+     (`RULES.md` §8a). Yukon posts the score and metrics on the pull request and the board.
+   Expected wall time: about 1–1.5 h for a full submission, about 45 min for stage 1 only, and about an hour more
+   for a confirmation batch.
 7. **Check status:** `yukon submissions`; cancel a queued one with `yukon cancel <id>`.
 
 Promotion is automatic when the lower-bound score beats the current best by at least 2.5% (`SCORING.md` §3), **after the

@@ -27,7 +27,7 @@ Per-game Compose project (`compose/compose.yml` + an overlay: `compose.fake.yml`
 
 | service | networks | mounts | limits |
 |---|---|---|---|
-| `harness` (untrusted) | `game_internal` | none | `--harness-cpus` (1), `--harness-mem` (2g, no swap), pids 1024, `cap_drop: ALL`, `no-new-privileges`, log 10 MB |
+| `harness` (untrusted) | `game_internal` | none | `--harness-cpus` (1), `--harness-mem` (2g, no swap), pids 512, read-only rootfs with a 1 GiB in-memory `/tmp`, `cap_drop: ALL`, `no-new-privileges`, log 10 MB |
 | `gateway` (trusted, `gateway/`) | `game_internal`, `egress` | `<game>/gateway` → `/out` (ledger, status) | 512 MB |
 | `game` (trusted, DF image + `gameapi/server`) | `game_internal` | scenario JSON (ro), `<game>/game` → `/artifacts`, `<game>/gateway` → `/ledger` (ro), start forts (ro, real only) | `--game-mem` (3g, no swap) |
 
@@ -165,10 +165,11 @@ Task fields: `kind` `lab` (scored by `bench/predicates.py` `predicate`) or `outc
 - Infra games (`game.json` status `infra`, or usage unknown on any gateway call) are excluded and counted.
 - `score_detail.json` (not for publication): the per-game records (O, tier, sub-scores, partial, clauses, ledger).
 
-Lab anchors used now (PROVISIONAL-v6, outcome score v6, mean partial, n = 6 per arm: `runs/s0-rc-2026-10-23/labs`, the
-reference arms on the public seed-built forts 2001/2002/2005): LT01 noop 0.00 / witness 1.00, LT02 0.00 / 0.9383, LT03
-0.00 / 1.00, LT08 0.7258 / 0.9482 (PROVISIONAL-v3 under score v5 were LT02 0.30 / 1.00 and LT08 0.6946 / 0.9998). They
-must be re-measured on the private pool before the season (SCORING.md: "published at season open").
+Lab anchors (noop / witness, mean partial credit): the official suite `suites/season0.json` uses the anchors
+measured on the season's private pool (native x86_64, GitHub-hosted, n = 8 per arm, 2026-10-27): LT01 0.00 /
+0.9688, LT02 0.00 / 0.8821, LT03 0.00 / 1.00, LT08 0.7265 / 0.9046. The public suite `suites/season0-public.json`
+(local runs) uses anchors measured on the public seed-built forts 2001/2002/2005 (n = 6 per arm): LT01 0.00 / 1.00,
+LT02 0.00 / 0.9383, LT03 0.00 / 1.00, LT08 0.7258 / 0.9482. A local ẑ is therefore a guide, not the official value.
 
 ## Security notes
 
@@ -180,7 +181,7 @@ must be re-measured on the private pool before the season (SCORING.md: "publishe
   `OPENROUTER_API_KEY`; every other compose call runs without it (`clean_env`). It never appears in
   `DFBENCH_TASK`, the game's input or any artifact (tested). It is visible to `docker inspect` of the gateway, so only
   the runner may have Docker access: the harness gets no Docker socket and no host mounts. `GATEWAY_DEBUG` is never set.
-- **Harness limits:** 1 vCPU, 2 GB, no swap, 1024 pids, all capabilities dropped, no-new-privileges, bounded logs.
+- **Harness limits:** 1 vCPU, 2 GB, no swap, 512 pids, all capabilities dropped, no-new-privileges, bounded logs.
   Its stdout/stderr is kept (≤ 5 MiB) for the competitor and never read by the scorer.
 - **Trusted scoring:** `dfbench score` reads only `<game>/game/` (server artifacts), `<game>/gateway/` (ledger and
   status) and the runner's `game.json`. Harness output can't change a score (tested).

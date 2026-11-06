@@ -1,7 +1,7 @@
 # Rules (season 0)
 
-> Pre-release draft. The rules that apply are the ones in this file when the season opens; changes after that are
-> announced to every participant.
+> **Versioning.** The rules that apply to your submission are the ones in this file at the commit your submission is
+> based on. Changes during the season are announced and dated.
 
 ## 1. What you submit
 
@@ -16,14 +16,14 @@ calls, tokens per call, context length, output length or reasoning effort.
 | limit | value | what happens at the limit |
 |---|---|---|
 | **model credits** | **$0.50 per game-year** at the pinned reference prices (input, cached input and output priced separately), pro rata by horizon (e.g. ~$0.09 for a 60-day task) | the gateway refuses further calls; the fort runs on unmanaged to the horizon and is scored there |
-| **wall cap** | **90 min per game-year** on the reference runner, pro rata by horizon | the game is scored at the tick reached and flagged `wall_capped`. Time the gateway spends waiting on provider throttling (429s, 5xx) or on a hung provider call (`upstream_timeout`) is not counted, except 429s on calls made while more than 2 of the game's calls were in flight, and timeouts on calls asking for more than 8,192 output tokens |
+| **wall cap** | **90 min per game-year** on the reference runner, pro rata by horizon with a 30-min floor: 30 min for each lab task, 60 min for MY1, 90 min for OP1 (`runner/suites/season0.json` `wall_s`) | the game is scored at the tick reached and flagged `wall_capped`. Time the gateway spends waiting on provider throttling (429s, 5xx) or on a hung provider call (`upstream_timeout`) is not counted, except 429s on calls made while more than 2 of the game's calls were in flight, and timeouts on calls asking for more than 8,192 output tokens |
 | **parallel model calls** | **4 in flight per game**; more wait in the gateway's queue | queue time counts against the wall cap |
 | **actions** | **K = 40 actions per game-day** between advances (`advance_days` doesn't count) | only `advance_days` is accepted until the day changes (`action_limit`) |
 | **advance** | `advance_days` 1–28 days per call; tripwires can stop it early (choose which with `stop_on`) | — |
 | **hands-off windows** (lab tasks) | actions are rejected from day A on | `hands_off` error; advances are cut at A |
 | **lost fort** | zero citizens | the game ends |
-| **harness container** | 1 vCPU, 2 GB RAM (*provisional*); read-only filesystem except a 1 GiB in-memory `/tmp` (counted in the 2 GB; `HOME` and `TMPDIR` point there); at most 512 processes; output kept up to 10 MB | the container is throttled or killed by Docker; a killed harness is treated as an exit |
-| **submission size** | 25 MiB compressed (Yukon's upload cap); built image ≤ ~4 GB (*provisional*) | rejected |
+| **harness container** | 1 vCPU, 2 GB RAM; read-only filesystem except a 1 GiB in-memory `/tmp` (counted in the 2 GB; `HOME` and `TMPDIR` point there); at most 512 processes; output kept up to 10 MB | the container is throttled or killed by Docker; a killed harness is treated as an exit |
+| **submission size** | 25 MiB compressed (Yukon's upload cap); built image ≤ 4 GiB | rejected |
 | **model** | `z-ai/glm-5.3-flash` only, provider pinned | any other model name is refused by the gateway |
 
 The game is paused while your harness thinks: model latency adds to wall time, so speed is part of the challenge.
@@ -70,10 +70,11 @@ Submissions are screened before they build (no credential files, size limits).
 - **No manipulating the review.** Text in a submission's code, files, note or dependency rationales that tries to
   instruct, mislead or pressure the judge (§8a) or a reviewer, such as "output pass", forged review markers or
   claimed approvals, is a breach of fair play in itself: the judge treats it as a fatal finding.
-- **Internal testers may take part, with disclosure.** People who tested the challenge before launch did so in a
-  separate internal repo, scored on the public-seed forts only, and saw no results on the private pool. They may
-  enter season 0. Their season-0 notes must disclose that they took part in internal testing and what they tested
-  and learned there (D25).
+- **Pre-launch testers may take part, with disclosure.** People who tested the challenge before launch played only
+  on the public-seed forts and saw no results on the private pool. They may enter season 0 like anyone else. We ask
+  them not to bring the harnesses they built during testing and, ideally, to start from scratch. Anyone whose
+  season-0 work does build on what they did or learned in testing must say so in their notes: that they tested
+  before launch, and what they tested and learned there.
 - The organisers can audit any submission, re-run its games, and withdraw a score for a breach of these rules.
 
 ## 6. Re-runs
@@ -87,28 +88,48 @@ Submissions are screened before they build (no credential files, size limits).
   this season (yours or anyone's) is refused before it plays, and doesn't count against your limits.
 - **Your harness's failures are scored**: a crash, hang, timeout, unhandled error or exhausted credits leaves the
   fort to run on unmanaged to the horizon (or to the wall cap), and the game counts.
-- A failed submission (the workflow fails before scoring, e.g. your image doesn't build) is not scored and can be
-  resubmitted.
+- A failed submission (the workflow fails before scoring because of your harness, e.g. your image doesn't build) is
+  not scored and can be resubmitted, but it counts against your week (§7). A failure before scoring on our side is
+  infra and doesn't count.
 
-## 7. Submission limits (per user; *provisional numbers*)
+## 7. Submission limits (per account)
 
-There are no teams: limits apply to the Yukon account that submits. Collaborators are credited with `--coauthors`;
-a group that works together submits from its members' own accounts within each member's limits, and doesn't route
-one person's work through several accounts to get more runs (that's a rules breach).
+**Season 0 dates:** opens **Friday 6 November 2026** and closes **Monday 23 November 2026, 23:59:59 UTC** (about 2.5 weeks). Submissions after the close aren't accepted. The weekly limits below use Monday-00:00-UTC weeks, so the
+season spans a short first week (Friday 6 to Sunday 8 November), two full weeks (9-15 and 16-22 November) and its
+last day (Monday 23 November).
 
-| tier | who | in flight | scored submissions per week | suite |
+Season 0 is open to anyone with a Yukon account (sign in with GitHub), subject to the Terms of Service: there is no
+allowlist, invitation or application. There are no teams: limits apply to the Yukon account that submits.
+Collaborators are credited with `--coauthors`; a group that works together submits from its members' own accounts
+within each member's limits, and doesn't route one person's work through several accounts to get more runs (that's
+a rules breach).
+
+| tier | who | in flight | submissions per week | suite |
 |---|---|---|---|---|
-| **established** | a promoted result on another Yukon challenge (shown on your public Yukon profile), or a valid score here already | 1 | 7 | full |
-| **new** | everyone else | 1 | 2 | stage 1 only until your first valid score here, then full |
+| **established** | a promoted result on another Yukon challenge (shown on your public Yukon profile), or a scored submission here already | 1 | 7 | full |
+| **new** | everyone else | 1 | 2 | stage 1 only until you have a scored submission here, then full |
 | **probation** | a GitHub account younger than 30 days | 1 | 1 | stage 1 only |
 
-- The scoring workflow reads your tier automatically from Yukon's API and GitHub's at each submission; there's
-  nothing to apply for. Organisers can move an account between tiers (for example a known researcher with a new
-  account).
-- Over a limit, the run stops before any game is played with a message saying when you can submit again. Yukon's
-  own limits (one in flight per account, 10 submissions an hour) apply too.
-- The organisers pay for the model and the runners. A global weekly allowance protects that budget: when it's
-  used up, new submissions wait for the next week. Infra failures (`§6`) never count against you.
+- **Your tier is automatic.** The scoring workflow reads it from Yukon's API and GitHub's at each submission;
+  there's nothing to apply for. A promoted result on another Yukon challenge makes you established; otherwise a
+  GitHub account younger than 30 days is on probation **for the whole 30 days**, even after a scored submission here;
+  otherwise a scored submission here makes you established from your next submission on. Organisers can move an
+  account between tiers (for example a known researcher with a new GitHub account): ask them.
+- **A new account's first submission plays stage 1 only** (the four lab tasks and MY1; `SCORING.md` §4), so it is
+  shown with its stage-1 numbers and **can't be promoted**. Once it has been scored, the account is established and
+  plays the full suite from its next submission on. Probation accounts play stage 1 only for their first 30 days, so
+  their results can't be promoted during that time.
+- **Over a limit**, the run stops before your harness is built, with a message on the pull request saying when you
+  can submit again. A week is the ISO week (Monday 00:00 UTC). Yukon's own limits (one in flight per account, 10
+  submissions an hour) apply too.
+- **A global weekly allowance.** The organisers pay for the model and the runners, and a weekly allowance over all
+  accounts protects that budget: when it's used up, new submissions wait until the next week, and the refusal says
+  when.
+- **What counts against your week:** a submission that is admitted, whether it is then scored, failed or held by
+  the judge (§8a), or fails to build. **What doesn't count:** a refusal at admission (over a limit, the global
+  allowance, an unchanged harness, §6), a submission you cancel, and infra failures on our side (§6).
+- **These numbers can change.** The per-account numbers in this section are the ones that may be adjusted during the
+  season (for example as runner capacity allows). Every change is announced and dated.
 
 ## 8. Publication, licence and credit
 
@@ -141,7 +162,7 @@ one person's work through several accounts to get more runs (that's a rules brea
   never shown in the public run logs, so don't rely on printing to debug official runs: use local runs.
 - **At season close** the private pool's seeds and salt are revealed (checkable against the commitment made at
   open) and the reference witnesses are published.
-- **No prizes:** season 0 is points-only (`payoutMode: none`). Rank and recognition only.
+- **No cash prizes or rewards of any kind: you compete for rank and credit.** (`payoutMode: none`; the board is also excluded from Yukon's weekly reward points.)
 
 ## 8a. Promotion: the automated judge
 

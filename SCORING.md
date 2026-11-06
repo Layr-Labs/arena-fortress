@@ -1,7 +1,8 @@
 # Scoring (season 0)
 
-> Pre-release draft. Numbers marked *provisional* may change before the season opens; the version that applies is
-> the one in this file when the season opens, and every change after that is announced.
+> **Versioning.** The scoring that applies to your submission is the one in this file (and in the scorers and
+> `runner/suites/season0.json`) at the commit your submission is based on. Changes during the season are announced
+> and dated; affected scores are re-run (`RULES.md` §9).
 
 Scoring runs on the trusted side only: the game server writes the game's artifacts, the runner scores them with
 `bench/outcomes.py` and `bench/predicates.py`, and writes `score.json`. Your harness never sees the scorer's inputs
@@ -11,7 +12,7 @@ beyond what the game API shows any player.
 
 ### 1.1 Outcome score O (OP1, MY1)
 
-The gated outcome score (score version 6; full definition and the DF mechanics behind it in
+The gated outcome score (score version 7; full definition and the DF mechanics behind it in
 [`docs/SUCCESS.md`](docs/SUCCESS.md) §2):
 
 ```
@@ -44,7 +45,8 @@ A lost fort scores 0 on every task.
 
 **Normalisation:** a lab task's score is `ẑ = (p̄ − p̄_noop) / (p̄_anchor − p̄_noop)`, where p̄ is the mean partial
 credit over the task's games, `noop` is the do-nothing policy and `anchor` is the organiser's reference witness on
-the same private forts. ẑ is capped at 1.5 and not floored. Both reference scores are published at season open.
+the same private forts. ẑ is capped at 1.5 and not floored. Both reference values are published in
+`runner/suites/season0.json` (each lab task's `anchor`: `noop` and `witness`, measured on the private pool).
 
 **Strange moods are off except in the mood task.** On the season-0 sites many moods can't be satisfied with the
 tools: many sites have no stone reachable with the season-0 tools, and a mood that demands stone can't be met. So every task

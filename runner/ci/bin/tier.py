@@ -123,8 +123,9 @@ def normalize_overrides(overrides):
 
 
 def decide(username, profile, gh_user, our_benchmark, cfg, overrides, our_challenge=None, now=None, valid_here=False):
-    """-> (tier, reason). Overrides win; then established (promoted elsewhere, or a valid score here); then
-    probation by GitHub account age; else new."""
+    """-> (tier, reason). Overrides win; then established by a promoted result elsewhere; then probation by GitHub
+    account age (it lasts the whole probation window, even after a scored submission here: a fresh account mustn't
+    unlock the full suite with one cheap stage-1 run); then established by a valid score here; else new."""
     ov = normalize_overrides(overrides)
     if username.lower() in ov:
         t = ov[username.lower()]
@@ -133,11 +134,11 @@ def decide(username, profile, gh_user, our_benchmark, cfg, overrides, our_challe
         return t, "organiser override"
     if is_established(profile, our_benchmark, our_challenge):
         return "established", "promoted result on another Yukon benchmark"
-    if valid_here:
-        return "established", "valid score on this benchmark"
     age = account_age_days(gh_user["created_at"], now)
     if age < float(cfg.get("probation_days", 30)):
         return "probation", f"GitHub account {age:.0f} days old"
+    if valid_here:
+        return "established", "valid score on this benchmark"
     return "new", "no promoted result elsewhere, no valid score here yet"
 
 
