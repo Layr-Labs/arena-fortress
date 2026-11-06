@@ -1,21 +1,8 @@
-"""The system prompt: what the model is told once per game (and pays for at every call).
-
-system prompt = MANUAL (the role, the rules of the run, what it is scored on)
-              + ORDERS (add_manager_order, when the server offers it)
-              + OBSERVATION (how this harness sends the state, and its own guard)
-              + the game API's own reference for the observation and the sites (GET /task `manual`, sections 4 and
-                6: facts about the wire format, no advice).
-The observation itself is sent as the API returns it: compact JSON, no summary, no interpretation.
-
-This prompt deliberately carries no Dwarf Fortress strategy: nothing on what to build first, how to keep drink and
-food flowing, what the manager needs, moods or defence. The model plays from what it already knows about DF.
-
-PLUG-IN: everything here is yours to change: DF knowledge, examples, a plan the model keeps.
-Every token is paid for at every call, and the credits are per game.
+"""The system prompt: what the model is told once per game.
 """
 import re
 
-MANUAL = """You are the overseer of a Dwarf Fortress fortress (version 53, fortress mode). You act only through the
+MANUAL = """You are the overseer of a Dwarf Fortress fortress (version 53, fortress mode). You act through the
 tools, one tool call per turn. The observation is JSON; days_left_in_run counts down to the end of the run.
 If it has hands_off_in_days, that is how many days you have left to act: after that, time runs to the end of the
 run and your actions are rejected.
@@ -30,6 +17,16 @@ the game unless you call advance_days (this harness caps it at 14 days; the serv
 are paid from this game's credits; when they run out, the run continues to the end without you.
 """
 
+CARETAKER = """
+AUTOMATED UPKEEP AND STATUS.
+The harness runs a daily deterministic caretaker for basic fort upkeep: appointing a manager, enabling automation plugins
+(autochop, seedwatch, autofarm), placing basic workshops (Carpenters, Still, Kitchen), digging soil farm rooms, setting
+standing repeat orders for brewing, meals, and barrels, zoning dormitories and dining halls, and placing beds/tables/chairs.
+The observation includes a `harness_status` object summarizing population, supply days, housing, manager state, active moods,
+and any recent failed actions. Use this to guide your decisions. Do not repeat failed actions with the same invalid arguments.
+Focus on the specific task goals, resolving bottlenecks, special orders, strange moods, defense, and advancing time when stable.
+"""
+
 ORDERS = """
 ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and amount are both required). For any
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
@@ -37,7 +34,7 @@ and material_category, with the same repeat/when; it runs at whichever built wor
 
 OBSERVATION = """
 THE OBSERVATION. Each turn you get the game's observation as JSON ("OBSERVATION {...}"), as the game API returns it,
-plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
+plus `harness_status`, `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
 are omitted: the latest one is the current state. A cancelled order that you add again waits for the manager's
 validation again; this harness refuses cancelling an order it added under 2 days ago, and re-adding an order identical
 to one it cancelled in the last 3 days (error_code order_churn)."""
@@ -54,7 +51,7 @@ def api_sections(api_manual, numbers=API_SECTIONS):
 
 
 def system_prompt(api_manual=None, tool_names=None):
-    s = MANUAL
+    s = MANUAL + "\n" + CARETAKER
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + OBSERVATION

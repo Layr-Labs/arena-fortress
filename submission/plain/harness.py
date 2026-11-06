@@ -1,18 +1,11 @@
-"""The plain baseline harness: the model plays the fort from the raw game API, one tool call per turn.
+"""The hybrid fortress harness: deterministic upkeep caretaker plus state-aware model overseer.
 
 One turn:
-  1. GET /observe -> the observation as the API returns it, plus days_left_in_run, hands_off_in_days, goal, scenario
-  2. the user message "OBSERVATION {...}"; the history window (system prompt + last HISTORY messages, older
-     observations stubbed, older tool results trimmed)
-  3. one chat call through the gateway (tool_choice required)
-  4. run the first tool call (POST /act); its result goes back to the model as JSON
-  5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
-     actions are used up; stop calling the model near the end of the credits
-The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
-low; the server then runs the fort on unmanaged to the horizon (contract §2).
-
-There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
-reads the raw facts. README.md lists the obvious places to improve.
+  1. If day changed: run the deterministic caretaker pass (manager, office, workshops, farms, standing orders, housing).
+  2. GET /observe -> observation as JSON with harness_status (supply, housing, manager, active moods, recent failures).
+  3. Window: system prompt + last HISTORY messages with state memory.
+  4. Model chat call through gateway.
+  5. Run tool call via POST /act. Guards enforce no order-churn and advance time when stalled.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -26,9 +19,11 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from . import prompt
+from .caretaker import Caretaker
+from .digest import build_status
 
 HISTORY = 12                # messages kept after the system prompt
-TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
+TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
@@ -102,6 +97,9 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.caretaker = Caretaker(game)
+        self.caretaker_day = None
+        self.failures = []
 
     def setup(self):
         t = self.game.task()
@@ -129,11 +127,30 @@ class Plain:
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 break
+
+            # Daily caretaker upkeep pass
+            current_day = resp.get("day")
+            if current_day != self.caretaker_day:
+                self.caretaker_day = current_day
+                try:
+                    acts = self.caretaker.step(resp)
+                    if acts > 0:
+                        resp = self.game.observe()
+                        if resp.get("game_over"):
+                            self.stop_reason = "game_over"
+                            break
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
+                except Exception as e:
+                    log("caretaker_error", error=str(e)[:200])
+
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
+            obs["harness_status"] = build_status(obs, self.failures)
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
                 obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
@@ -182,7 +199,7 @@ class Plain:
         params = {**CHAT, "seed": self.seed}
         try:
             resp = self.model.chat(self.messages, tools=self.tools, **params)
-        except ContextTooLong as e:   # over the context window: keep the system prompt and this observation
+        except ContextTooLong as e:
             if len(self.messages) <= 2:
                 raise
             self.messages = [self.messages[0], self.messages[-1]]
@@ -216,7 +233,7 @@ class Plain:
                     args = {**args, "days": 1}
             try:
                 resp = self.game.act(name, args)
-            except ActionLimit as e:   # K actions used today: say so, and let a day pass
+            except ActionLimit as e:
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
                 return True
@@ -246,8 +263,14 @@ class Plain:
         return None
 
     def remember(self, name, args, resp, tick):
-        if not resp.get("ok") or not isinstance(tick, int):
+        if not resp.get("ok"):
+            self.failures.append({"tool": name, "args": args, "error_code": resp.get("error_code")})
+            self.failures = self.failures[-15:]
             return
+        if not isinstance(tick, int):
+            return
+        # Clear failure matching this tool
+        self.failures = [f for f in self.failures if f.get("tool") != name]
         r = resp.get("result") if isinstance(resp.get("result"), dict) else resp
         if name in ORDER_TOOLS and r.get("order_id", r.get("id")) is not None:
             self.added[r.get("order_id", r.get("id"))] = (signature(name, args), tick)
@@ -289,7 +312,7 @@ def main():
     log("start", task=repr(task), model=task.model_name)
     try:
         Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0"))).run()
-    except GameAPIError as e:   # the game server went away: nothing more to do
+    except GameAPIError as e:
         log("game_error", error=str(e)[:300])
         return 1
     return 0

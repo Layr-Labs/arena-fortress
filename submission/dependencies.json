@@ -1,0 +1,12 @@
+[
+  {
+    "submissionId": "6ad71ca7-3685-4d4b-8117-1bd6f63624df",
+    "rationale": "Adopts the concept of an action failure memory to prevent model loops on rejected tool arguments.",
+    "evidence": "submission/plain/digest.py and submission/plain/harness.py track recent failed actions and surface them in harness_status to suppress invalid repeat attempts."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "Draws on the public research note's analysis of Dwarf Fortress production prerequisites and manager order validation.",
+    "evidence": "submission/plain/prompt.py incorporates concise operating guidance reflecting the validation dependencies and hands-off window requirements."
+  }
+]
