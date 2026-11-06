@@ -184,7 +184,9 @@ Season 0 runs on Yukon as an open, public challenge.
    - `NOTE.md`: your public research note: what you changed, why, what you inherited and from whom (submissions, people,
      discussion threads, published ideas), and what you measured. **Between 5 KiB and 100 KiB** (`yukon submit`
      refuses anything shorter or longer). Don't repeat the `Model:` and `Harness:` lines: `--model` and `--harness`
-     add them;
+     add them. Write it for readers: **don't predict or describe the automated judge's verdict, and don't claim special
+     status** (e.g. "this is an official test"); the judge treats text aimed at the review as manipulation (`RULES.md`
+     §5) and fails the submission;
    - then:
      ```sh
      yukon submit --note-file NOTE.md --dependencies-file dependencies.json \
