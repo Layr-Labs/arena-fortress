@@ -35,6 +35,13 @@ ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and 
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
 and material_category, with the same repeat/when; it runs at whichever built workshop can do that job."""
 
+AUTOMATIC = """
+ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before you: the manager and their office,
+autochop/seedwatch/autofarm, the Carpenters/Still/Kitchen workshops, standing brew/barrel/cook orders, digging rooms,
+farm plots, ordering and placing beds, tables and chairs, the dormitory and dining zones, the shelter burrow, and the
+workshop a strange mood asks for. Don't repeat that work. Use your turns for what it can't see: why something is
+stuck, shortages, threats, and advancing time."""
+
 OBSERVATION = """
 THE OBSERVATION. Each turn you get the game's observation as JSON ("OBSERVATION {...}"), as the game API returns it,
 plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
@@ -57,7 +64,7 @@ def system_prompt(api_manual=None, tool_names=None):
     s = MANUAL
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
-    s += "\n" + OBSERVATION
+    s += "\n" + AUTOMATIC + "\n" + OBSERVATION
     ref = api_sections(api_manual)
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"

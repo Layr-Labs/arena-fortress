@@ -1,0 +1,17 @@
+[
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "Directly reuses the hybrid controller code and design, its daily integration with the organiser's plain model loop, and its automatic-work prompt paragraph. This candidate repairs two controller state updates, shortens the stall interval, and resets its counter after a model-error advance.",
+    "evidence": "The source is candidate commit 4dc38df894d7e6bbe1656b7b0525d355b2d554de. Candidate overseer/harness.py retains the source's management, supply, farming, furniture, mood, and defence routines. Its build() now removes a site after a successful build; digging() assigns room roles only after ok. Candidate plain/harness.py retains the daily Overseer.step integration, changes STALL_AFTER from 10 to 4, and clears idle after a successful model-error advance. plain/prompt.py retains the automatic-work paragraph. NOTE.md records source reference metrics separately from candidate tests and completed local game results with stated source and control limits."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "Uses the published 73.86 score as a measured comparison in the final research note. No code, prompt manual, or opening plan is inherited from this submission.",
+    "evidence": "NOTE.md, Attribution and comparisons, records the published 73.86 result alongside the organiser baseline reference of 77.10. It states that the comparison does not measure the hybrid repairs or four-turn stall interval, and does not establish that the prompt change caused a loss."
+  },
+  {
+    "submissionId": "5fc9efef-b4b0-4644-b8c7-e5b7ed24cd60",
+    "rationale": "Uses the published 70.33 score as a measured comparison in the final research note. No code or wall-time guard is inherited from this submission.",
+    "evidence": "NOTE.md, Attribution and comparisons, records the published 70.33 result alongside the organiser baseline reference of 77.10. It keeps the wall-time guard result separate from the four-turn stall change and does not claim that the guard caused the lower score."
+  }
+]

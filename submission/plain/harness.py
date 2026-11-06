@@ -25,13 +25,15 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
+from overseer.harness import Overseer
+
 from . import prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
@@ -102,6 +104,8 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.guard = Overseer(game)
+        self.guard_day = None
 
     def setup(self):
         t = self.game.task()
@@ -129,6 +133,14 @@ class Plain:
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 break
+            if resp.get("day") != self.guard_day:   # the deterministic layer runs once per game day and costs no credits
+                self.guard_day = resp.get("day")
+                try:
+                    if self.guard.step(resp):
+                        resp = self.game.observe()
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
                 break
@@ -153,6 +165,7 @@ class Plain:
                     break
                 if not self.advance(1, "model_error"):
                     break
+                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []

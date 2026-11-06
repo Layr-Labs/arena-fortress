@@ -1,53 +1,60 @@
-# The plain baseline harness (season 0)
+# Hybrid controller repairs and a four-turn stall check
 
-This is where `submission/` starts: a language model playing the fort from the raw game API, one tool call per turn.
-It is deliberately plain. It does what the contract needs and some basic hygiene, and nothing that interprets the
-fort for the model.
+This harness inherits e-man07's hybrid controller from submission `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa`.
+It repairs room role assignment and workshop site reuse. It advances one day after four model turns without a time
+advance, instead of ten. A forced advance after a model error resets that stall counter.
 
-| file (in `submission/`) | what |
+## Operation
+
+1. Read the public game observation.
+2. On a new game day, run the deterministic controller. It handles routine management, supply, farms, rooms,
+   furniture, moods, and defence. If it acts, read the observation again.
+3. Send the current observation and recent history to the task-provided model. Run its first tool call.
+4. Apply the existing action, credit, order-churn, and model-failure checks. Advance one day after four model turns
+   without an advance.
+
+The controller makes no model calls. Its actions share the game's daily action allowance. The model retains one
+selected tool per turn, a 12-message history, temperature zero, low reasoning effort, and 4,000 maximum output
+tokens. Model advances remain capped at 14 days. The credit stop remains 92%.
+
+## Repairs
+
+- A room receives a role only after `dig_room` returns `ok`. Failed digs retain their retry delay and failure limit.
+- A successful workshop build removes its site from the current pass. Failed or retry-blocked builds keep the site.
+- The four-turn stall check lets the daily controller run sooner when the model does not advance time.
+- A successful model-error advance clears the counter. Earlier idle turns cannot cause an immediate second advance.
+
+| File | Purpose |
 |---|---|
-| `plain/harness.py` | the loop and its guards (~300 lines) |
-| `plain/prompt.py` | the system prompt: the role, the run's rules and what it is scored on, plus sections 4 and 6 of the game API's own manual. No DF strategy |
-| `plain/__main__.py` | the entrypoint (`python -m plain`) |
-| `dfbench_client/` | a small stdlib client for the game API and the model gateway (retries, the credit stop) |
-| `Dockerfile` | the image: `dfbench_client/` and `plain/`, stdlib only |
+| `overseer/harness.py` | Inherited controller and two state repairs |
+| `plain/harness.py` | Model loop, daily controller call, four-turn limit, and error-path counter reset |
+| `plain/prompt.py` | Inherited prompt, including the controller's work list |
+| `dfbench_client/` | Existing game and model clients |
+| `tests/` | Seven controller repair tests and two pacing tests |
+| `NOTE.md` | Evidence, limits, source credits, and experiment records |
+| `dependencies.json` | Code reuse and measured comparison declarations |
 
-(`baseline/plain/` holds the same package with its files at the top level, next to `baseline/dfbench_client/`.)
+The image uses a pinned Python 3.12 slim digest, standard-library code, and `USER nobody`. Its entrypoint is
+`python -m plain`. The build excludes generated Python bytecode. The earlier `query_game` bridge is not included.
 
-## What it does each turn
+## Checks
 
-1. `GET /observe`. The observation goes to the model **as the API returns it** (compact JSON), with
-   `days_left_in_run`, `hands_off_in_days`, the task's `goal` and `scenario`.
-2. History: the system prompt and the last 12 messages. Older observations become a one-line stub, and older tool
-   results are cut to 300 characters.
-3. One chat call through the gateway: `tool_choice` required, temperature 0, `max_tokens` 4000, reasoning effort low.
-4. The first tool call runs (`POST /act`); its result goes back as JSON. Extra calls in the same reply are answered
-   `one_tool_per_turn`.
+From the benchmark root:
 
-Guards:
-- **Time keeps moving:** after 10 actions in a row without an advance, or when the day's 40 actions are used up,
-  the harness advances one day itself. `advance_days` is capped at 14 days.
-- **Order churn**, refused locally with `order_churn`: cancelling an order the harness added under 2 days ago, and
-  re-adding an order identical to one it cancelled in the last 3 days. Cancelling and re-adding restarts the
-  manager's validation, and a model can loop on it until the credits are gone.
-- **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
-  unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
-- **A failing model:** after 5 failed model turns in a row it exits.
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
+docker build --platform linux/amd64 -t fortress-hybrid-repair submission/
+```
 
-## What it doesn't do
+Nine regressions pass, and the final Docker image builds. Before the final counter reset, a Docker fake LT01 check
+exited 0 and reached day 60.
 
-Everything else is yours. The obvious directions, none of them done here:
-- **Make the state legible.** The raw observation is long and flat. What matters this turn (drink running low, an
-  order that isn't moving, a mood waiting for a workshop) is in there, but the model has to find it every turn.
-- **Explain failures.** A rejected action comes back as the API's error code and text. Why an order isn't
-  progressing (no manager, no workshop, no input, still waiting for validation) is for the harness to work out.
-- **Remember.** The model sees only the last 12 messages, so it forgets what it tried and what failed.
-- **Use the read-only queries** (`GET /query/...`: stocks, units, jobs, orders, buildings, zones, map). They're free:
-  no actions, no game time.
-- **Plan and pace.** When to call the model, how far to advance, several actions between advances, sub-calls,
-  where to spend the credits.
-- **Know DF.** The prompt says nothing about how DF works: what the manager does, what a workshop needs, how to
-  keep drink and food coming, farming, moods, defence. The model plays from whatever it already knows.
+The local repaired OP1 run used 80 model calls through day 266. The server then ran 70 days unmanaged to day 336.
+Its public outcome is O 87.5, tier 3/4, with zero citizen deaths. It is one unpriced Qwen run with moods off and no
+paired baseline. Its source predates the counter reset. It does not establish a gain or fully managed operation
+of the final source through day 336. No local run remains pending.
 
-The organiser's reference harness (score published at launch) gets above this baseline by working on these. How is
-up to you.
+The inherited hybrid with the four-turn limit stopped at the LT01 wall limit after 48 model calls, on day 28.3
+of 60. Its public predicate failed with partial 0.25. That version predates the two controller repairs.
+Local Qwen runs have an 80-turn limit, with 1,800 seconds for LT01 and 5,400 seconds for OP1. They are unpriced
+and do not measure the required hosted GLM model. See `NOTE.md` for source snapshots, limits, and inherited credits.
