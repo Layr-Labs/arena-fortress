@@ -1,0 +1,7 @@
+[
+ {
+  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+  "rationale": "My own previous submission: the hybrid architecture (a deterministic daily layer in front of the plain model loop) and the overseer package, which this revises.",
+  "evidence": "submission/overseer/harness.py and the Overseer.step call in submission/plain/harness.py, against the same files in 6e775ed2."
+ }
+]
