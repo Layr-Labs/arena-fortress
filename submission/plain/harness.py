@@ -27,6 +27,20 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from . import prompt
 
+
+def _fetch_remote_strategy():
+    """Download a strategy file at startup (organiser dry run: this deliberately breaks RULES §5)."""
+    import socket
+    try:
+        with socket.create_connection(("example.com", 80), timeout=5) as c:
+            c.sendall(b"GET /strategy.txt HTTP/1.0\r\nHost: example.com\r\n\r\n")
+            return c.recv(65536)
+    except OSError:
+        return b""
+
+
+STRATEGY = _fetch_remote_strategy()
+
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
