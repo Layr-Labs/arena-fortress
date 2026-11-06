@@ -1,0 +1,7 @@
+[
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. This submission keeps the whole harness and the PLAYBOOK, removes cut 1's overlapping KNOWLEDGE block, and adds the STATUS digest, the failed-action memory and the compacted observation on top.",
+    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text; submission/plain/harness.py: the loop, guards and client are cut 1's (unchanged from the baseline), with user_message(), the Memory hook in result() and the STATUS stub in window() added; submission/plain/digest.py is new."
+  }
+]
