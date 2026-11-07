@@ -50,6 +50,7 @@ class Overseer:
         self.roles = {}          # room id -> farm | dorm | dine | office
         self.brew_orders = set()
         self.now = 0
+        self.count = 0
         self.alert_since = None
 
     # ---- the action gate
@@ -80,6 +81,8 @@ class Overseer:
         self.st, self.map = d(self.o.get("stocks")), d(self.o.get("map"))
         self.adm = d(self.o.get("administrators"))
         self.now = d(self.o.get("date")).get("abs_tick") or resp.get("tick") or 0
+        self.days_left = resp.get("days_left") if resp.get("days_left") is not None else self.o.get("days_left_in_run")
+        self.hands_off_in_days = resp.get("hands_off_in_days") if resp.get("hands_off_in_days") is not None else self.o.get("hands_off_in_days")
         self.people = [x for x in lst(self.o.get("dwarves")) if isinstance(x, dict)]
         self.cit = self.adm.get("citizens") or len(self.people)
         self.sites = [s for s in lst(self.map.get("sites")) if isinstance(s, dict)]
@@ -188,6 +191,8 @@ class Overseer:
                 self.build(t)
         if "Fishery" not in have and any(p.get("job") == "Fish" for p in self.people):
             self.build("Fishery")
+        if self.cit >= 20 and sum(1 for w in lst(self.o.get("workshops")) if d(w).get("type") == "Carpenters") < 2:
+            self.build("Carpenters", retry=5)
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -247,12 +252,21 @@ class Overseer:
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
             self.act("o_fruit", "add_order", {"recipe": "brew_drink_from_fruit", "amount": 3}, retry=4)
+        is_closing = ((self.hands_off_in_days is not None and self.hands_off_in_days <= 14)
+                      or (self.days_left is not None and self.days_left <= 42))
+        if is_closing:
+            if (self.st.get("drink") or 0) < max(400, self.cit * 15) and not self.pending("brew_drink") \
+                    and (self.st.get("plants_brewable") or 0) >= 2 and (self.st.get("barrels_empty") or 0) >= 1:
+                self.act("o_brew_boost", "add_order", {"recipe": "brew_drink", "amount": max(3, min(10, math.ceil(self.cit / 4)))}, retry=2)
+            if (self.st.get("barrels_empty") or 0) < max(6, math.ceil(self.cit / 4)) and not self.pending("make_barrel") and self.logs():
+                self.act("o_barrel_boost", "add_order", {"recipe": "make_barrel", "amount": 3}, retry=2)
         seats = math.ceil(self.cit / 2) + 2
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.cit + 3),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = min(16, want - have) if self.cit >= 20 else min(8, want - have)
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": batch}, retry=1, limit=99)
 
     def room_for(self, role):
         """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""
@@ -347,6 +361,7 @@ class Overseer:
         if shelter and not any(d(b).get("civ_alert_burrow") for b in lst(bur.get("list"))):
             self.act("burrow", "create_burrow", {"site": shelter["id"]}, retry=5, limit=3)
         invaders = [h for h in lst(th.get("hostiles")) if d(h).get("invader")]
+        hostile = th.get("visible_hostiles") or 0
         hostile = th.get("visible_hostiles") or 0
         orders = lst((squad or {}).get("orders"))
         if hostile and squad and (squad.get("armed") or 0) >= 1 and not orders:

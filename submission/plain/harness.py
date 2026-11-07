@@ -123,7 +123,7 @@ class Plain:
             system_chars=len(self.messages[0]["content"]))
 
     def spent(self):
-        return self.model.usage.get("cost_usd") or 0.0
+        return (self.model.usage.get("cost_usd") if self.model else 0.0) or 0.0
 
     def run(self, max_turns=None):
         self.setup()
@@ -143,6 +143,7 @@ class Plain:
                     break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
+                self.layer_only()
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
@@ -154,6 +155,7 @@ class Plain:
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
                 self.stop_reason = "budget_exhausted"
+                self.layer_only()
                 break
             except ModelError as e:
                 self.stats["api_errors"] += 1
@@ -162,6 +164,7 @@ class Plain:
                 self.messages.pop()
                 if streak >= MAX_API_STREAK:
                     self.stop_reason = "model_failing"
+                    self.layer_only()
                     break
                 if not self.advance(1, "model_error"):
                     break
@@ -190,6 +193,50 @@ class Plain:
                     break
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
+
+    def layer_only(self):
+        """Play on through the deterministic layer when model calls end, until hands-off or horizon."""
+        log("layer_only_start", stats=self.stats, spent=round(self.spent(), 4))
+        while True:
+            try:
+                resp = self.game.observe()
+            except (HandsOff, GameOver) as e:
+                self.stop_reason = type(e).__name__
+                break
+            except GameAPIError as e:
+                log("layer_only_observe_error", error=str(e)[:200])
+                break
+            if resp.get("game_over"):
+                self.stop_reason = "game_over"
+                break
+            if resp.get("day") != self.guard_day:
+                self.guard_day = resp.get("day")
+                try:
+                    self.guard.step(resp)
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
+                except Exception as e:
+                    log("layer_step_error", error=repr(e)[:200])
+            p = self.guard.pace(resp)
+            try:
+                r = self.game.act("advance_days", {"days": p})
+                res = r.get("result") if isinstance(r.get("result"), dict) else {}
+                if r.get("game_over") or res.get("hands_off"):
+                    self.stop_reason = "game_over" if r.get("game_over") else "hands_off"
+                    break
+            except (HandsOff, GameOver) as e:
+                self.stop_reason = type(e).__name__
+                break
+            except ActionLimit:
+                try:
+                    self.game.act("advance_days", {"days": 1})
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
+            except GameAPIError as e:
+                log("layer_advance_error", error=str(e)[:200])
+                break
 
     def chat(self):
         params = {**CHAT, "seed": self.seed}
