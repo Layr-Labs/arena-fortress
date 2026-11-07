@@ -1,0 +1,1024 @@
+{
+  "day": 9,
+  "tick": 834000,
+  "days_left": 327,
+  "game_over": false,
+  "observation": {
+    "administrators": {
+      "BOOKKEEPER": "VACANT",
+      "BROKER": "VACANT",
+      "CHIEF_MEDICAL_DWARF": "VACANT",
+      "citizens": 7,
+      "EXPEDITION_LEADER": "Endok Eggutth\u00eekut, expedition leader",
+      "EXPEDITION_LEADER_id": 92,
+      "MANAGER": "Asob Asteshkeskal, manager",
+      "manager_active_for_orders": true,
+      "MANAGER_id": 86,
+      "manager_office": "none",
+      "manager_required_office": 1
+    },
+    "burrows": {
+      "civilian_alert": false,
+      "list": []
+    },
+    "date": {
+      "abs_tick": 834000,
+      "day_of_year": 24,
+      "season": "spring",
+      "year": 2
+    },
+    "dig_designations_pending": 0,
+    "dig_pending_by_z": {},
+    "doors": {
+      "door_items_free": 0,
+      "hatch_cover_items_free": 0,
+      "list": []
+    },
+    "dwarves": [
+      {
+        "adult": true,
+        "id": 86,
+        "job": "idle",
+        "name": "Asob Asteshkeskal, manager",
+        "organizer_skill": 0,
+        "positions": [
+          "MANAGER"
+        ],
+        "profession": "manager",
+        "stress": 3,
+        "x": 96,
+        "y": 91,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 87,
+        "job": "PrepareMeal",
+        "name": "Obok Shadmalushat, Planter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Planter",
+        "stress": 3,
+        "x": 98,
+        "y": 99,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 88,
+        "job": "ConstructThrone",
+        "name": "Thob Melbiludar, Woodworker",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Woodworker",
+        "stress": 3,
+        "x": 92,
+        "y": 91,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 89,
+        "job": "idle",
+        "name": "\u00eeton Asd\u00fbgfikod, Metalcrafter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Metalcrafter",
+        "stress": 3,
+        "x": 93,
+        "y": 97,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 90,
+        "job": "Fish",
+        "name": "Kumil \u00f2nulnoram, Fisherdwarf",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Fisherdwarf",
+        "stress": 3,
+        "x": 87,
+        "y": 84,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 91,
+        "job": "idle",
+        "name": "Tekkud \u00e5blelgongith, Mason",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Mason",
+        "stress": 3,
+        "x": 98,
+        "y": 97,
+        "z": 106
+      },
+      {
+        "adult": true,
+        "id": 92,
+        "job": "idle",
+        "name": "Endok Eggutth\u00eekut, expedition leader",
+        "organizer_skill": 2,
+        "positions": [
+          "EXPEDITION_LEADER"
+        ],
+        "profession": "expedition leader",
+        "stress": 3,
+        "x": 93,
+        "y": 95,
+        "z": 106
+      }
+    ],
+    "farm_plots": [],
+    "furniture": [],
+    "furniture_total": 0,
+    "furniture_unzoned": {},
+    "map": {
+      "size": [
+        12,
+        12,
+        122
+      ],
+      "size_tiles": [
+        192,
+        192,
+        122
+      ],
+      "surface_z": 106,
+      "wagon": {
+        "present": true,
+        "x": 96,
+        "y": 95,
+        "z": 106
+      },
+      "sites": [
+        {
+          "id": "W5",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 95,
+          "y": 100,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W6",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 97,
+          "y": 90,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W7",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 89,
+          "y": 92,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W8",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 93,
+          "y": 88,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W9",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 101,
+          "y": 88,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W10",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 103,
+          "y": 98,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W11",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 88,
+          "y": 95,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W12",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 88,
+          "y": 99,
+          "z": 106,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G2",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 102,
+          "y": 98,
+          "z": 106,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G5",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 88,
+          "y": 93,
+          "z": 106,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G6",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 100,
+          "y": 87,
+          "z": 106,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G7",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 87,
+          "y": 104,
+          "z": 106,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "F1",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 105,
+          "kind": "F",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "F2",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": true,
+          "x": 100,
+          "y": 91,
+          "z": 105,
+          "kind": "F",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "F3",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 104,
+          "kind": "F",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "F4",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": true,
+          "x": 100,
+          "y": 91,
+          "z": 104,
+          "kind": "F",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "E1",
+          "w": 1,
+          "h": 1,
+          "soil": null,
+          "building": false,
+          "kind": "E",
+          "x": 99,
+          "y": 92,
+          "z": 106,
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "A3",
+          "w": 1,
+          "h": 1,
+          "soil": null,
+          "open_tiles": 1,
+          "subterranean": true,
+          "x": 99,
+          "y": 92,
+          "z": 103,
+          "kind": "A",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "A4",
+          "w": 7,
+          "h": 3,
+          "soil": null,
+          "open_tiles": 19,
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 105,
+          "kind": "A",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "A5",
+          "w": 7,
+          "h": 3,
+          "soil": null,
+          "open_tiles": 19,
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 104,
+          "kind": "A",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S1",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 93,
+          "y": 94,
+          "z": 106,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S2",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 95,
+          "y": 92,
+          "z": 106,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S3",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 97,
+          "y": 92,
+          "z": 106,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S5",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 92,
+          "y": 93,
+          "z": 106,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "R1",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 100,
+          "y": 91,
+          "z": 105,
+          "kind": "R",
+          "designated": true,
+          "dug": true,
+          "tiles": {
+            "designated": 0,
+            "floor": 9,
+            "hidden": 0,
+            "soil_floor": 9,
+            "tiles": 9
+          },
+          "free": true
+        },
+        {
+          "id": "R2",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 105,
+          "kind": "R",
+          "designated": true,
+          "dug": true,
+          "tiles": {
+            "designated": 0,
+            "floor": 9,
+            "hidden": 0,
+            "soil_floor": 9,
+            "tiles": 9
+          },
+          "free": true
+        },
+        {
+          "id": "R3",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 100,
+          "y": 91,
+          "z": 104,
+          "kind": "R",
+          "designated": true,
+          "dug": true,
+          "tiles": {
+            "designated": 0,
+            "floor": 9,
+            "hidden": 0,
+            "soil_floor": 9,
+            "tiles": 9
+          },
+          "free": true
+        },
+        {
+          "id": "R4",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 104,
+          "kind": "R",
+          "designated": true,
+          "dug": true,
+          "tiles": {
+            "designated": 0,
+            "floor": 9,
+            "hidden": 0,
+            "soil_floor": 9,
+            "tiles": 9
+          },
+          "free": true
+        },
+        {
+          "id": "R5",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 100,
+          "y": 91,
+          "z": 103,
+          "kind": "R",
+          "designated": false,
+          "dug": false,
+          "tiles": {
+            "designated": 0,
+            "floor": 0,
+            "hidden": 6,
+            "soil_floor": 0,
+            "tiles": 9
+          },
+          "free": true
+        },
+        {
+          "id": "R6",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 99,
+            "y": 92
+          },
+          "subterranean": true,
+          "x": 96,
+          "y": 91,
+          "z": 103,
+          "kind": "R",
+          "designated": false,
+          "dug": false,
+          "tiles": {
+            "designated": 0,
+            "floor": 0,
+            "hidden": 6,
+            "soil_floor": 0,
+            "tiles": 9
+          },
+          "free": true
+        }
+      ]
+    },
+    "military": {
+      "squads": [],
+      "weapons_free": 4
+    },
+    "orders": [
+      {
+        "active": true,
+        "id": 0,
+        "job": "CustomReaction",
+        "jobs_in_progress": 0,
+        "left": 1,
+        "reaction": "BREW_DRINK_FROM_PLANT",
+        "repeat": "daily",
+        "total": 3,
+        "validated": true,
+        "when": [
+          {
+            "item_type": "DRINK",
+            "test": "LessThan",
+            "value": 600,
+            "flags": [],
+            "stock": "drink"
+          },
+          {
+            "flags": [
+              "unrotten"
+            ],
+            "item_type": "PLANT",
+            "reaction_product": "DRINK_MAT",
+            "test": "AtLeast",
+            "value": 2,
+            "stock": "plants_brewable"
+          },
+          {
+            "flags": [
+              "empty"
+            ],
+            "item_type": "BARREL",
+            "test": "AtLeast",
+            "value": 1,
+            "stock": "barrels_empty"
+          }
+        ],
+        "recipe": "brew_drink",
+        "created_tick": 823200
+      },
+      {
+        "active": true,
+        "id": 1,
+        "job": "MakeBarrel",
+        "jobs_in_progress": 1,
+        "left": 1,
+        "material_category": [
+          "wood"
+        ],
+        "repeat": "daily",
+        "total": 2,
+        "validated": true,
+        "when": [
+          {
+            "flags": [
+              "empty"
+            ],
+            "item_type": "BARREL",
+            "test": "LessThan",
+            "value": 4,
+            "stock": "barrels_empty"
+          },
+          {
+            "item_type": "WOOD",
+            "test": "AtLeast",
+            "value": 2,
+            "flags": [],
+            "stock": "logs"
+          }
+        ],
+        "recipe": "make_barrel",
+        "created_tick": 823200
+      },
+      {
+        "active": true,
+        "id": 2,
+        "job": "PrepareMeal",
+        "jobs_in_progress": 1,
+        "left": 2,
+        "meal_kind": -1,
+        "repeat": "daily",
+        "total": 2,
+        "validated": true,
+        "when": [
+          {
+            "item_type": "FOOD",
+            "test": "LessThan",
+            "value": 200,
+            "flags": [],
+            "stock": "prepared_meals"
+          },
+          {
+            "flags": [
+              "unrotten"
+            ],
+            "item_type": "PLANT",
+            "test": "AtLeast",
+            "value": 10,
+            "stock": "plants_total"
+          }
+        ],
+        "recipe": "cook_meal",
+        "created_tick": 823200
+      },
+      {
+        "active": true,
+        "id": 3,
+        "job": "CustomReaction",
+        "jobs_in_progress": 0,
+        "left": 10,
+        "reaction": "BREW_DRINK_FROM_PLANT",
+        "total": 10,
+        "validated": true,
+        "recipe": "brew_drink",
+        "created_tick": 823200
+      },
+      {
+        "active": true,
+        "id": 4,
+        "job": "ConstructBed",
+        "jobs_in_progress": 1,
+        "left": 7,
+        "material_category": [
+          "wood"
+        ],
+        "total": 8,
+        "validated": true,
+        "recipe": "make_bed",
+        "created_tick": 824400
+      },
+      {
+        "active": true,
+        "id": 5,
+        "job": "ConstructTable",
+        "jobs_in_progress": 1,
+        "left": 5,
+        "material_category": [
+          "wood"
+        ],
+        "total": 6,
+        "validated": true,
+        "recipe": "make_table",
+        "created_tick": 824400
+      },
+      {
+        "active": true,
+        "id": 6,
+        "job": "ConstructThrone",
+        "jobs_in_progress": 1,
+        "left": 7,
+        "material_category": [
+          "wood"
+        ],
+        "total": 7,
+        "validated": true,
+        "recipe": "make_chair",
+        "created_tick": 824400
+      }
+    ],
+    "recent_cancellations": [
+      "Asob Asteshkeskal, manager cancels Brew drink from plant: Needs empty food storage item."
+    ],
+    "recent_events": [
+      "The alligator bites the hippo in the left rear leg, tearing the fat!",
+      "The alligator bites the hippo in the upper body, tearing the fat!",
+      "The alligator bites the hippo in the tail, tearing the skin!",
+      "The alligator bites the hippo in the right rear leg, tearing the muscle!",
+      "The hippo breaks the grip of The alligator's teeth on the hippo's right front leg.",
+      "The hippo gores the alligator in the lower body with his teeth, bruising the muscle and bruising the stomach!"
+    ],
+    "schema": 8,
+    "stocks": {
+      "barrels_empty": 0,
+      "barrels_total": 16,
+      "beds": 1,
+      "bins": 0,
+      "boulders": 0,
+      "boulders_usable": 0,
+      "chairs": 0,
+      "charcoal": 0,
+      "drink": 110,
+      "food_any_good": 108,
+      "food_edible": 57,
+      "furniture_free": {
+        "bed": 1,
+        "chair": 0,
+        "container": 0,
+        "door": 0,
+        "table": 1
+      },
+      "logs_unusable": 8,
+      "logs_usable": 268,
+      "plants_brewable": 20,
+      "plants_by_kind": {
+        "plump helmet": {
+          "brewable": true,
+          "cookable": true,
+          "n": 20
+        }
+      },
+      "plants_rotten": 0,
+      "plants_total": 20,
+      "prepared_meals": 20,
+      "seeds": 40,
+      "seeds_by_kind": {
+        "cave wheat": {
+          "n": 5,
+          "seasons": [
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "dimple cup": {
+          "n": 5,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ],
+          "underground": true
+        },
+        "pig tail": {
+          "n": 5,
+          "seasons": [
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "plump helmet": {
+          "n": 15,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ],
+          "underground": true
+        },
+        "quarry bush": {
+          "n": 5,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "sweet pod": {
+          "n": 5,
+          "seasons": [
+            "spring",
+            "summer"
+          ],
+          "underground": true
+        }
+      },
+      "tables": 1
+    },
+    "stressed_citizens": 0,
+    "threats": {
+      "by_race": {},
+      "dead_citizens_total": 0,
+      "hostiles": [],
+      "invaders_dead": 0,
+      "visible_hostiles": 0
+    },
+    "wealth": {
+      "architecture": 21,
+      "crafted": 57,
+      "created": 1093,
+      "furniture": 24,
+      "other": 1036,
+      "raw_logs_value": 828,
+      "total": 1093
+    },
+    "workshops": [
+      {
+        "built": true,
+        "id": 1,
+        "job_details": [
+          {
+            "by_manager": true,
+            "job": "ConstructThrone",
+            "order_id": 6,
+            "worker_id": 88
+          },
+          {
+            "by_manager": true,
+            "job": "MakeBarrel",
+            "order_id": 1
+          },
+          {
+            "by_manager": true,
+            "job": "ConstructBed",
+            "order_id": 4
+          },
+          {
+            "by_manager": true,
+            "job": "ConstructTable",
+            "order_id": 5
+          }
+        ],
+        "jobs": [
+          "ConstructThrone(order)",
+          "MakeBarrel(order)",
+          "ConstructBed(order)",
+          "ConstructTable(order)"
+        ],
+        "type": "Carpenters",
+        "x": 92,
+        "y": 91,
+        "z": 106
+      },
+      {
+        "built": true,
+        "id": 2,
+        "job_details": [],
+        "jobs": [],
+        "type": "Still",
+        "x": 92,
+        "y": 97,
+        "z": 106
+      },
+      {
+        "built": true,
+        "id": 3,
+        "job_details": [
+          {
+            "by_manager": true,
+            "job": "PrepareMeal",
+            "order_id": 2,
+            "worker_id": 87
+          }
+        ],
+        "jobs": [
+          "PrepareMeal(order)"
+        ],
+        "type": "Kitchen",
+        "x": 98,
+        "y": 99,
+        "z": 106
+      },
+      {
+        "built": true,
+        "id": 4,
+        "job_details": [],
+        "jobs": [],
+        "type": "Fishery",
+        "x": 100,
+        "y": 95,
+        "z": 106
+      }
+    ],
+    "zones": [],
+    "zones_total": 0,
+    "plugins": {
+      "autochop": "on",
+      "autofarm": "off",
+      "seedwatch": "on",
+      "autolabor": "off",
+      "autoclothing": "off"
+    }
+  }
+}

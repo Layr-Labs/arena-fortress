@@ -255,6 +255,12 @@ def _manager(c):
     mgr = adm.get("MANAGER")
     office = adm.get("manager_office")
     need_office = n >= OFFICE_FROM
+    manager_id = adm.get("MANAGER_id")
+    alternate = next((z for z in _l(obs.get("zones"))
+                      if type(manager_id) is int and z.get("owner") == manager_id
+                      and str(z.get("type", "")).lower() == "office"
+                      and type(z.get("id")) is int
+                      and _n(_d(z.get("furniture")).get("chair")) > 0), None)
     s = f"manager: {mgr if mgr else 'VACANT'}" + (f" (id {adm.get('MANAGER_id')})" if adm.get("MANAGER_id") is not None else "")
     if not active:
         s += "; NOT ACTIVE for orders: nothing gets validated"
@@ -262,14 +268,16 @@ def _manager(c):
             c["next"].append("appoint_manager (no manager: orders never validate)")
     if isinstance(office, dict):
         s += f"; office zone {office.get('zone_id')} chair={'yes' if office.get('chair') else 'NO'}"
-        if need_office and not office.get("chair"):
+        if need_office and not office.get("chair") and alternate is None:
             c["next"].append(f"manager office zone {office.get('zone_id')} has no built chair: place_furniture chair there (make_chair if none free)")
     else:
-        s += "; office: none" + (f" (REQUIRED at {n} citizens: make_zone office, place a chair, assign_zone to the manager)" if need_office else " (needed from ~20 citizens)")
-        if need_office and active:
+        s += "; office: none reported" if alternate is not None else "; office: none" + (f" (REQUIRED at {n} citizens: make_zone office, place a chair, assign_zone to the manager)" if need_office else " (needed from ~20 citizens)")
+        if need_office and active and alternate is None:
             c["next"].append("manager office missing at 20+ citizens: make_zone office on a dug A/R site, place_furniture chair, assign_zone to the MANAGER_id")
+    if alternate is not None and not (isinstance(office, dict) and office.get("chair")):
+        s += f"; owned office zone {alternate['id']} has {_d(alternate.get('furniture')).get('chair')} built chair(s)"
     c["manager_active"] = bool(active)
-    c["office_ok"] = (not need_office) or (isinstance(office, dict) and bool(office.get("chair")))
+    c["office_ok"] = (not need_office) or (isinstance(office, dict) and bool(office.get("chair"))) or alternate is not None
     return s
 
 
