@@ -1,76 +1,188 @@
 [
   {
-    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-    "rationale": "Directly reuses the hybrid controller code and design, its daily integration with the organiser's plain model loop, and its automatic-work prompt paragraph. This candidate repairs two controller state updates, shortens the stall interval, and resets its counter after a model-error advance.",
-    "evidence": "The source is candidate commit 4dc38df894d7e6bbe1656b7b0525d355b2d554de. Candidate overseer/harness.py retains the source's management, supply, farming, furniture, mood, and defence routines. Its build() now removes a site after a successful build; digging() assigns room roles only after ok. Candidate plain/harness.py retains the daily Overseer.step integration, changes STALL_AFTER from 10 to 4, and clears idle after a successful model-error advance. plain/prompt.py retains the automatic-work paragraph. NOTE.md records source reference metrics separately from candidate tests and completed local game results with stated source and control limits."
-  },
-  {
-    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-    "rationale": "Uses the published 73.86 score as a measured comparison in the final research note. No code, prompt manual, or opening plan is inherited from this submission.",
-    "evidence": "NOTE.md, Attribution and comparisons, records the published 73.86 result alongside the organiser baseline reference of 77.10. It states that the comparison does not measure the hybrid repairs or four-turn stall interval, and does not establish that the prompt change caused a loss."
-  },
-  {
-    "submissionId": "5fc9efef-b4b0-4644-b8c7-e5b7ed24cd60",
-    "rationale": "Uses the published 70.33 score as a measured comparison in the final research note. No code or wall-time guard is inherited from this submission.",
-    "evidence": "NOTE.md, Attribution and comparisons, records the published 70.33 result alongside the organiser baseline reference of 77.10. It keeps the wall-time guard result separate from the four-turn stall change and does not claim that the guard caused the lower score."
-  },
-  {
-    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
-    "rationale": "Uses the peer's reported malformed-tool and malformed-order-ID failure cases to test and repair two local lookup crashes. The candidate adds two narrow checks; it does not inherit the peer's recursive schema validator or controller.",
-    "evidence": "The source NOTE describes validation before cache access; its model_allowed method checks name type and schema, and its test_malformed_advice_keeps_management_running includes list tool names and list cancel IDs. Candidate plain/harness.py checks that names are strings before set lookup and bypasses the cancel cache for list/dict IDs so the API can reject them. Candidate tests/test_typed_arguments.py credits this source and tests both faults plus preserved hashable-ID behavior.",
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "Current promoted producer and retained daily-controller/model-loop foundation, through my direct code parent0662d244.",
+    "evidence": "Started from promoted commit1afa775bbd08645aa6f43dfe6ec76563cad8fa66. Retains its once-per-day Overseer integration, four-turn stall guard, alert state handling, typed lookups, office-chair behavior, observed-Fish Fishery rule and protected brew orders. NOTE.md states the producer explicitly. Direct selected-code intermediate: my canceled0662d244-d665-45d0-a7e6-d49b9806de2d, public Git commit3ddf9d8c5f4a134cb5abdee329a9cda9e89875aa. That platform record has no published commit and returned404 when included as a formal target. Its code credit is retained in NOTE.md and this declaration evidence; its separate formal edge is deferred until the platform permits publication-based attribution.",
     "citations": [
       {
-        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
-        "fileSha256": "0f311c728f8bb67340b860977bfb43ad7e2cada71aafbd70c4cdba9dc36232e4",
-        "path": "submission/NOTE.md",
-        "startLine": 90,
-        "endLine": 100
-      },
-      {
-        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
-        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
-        "path": "submission/plain/harness.py",
-        "startLine": 24,
-        "endLine": 46
-      },
-      {
-        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
-        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
-        "path": "submission/plain/harness.py",
-        "startLine": 87,
-        "endLine": 92
-      },
-      {
-        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
-        "fileSha256": "dd1dec3b094ddf20dd38c7bf085527e0f5926908f5b55b926a51c3f4c1c6fe98",
-        "path": "submission/tests/test_controller.py",
-        "startLine": 217,
-        "endLine": 231
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 123,
+        "endLine": 131
       },
       {
         "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 131,
+        "endLine": 139
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
         "fileSha256": "9d939e177fd461811a5d4d7888c2ed301ae23cf9e95f1695004685958529a262",
         "path": "submission/plain/harness.py",
-        "startLine": 207,
-        "endLine": 263
+        "startLine": 128,
+        "endLine": 192
       },
       {
         "submissionId": null,
-        "fileSha256": "0be0fe384bfcbbc5b71b94272ba6fb65b409fea0137a6a91c7cab5b1bdab8dc9",
-        "path": "submission/tests/test_typed_arguments.py",
-        "startLine": 1,
-        "endLine": 82
+        "fileSha256": "921650d45bbaff86d21d536648f17752dd52b41da854e1ffc1872243b9de6fd3",
+        "path": "submission/plain/harness.py",
+        "startLine": 118,
+        "endLine": 181
       }
     ]
   },
   {
-    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-    "rationale": "Directly continues our V1 hybrid repairs: successful-action state updates, four-turn stall pacing, and the model-error advance reset.",
-    "evidence": "Candidate overseer/harness.py retains V1 build() site removal after ok and digging() role assignment after ok. Candidate plain/harness.py retains STALL_AFTER=4 and idle reset after a successful model-error advance. NOTE.md identifies V1 and separates its local evidence from later changes."
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "Copies its layer-aware plain/digest.py through0662d244, and adapts its action-report/user-message integration, second-carpenter and bed-priority ideas. Also uses its completed aggregates as a comparison, explicitly including failed paired confirmation.",
+    "evidence": "Source commit534bc56db981fb84d2089b7a0650b890739c04ea. The digest is retained intact. The controller records24 public action outcomes; the model gets those and protected brewing IDs. This candidate does not copy its alternative controller, layer-only fallback, long-game closer, ten-turn stall limit or civilian-alert guard. NOTE.md distinguishes reported lb95=88.99/point90.94 from final published score0/non-promotion.",
+    "citations": [
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+        "path": "submission/plain/digest.py",
+        "startLine": 158,
+        "endLine": 186
+      },
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+        "path": "submission/plain/digest.py",
+        "startLine": 556,
+        "endLine": 573
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+        "path": "submission/plain/digest.py",
+        "startLine": 158,
+        "endLine": 186
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+        "path": "submission/plain/digest.py",
+        "startLine": 556,
+        "endLine": 573
+      },
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "3763e1f2daf12bb03b5b274eb45cfce70330395c6c2f7a4068d3504af6c3ed9a",
+        "path": "submission/overseer/harness.py",
+        "startLine": 305,
+        "endLine": 321
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 252,
+        "endLine": 262
+      }
+    ]
   },
   {
     "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-    "rationale": "Credits the producer of the current promoted trusted repository base 3ed866583d0cab5a7392701f02939d7e8707f1f4 used for this candidate, as required by RULES.md section 8. The harness-only sync preserved our editable hybrid source. This base credit does not claim adoption of the producer's STATUS digest, digest memory, compacted observation, or PLAYBOOK additions.",
-    "evidence": "Current repository HEAD is 3ed866583d0cab5a7392701f02939d7e8707f1f4. The five dfbench_client files and plain/__init__.py and plain/__main__.py are byte-identical across the current candidate, frozen V1 input, producer 9b597a76 and the organiser baseline 75d40aa6; they are retained common baseline code. Candidate plain/digest.py is absent. The candidate's controller and loop integration remain attributed to 6e775ed2. The exact public V1 commit 674b77e3afd5093ede670a8c69756c1660ad8062 also has no plain/digest.py and has parent 1e86d20e3c87f322f522fa775de8f28ac2012fcd; no digest adoption by V1 is asserted."
+    "rationale": "Retains its factual STATUS, compacted observations and bounded action memory through7662723d and0662d244.",
+    "evidence": "plain/digest.py retains Memory, supply/office/order/housing/labor/mood/site summaries and compact_observation. plain/harness.py calls them and records model results. No PLAYBOOK prompt is selected. The current promoted producer is5dfdcf15, not9b597a76.",
+    "citations": [
+      {
+        "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+        "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2",
+        "path": "submission/plain/digest.py",
+        "startLine": 109,
+        "endLine": 141
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+        "path": "submission/plain/digest.py",
+        "startLine": 109,
+        "endLine": 141
+      }
+    ]
+  },
+  {
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+    "rationale": "Credits the earlier published identical digest/memory archive later promoted as9b597a76 and selected through7662723d.",
+    "evidence": "The selected plain/digest.py retains that shared implementation lineage. This declaration credits code, not an official performance result for the earlier infrastructure-failed archive."
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "Retains the foundational deterministic controller and its automatic-work prompt through5dfdcf15 and0662d244.",
+    "evidence": "overseer/harness.py keeps the management, workshop, digging, farm, supply, housing, mood and defense routines. plain/harness.py keeps the daily step architecture. plain/prompt.py retains the automatic-work paragraph. New conditional repairs are described separately."
+  },
+  {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "rationale": "Retains the base author\u2019s V1 repairs: successful-only room-role/site updates, four-turn stall pacing and idle reset after model-error advances.",
+    "evidence": "These remain in build(), digging() and the plain loop through5dfdcf15/0662d244. This is another author\u2019s prior candidate, not my own V1, and no official performance result is claimed from it."
+  },
+  {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "rationale": "Retains the malformed-input cases and validate-before-cache checks already present in5dfdcf15.",
+    "evidence": "plain/harness.py rejects non-string tool names before set lookup and avoids unhashable cancel-ID cache lookups. tests/test_typed_arguments.py remains. No recursive validator or separate peer controller is copied."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "Reuses my earlier published late population-scaled brewing reserve idea through0662d244.",
+    "evidence": "overseer/harness.py supply() keeps a separate protected amount4 daily brew reserve near a managed window, targetmax(600,32*citizens), with plant/barrel conditions. The older broad Caretaker, its long-game policy and action journal are not selected.",
+    "citations": [
+      {
+        "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+        "fileSha256": "d41759eb2914781b9e1fb3ba4b1d0a4cd600e8f24a2836f3744cfdc4e8cb687f",
+        "path": "submission/plain/caretaker.py",
+        "startLine": 83,
+        "endLine": 118
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 312,
+        "endLine": 353
+      }
+    ]
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "Uses the extra-carpenter idea through7662723d\u2019s explicit source credit.",
+    "evidence": "The selected workshops() requests a second carpenter only during a large managed interval with a bed-item deficit, one existing/planned carpenter and5 logs. No other efac long-game supply/farm/controller rewrite is selected."
+  },
+  {
+    "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+    "rationale": "Uses the idea of exposing/using the public facts API\u2019s accepted optional site dimensions. Implements new bounded office/furniture/zone helpers rather than copying the peer controller or model schema patch.",
+    "evidence": "Source commit3e3b3782f08780a3af39be1742a6c781c39ffb70 prepare_tools() documents accepted make_zone w/h1..20. The candidate managed_office(), bounded_area() and area_args() keep observed site origins and request dimensions within the reported box and public20/40 limits. Actual server calls and the actual SiteState resolver verify the behavior. No peer provider route, inspect/batching tool, or large research note is selected.",
+    "citations": [
+      {
+        "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+        "fileSha256": "dc2488eddf6dec5049b45277bb52e3e99f9cb5342f49266d91fbc97ecb9dc248",
+        "path": "submission/plain/harness.py",
+        "startLine": 49,
+        "endLine": 74
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 200,
+        "endLine": 242
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 375,
+        "endLine": 382
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 384,
+        "endLine": 389
+      }
+    ]
   }
 ]
