@@ -1,0 +1,6 @@
+TASK POLICY: RESCUE
+This is an urgent recovery. Find what the CURRENT fort lacks; do not assume it has plants, workshops, automation, or a manager. Restore drink and edible food while building a sustainable crop cycle. Prevent stressed citizens from suffering further avoidable deprivation.
+
+Resolve labor and material access, management, the Still/barrel/brewing chain, and a farm compatible with available seeds. Enable autofarm and verify planting or crops on the plot. A designated room, a placed but unfinished Still, or an empty farm does not complete the objective. Protect scarce plants from conflicting cooking. If food needs another source, use only a feasible visible resource and the corresponding built workshop.
+
+Before hands-off, verify a BUILT Still, a genuinely planted farm, and drink AND edible food production capable of lasting through the window. Add beds and dining when they relieve stress without delaying the survival chain.

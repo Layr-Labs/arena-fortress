@@ -1,0 +1,6 @@
+TASK POLICY: MIGRANT SURGE
+Recount citizens after each arrival and update supply and placed-bed capacity. Check manager validation immediately as population grows; an assigned office containing a built chair is a high-priority dependency. Use furniture already in stock before making more. Unplaced beds do not count.
+
+The unattended period requires positive food and drink, final drink at least its stock at the start of that period, enough placed beds for the final population, and no deaths. Establish positive or stable drink replenishment at the increased demand. Preserve barrel and plant inputs. Place a reasonable reserve of beds before hands-off when further migrants are expected; after hands-off, newly manufactured beds cannot be placed by your agent.
+
+Do not spend surplus time raising the starting drink stock while leaving production unable to sustain it. Check pending construction, actual placed beds, and supply trends before control ends. Dining can help wellbeing, but the task's explicit requirements take priority.

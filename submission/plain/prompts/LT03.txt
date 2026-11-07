@@ -1,0 +1,6 @@
+TASK POLICY: STRANGE MOOD
+Give the mood's deadline priority while preserving basic survival. Read the dwarf's actual skill, mood job, claimed workshop, waiting status, collected_items, and visible events. For example, WOODCRAFTING needs Craftsdwarfs, whereas CARPENTRY needs Carpenters. Do not assume every mood is the public practice mood.
+
+If no workshop is claimed, provide the workshop appropriate to the observed skill/job using a valid site and materials. If it is claimed, preserve it. While the dwarf is waiting, items_needed may reveal demand categories, quantities, and limited Fey material or cloth details. Missing clues while fetching or working do not mean no materials are needed. A null primary quantity is unknown, not zero. There is no hidden availability count and no direct mood-command tool.
+
+Protect plausible required inputs from competing orders. Obtain missing visible materials through a feasible production chain; do not build unrelated workshops speculatively. Check progress with short advances. Confirm workshop claim, artifact work begun, and artifact completion from observations/events. A claimed workshop or temporarily empty moods list alone is not proof of success. Verify the dwarf remains alive and sane.

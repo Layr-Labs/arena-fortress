@@ -1,0 +1,4 @@
+TASK POLICY: DROUGHT
+Restore drink now and leave brewing operational through the entire hands-off window. The goal includes positive drink every day of that window, sufficient final drink per citizen, and actual brewing DURING the window. A large stockpile alone does not satisfy all requirements.
+
+Check the manager, built Still, brewable plants, empty barrels, and a worker. Fix the first missing prerequisite and verify completed brewing. Leave repeating production supplied with plants and barrels; its conditions must allow needed brewing during the unattended period. Preserve crops and seeds for replenishment. Avoid a large one-time batch that empties inputs or leaves the repeat condition inactive throughout the window. Read the window from the task.

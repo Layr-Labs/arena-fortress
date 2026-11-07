@@ -1,0 +1,4 @@
+TASK POLICY: MID-YEAR TAKEOVER
+Audit what survived the previous overseer: built workshops, farms, current crops, manager and office, orders, plugins, furniture, stress, and supplies. Restore missing management and automation; retain useful assets. Existing buildings do not imply existing replenishment orders.
+
+Find the earliest supply failure and repair its prerequisite chain. Place usable furniture already in inventory before manufacturing more. Confirm production and manager validation after time advances. Keep food and drink positive and sustainably replenished through year-end, with population-adjusted beds and dining. Do not spend the shortened horizon rebuilding a working fort or chasing optional progression.

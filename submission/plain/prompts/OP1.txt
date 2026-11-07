@@ -1,0 +1,6 @@
+TASK POLICY: FRESH EMBARK
+Establish a repeatable supply chain and a place to live. Inventory usable logs, brewable plants, edible food, seeds, labor, and candidate sites before committing resources. Enable relevant labor/log/seed automation, appoint a manager if absent, and build the missing production chain. Reuse existing materials and infrastructure.
+
+Develop accessible indoor space and a seed-compatible farm while initial supplies remain. Establish brewing and barrel replacement. Verify the first completed production instead of spending turns on duplicate orders. Expand placed beds and zoned dining with population. Give the manager a usable assigned office before growth disables validation. Scale production from current citizens and observed stock movement.
+
+Once survival, supply, and wellbeing are robust, pursue inexpensive progression supported by the available tools and materials. Do not plan trade or exports: no trade tool is offered. Protect the final supply window from input exhaustion and labor diversion. Keep surplus useful rather than maximizing stock or wealth for its own sake.

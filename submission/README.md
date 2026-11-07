@@ -1,53 +1,27 @@
-# The plain baseline harness (season 0)
+# Dependency-based Fortress overseer
 
-This is where `submission/` starts: a language model playing the fort from the raw game API, one tool call per turn.
-It is deliberately plain. It does what the contract needs and some basic hygiene, and nothing that interprets the
-fort for the model.
+This submission adds a compact strategic prompt and one public-task-specific card to the organizer's plain baseline. The model still sees the live observation and calls exactly one native game action per turn. The harness does not add planner or critic model calls.
 
-| file (in `submission/`) | what |
-|---|---|
-| `plain/harness.py` | the loop and its guards (~300 lines) |
-| `plain/prompt.py` | the system prompt: the role, the run's rules and what it is scored on, plus sections 4 and 6 of the game API's own manual. No DF strategy |
-| `plain/__main__.py` | the entrypoint (`python -m plain`) |
-| `dfbench_client/` | a small stdlib client for the game API and the model gateway (retries, the credit stop) |
-| `Dockerfile` | the image: `dfbench_client/` and `plain/`, stdlib only |
+## Prompt structure
 
-(`baseline/plain/` holds the same package with its files at the top level, next to `baseline/dfbench_client/`.)
+- `plain/prompts/overseer.txt`: common decision order, production prerequisites, sustainable supplies, built furniture, and time management.
+- `plain/prompts/{OP1,MY1,LT01,LT02,LT03,LT08}.txt`: focused objectives selected from the explicit public task name or ID. Unknown tasks receive the common prompt.
+- `plain/prompt.py`: prompt assembly and a compact observation guide. It retains section 4 of the live manual for site geometry. Its mood guide uses the current visible-demand fields instead of the obsolete availability fields in manual section 6.
 
-## What it does each turn
+The cards do not inspect seeds, private state, or evaluator files. Live server metadata takes precedence over startup metadata, as in the baseline. Advice about construction and production is conditional on observed state rather than a fixed sequence of coordinates or actions.
 
-1. `GET /observe`. The observation goes to the model **as the API returns it** (compact JSON), with
-   `days_left_in_run`, `hands_off_in_days`, the task's `goal` and `scenario`.
-2. History: the system prompt and the last 12 messages. Older observations become a one-line stub, and older tool
-   results are cut to 300 characters.
-3. One chat call through the gateway: `tool_choice` required, temperature 0, `max_tokens` 4000, reasoning effort low.
-4. The first tool call runs (`POST /act`); its result goes back as JSON. Extra calls in the same reply are answered
-   `one_tool_per_turn`.
+## Runtime
 
-Guards:
-- **Time keeps moving:** after 10 actions in a row without an advance, or when the day's 40 actions are used up,
-  the harness advances one day itself. `advance_days` is capped at 14 days.
-- **Order churn**, refused locally with `order_churn`: cancelling an order the harness added under 2 days ago, and
-  re-adding an order identical to one it cancelled in the last 3 days. Cancelling and re-adding restarts the
-  manager's validation, and a model can loop on it until the credits are gone.
-- **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
-  unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
-- **A failing model:** after 5 failed model turns in a row it exits.
+`python -m plain` reads `DFBENCH_TASK`. The organizer's stdlib `dfbench_client` handles the game API and model gateway. The Docker image pins Python 3.12 by digest and runs as an unprivileged user. There are no extra packages or build secrets.
 
-## What it doesn't do
+The baseline loop and guards remain: one model call per turn, 12-message history, old-observation truncation, 14-day advance cap, automatic one-day progress after 10 stalled actions, daily action enforcement, recent-order churn protection, five consecutive model failures before exit, and a credit stop at 92% of the game's allowance. The server advances the fort unmanaged after the harness stops.
 
-Everything else is yours. The obvious directions, none of them done here:
-- **Make the state legible.** The raw observation is long and flat. What matters this turn (drink running low, an
-  order that isn't moving, a mood waiting for a workshop) is in there, but the model has to find it every turn.
-- **Explain failures.** A rejected action comes back as the API's error code and text. Why an order isn't
-  progressing (no manager, no workshop, no input, still waiting for validation) is for the harness to work out.
-- **Remember.** The model sees only the last 12 messages, so it forgets what it tried and what failed.
-- **Use the read-only queries** (`GET /query/...`: stocks, units, jobs, orders, buildings, zones, map). They're free:
-  no actions, no game time.
-- **Plan and pace.** When to call the model, how far to advance, several actions between advances, sub-calls,
-  where to spend the credits.
-- **Know DF.** The prompt says nothing about how DF works: what the manager does, what a workshop needs, how to
-  keep drink and food coming, farming, moods, defence. The model plays from whatever it already knows.
+## Validation
 
-The organiser's reference harness (score published at launch) gets above this baseline by working on these. How is
-up to you.
+From the repository root, run `python3 -m unittest discover -s submission/tests -v`. The tests cover all six task-card selections, fallback for unknown metadata, current mood-field guidance, native-tool execution through fake HTTP game/model services, live metadata precedence, advance and stall guards, order churn, hands-off termination, and packaged prompt discovery. These tests validate integration; they do not establish gameplay quality.
+
+Build with `docker build -t fortress-overseer submission/`. Use the repository's public `runner/dfbench local smoke` and real-model local run commands for gameplay validation. The public submission note records the checks actually completed and their limitations.
+
+## Provenance
+
+Derived directly from the organizer's plain baseline at repository commit `1e86d20e3c87f322f522fa775de8f28ac2012fcd`. The new strategic prompts were written for this submission. `dependencies.json` explicitly declares no reused competitor submission.
