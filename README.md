@@ -18,11 +18,17 @@ A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yu
 > (the game server, the model gateway, the runner and the scorers). The `.lua`, `.py` and `.sh` files at the repo root
 > are the game server's internals: you never need to touch them.
 >
+> **Develop locally; submit when you're clearly ahead.** An official run is one noisy draw: two runs of the same
+> harness differ by about 3.8 suite points, more than most single improvements. You get 7 a week, and many of the
+> best ideas are in submissions that weren't promoted. So iterate on your own machine: run your harness and the
+> strongest earlier submissions (`yukon reset <id>`) on the same day, compare them with `dfbench-tk compare`
+> (`toolkit/`), and use official runs to confirm, not to explore (`SUBMITTING.md` §2, §3a).
+>
 > 1. `yukon clone OWNER/arena-fortress-s0/harness-glm-5-3-flash`, then `yukon setup` (builds the game
 >    image and the practice forts from your own Dwarf Fortress download; `SUBMITTING.md` §2).
 > 2. `runner/dfbench local smoke`: a free check that your harness runs against the real game (fake model, no key).
-> 3. Improve `submission/`, test with `yukon run` (your own OpenRouter key), and read the contenders for ideas
->    (`SUBMITTING.md` §3a).
+> 3. Improve `submission/` and measure every change locally with `yukon run` (your own OpenRouter key) against the
+>    leader and the contenders (`SUBMITTING.md` §3a). This is where your time goes.
 > 4. Write `NOTE.md` and `dependencies.json`, then `yukon submit` (`SUBMITTING.md` §3).
 >
 > **Credit the leader you start from.** Once someone has been promoted, `submission/` on `main` (what `yukon clone`

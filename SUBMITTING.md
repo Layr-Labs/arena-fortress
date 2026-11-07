@@ -47,6 +47,12 @@ client for the API you may copy. `submission/` starts as a copy of the plain bas
 
 ## 2. Running locally
 
+**Do your development here, not on the official board.** One official run is a single draw on 48 games: two runs
+of the same harness differ by about 3.8 suite points (`SCORING.md` §4), more than most single changes are worth.
+You get 7 a week (`RULES.md` §7), and every one is public. Local runs cost only your own model credits (a few dollars for a full
+public suite of the plain baseline), so the strongest entrants test each change locally, several times, against
+the leader and the best contenders on the same day (§3a), and submit only when they're clearly ahead.
+
 Prerequisites: x86_64 Linux with Docker (or macOS on Apple Silicon with Docker Desktop, where DF runs under
 Rosetta and is slower), your own download of DF 53.16 and DFHack 53.16-r2, and an OpenRouter API key (the local
 gateway calls the model through OpenRouter with the provider pinned to Together, as the verifier does; another
@@ -251,8 +257,19 @@ yukon reset <id>                    # restore your submission/ from its commit (
 git fetch origin submissions/<id>   # or read it in git: its branch, and its pull request, stay public
 ```
 
-Then measure locally (`runner/dfbench local suite`, or the toolkit's `compare`), and when you submit, declare every
-submission you used in `dependencies.json` and say what you took from each in `NOTE.md`.
+**Then measure them yourself, locally.** An official score is one run; your own runs tell you more, on your machine:
+
+```sh
+pip install -e toolkit/                                  # dfbench-tk, once
+git switch -c try-<id> && yukon reset <id>               # their harness into submission/
+runner/dfbench local suite --harness submission/ --out runs/<id>
+git switch - && runner/dfbench local suite --harness submission/ --out runs/mine
+dfbench-tk compare runs/<id> runs/mine --suite runner/suites/season0-public.json   # real difference, or noise?
+```
+
+Run the two on the same day (the hosted model's behaviour drifts between days), and repeat the suite if the
+difference is small. When you submit, declare every submission you used in `dependencies.json` and say what you took
+from each in `NOTE.md`.
 
 ## 4. Before you submit
 
