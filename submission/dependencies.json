@@ -1,72 +1,637 @@
 [
  {
+  "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+  "rationale": "i34-9: actual starting producer and retained hybrid runtime, including migrant stock target and progression.",
+  "evidence": "Public source 2f3abb30f6291e05a8d37a8c40c34a29732000b4 (PR40); bed30 (the earlier experiment this candidate extends) is an exact copy of this submission/ tree except the conditional regular bed-order batch expression at overseer/harness.py:297. The existing citizens+12 target, closer, progression, prompts and scheduling remain inherited. This is actual code inheritance, not a credit to whichever submission happens to lead later.",
+  "citations": [
+   {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+    "startLine": 60,
+    "endLine": 169
+   },
+   {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+    "startLine": 230,
+    "endLine": 232
+   },
+   {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+    "startLine": 414,
+    "endLine": 431
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 64,
+    "endLine": 173
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 241,
+    "endLine": 264
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 329,
+    "endLine": 337
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 456,
+    "endLine": 473
+   }
+  ]
+ },
+ {
   "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
+  "rationale": "i34-9: inherited layer-aware model loop, layer-only continuation, ownership guard and endgame closer through #40.",
+  "evidence": "Public source 534bc56db981fb84d2089b7a0650b890739c04ea (PR32); The #40 note/declaration identifies this earlier design. plain/harness.py keeps the daily Overseer pass, budget/model-failure continuation and layer-owned order refusals; overseer/harness.py keeps the closer. No new performance gain is attributed to this ancestor.",
+  "citations": [
+   {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6",
+    "startLine": 105,
+    "endLine": 232
+   },
+   {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6",
+    "startLine": 309,
+    "endLine": 334
+   },
+   {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "3763e1f2daf12bb03b5b274eb45cfce70330395c6c2f7a4068d3504af6c3ed9a",
+    "startLine": 278,
+    "endLine": 344
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 105,
+    "endLine": 232
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 310,
+    "endLine": 339
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 348,
+    "endLine": 416
+   }
+  ]
+ },
+ {
+  "submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5",
+  "rationale": "i34-9: earlier published runtime explicitly continued unchanged by #32; retained LAYER digest/report integration.",
+  "evidence": "Public source 57c53eabf45b1886b167d112d9f79ad415663aa3 (PR29); The #32 public note identifies aebddb9d as its same-code predecessor and only repairs declarations. Runtime file equality and the retained _layer implementation corroborate this explicit use. This is an earlier material archive, not an independent second invention or a mere overlap-only peer.",
+  "citations": [
+   {
+    "submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5",
+    "path": "submission/plain/digest.py",
+    "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+    "startLine": 556,
+    "endLine": 573
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/digest.py",
+    "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+    "startLine": 556,
+    "endLine": 573
+   }
+  ]
  },
  {
   "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
+  "rationale": "GordoAR: retained hybrid repairs, coordinate-aware zone coverage/placement, office chair, active-fisher Fishery, alert handling, typed checks and pinned build.",
+  "evidence": "Public source 1afa775bbd08645aa6f43dfe6ec76563cad8fa66 (PR30); Inherited through #40, whose actual git parent is this source. The source and target retain covers/needs_zone/place/furnish, office chair timing, Fishery, alert handling, narrow typed lookup checks and corresponding tests. Its comparison-only references are not claimed as used by bed30.",
+  "citations": [
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+    "startLine": 40,
+    "endLine": 43
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+    "startLine": 146,
+    "endLine": 173
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+    "startLine": 184,
+    "endLine": 190
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+    "startLine": 257,
+    "endLine": 303
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+    "startLine": 332,
+    "endLine": 366
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "9d939e177fd461811a5d4d7888c2ed301ae23cf9e95f1695004685958529a262",
+    "startLine": 207,
+    "endLine": 263
+   },
+   {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "path": "submission/Dockerfile",
+    "fileSha256": "061fabd4de826ee3386800255a58805cecaed6bddbb6bc43747ba15c9f8f89b4",
+    "startLine": 1,
+    "endLine": 14
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 44,
+    "endLine": 47
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 188,
+    "endLine": 216
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 233,
+    "endLine": 239
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 475,
+    "endLine": 525
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 565,
+    "endLine": 599
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 272,
+    "endLine": 339
+   },
+   {
+    "submissionId": null,
+    "path": "submission/Dockerfile",
+    "fileSha256": "061fabd4de826ee3386800255a58805cecaed6bddbb6bc43747ba15c9f8f89b4",
+    "startLine": 1,
+    "endLine": 14
+   }
+  ]
  },
  {
   "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
+  "rationale": "GordoAR: earlier success-only workshop-site/room-role updates and four-turn stall/idle-reset repairs retained through #30 and #40.",
+  "evidence": "Public source 674b77e3afd5093ede670a8c69756c1660ad8062 (PR25); The #30 declaration names its V1 source. build() removes a site only after success; digging() records a role only after success. The plain loop retains STALL_AFTER=4 and clears idle after a successful model-error advance. These are actual retained repairs, unlike overlap-only rationales attached to some other peers.",
+  "citations": [
+   {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "f0de982a4c93ff28ee31b7e98e7541ce6c05506087b55ac39747257ee485837b",
+    "startLine": 161,
+    "endLine": 203
+   },
+   {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020",
+    "startLine": 35,
+    "endLine": 45
+   },
+   {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020",
+    "startLine": 160,
+    "endLine": 187
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 225,
+    "endLine": 231
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 269,
+    "endLine": 299
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 35,
+    "endLine": 45
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 197,
+    "endLine": 208
+   }
+  ]
  },
  {
   "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
- },
- {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
+  "rationale": "kshitij-hash: retained STATUS digest, bounded recent/failure memory, compacted observations and PLAYBOOK-bearing model side.",
+  "evidence": "Public source 3ed866583d0cab5a7392701f02939d7e8707f1f4 (PR19); This contribution is present through #32/#40, rather than inferred from the common organiser client. Memory and user-message digest integration remain in bed30. The organiser supplied the original transport, history window and basic churn guard.",
+  "citations": [
+   {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "path": "submission/plain/digest.py",
+    "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2",
+    "startLine": 109,
+    "endLine": 183
+   },
+   {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "64c4ace37a51c7493ca7def53de4122e9ef706b180859d24ed64484e6c25e5b1",
+    "startLine": 188,
+    "endLine": 210
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/digest.py",
+    "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+    "startLine": 109,
+    "endLine": 183
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 234,
+    "endLine": 257
+   }
+  ]
  },
  {
   "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
+  "rationale": "kshitij-hash: actual first cut-2 archive explicitly republished unchanged by #19, carrying the retained digest/memory.",
+  "evidence": "Public source 559fd8ac3680a3e1743c6626bb9b95070a91cdd7 (PR14); The #19 declaration explicitly states that its plain/ tree is identical to this published archive. Byte identity corroborates the stated predecessor relationship; identity alone is not the reason for declaring it. No separate performance gain is asserted.",
+  "citations": [
+   {
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+    "path": "submission/plain/digest.py",
+    "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2",
+    "startLine": 109,
+    "endLine": 183
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/digest.py",
+    "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523",
+    "startLine": 109,
+    "endLine": 183
+   }
+  ]
  },
  {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
+  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+  "rationale": "kshitij-hash: PLAYBOOK text retained through cut 2 and the current leader.",
+  "evidence": "Public source f7db82e45b88d46606e192e5580784488a194e42 (PR10); The earlier PLAYBOOK remains in plain/prompt.py. Cut 2 removed the duplicate KNOWLEDGE block; that removed block is not claimed as retained. The organiser MANUAL/API text is a common published source and is credited separately.",
+  "citations": [
+   {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "path": "submission/plain/prompt.py",
+    "fileSha256": "71776b877f5014c276ba33ccf181e75bf1ffa3d27180da2bf7fe0b1030606773",
+    "startLine": 35,
+    "endLine": 104
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/prompt.py",
+    "fileSha256": "6d30e1250d1cc45adda03adc9d165096b540b4921f4d3918fb95b2a95667c868",
+    "startLine": 35,
+    "endLine": 104
+   }
+  ]
  },
  {
   "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
+  "rationale": "e-man07: founding deterministic daily Overseer and its integration ahead of the plain model loop.",
+  "evidence": "Public source 4dc38df894d7e6bbe1656b7b0525d355b2d554de (PR11); The management, farming, supply, furnishing, mood and defence controller architecture survives via #30/#40 with repairs and added closer/progression. This is retained code/design, not a claim to retain every original threshold unchanged.",
+  "citations": [
+   {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67",
+    "startLine": 110,
+    "endLine": 234
+   },
+   {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67",
+    "startLine": 324,
+    "endLine": 336
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 162,
+    "endLine": 186
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 233,
+    "endLine": 337
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 601,
+    "endLine": 613
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 169,
+    "endLine": 180
+   }
+  ]
  },
  {
   "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
+  "rationale": "e-man07: selected dining-zone seat/re-zoning methods and second-carpenter/window-pacing/continued-layer ideas retained through i34-9.",
+  "evidence": "Public source 90cd843db94bf80b1aab05844ecf94ef1be2eb37 (PR20); The #40 declaration explicitly identifies these selected pieces. The seat count remains and rezone() merges the earlier loose-furniture and dining-over-existing paths. bed30 does not adopt the source full food/farm bundle. This credits the retained methods even though their physical-accounting limitations remain.",
+  "citations": [
+   {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+    "startLine": 298,
+    "endLine": 304
+   },
+   {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+    "startLine": 356,
+    "endLine": 372
+   },
+   {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+    "startLine": 409,
+    "endLine": 423
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 417,
+    "endLine": 454
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 355,
+    "endLine": 359
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 134,
+    "endLine": 163
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 290,
+    "endLine": 297
+   }
+  ]
  },
  {
   "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
+  "rationale": "e-man07: earlier published origin of the selected seat/re-zoning methods carried by #20 and #40.",
+  "evidence": "Public source 13d7c2820003396dadcba7dd8bfea94544f8bd5e (PR17); The actual producer explicitly names this earlier archive for those selected functions, which are present in both it and #20. Only the retained methods are claimed, not its abandoned complete policy or a separate performance gain.",
+  "citations": [
+   {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9",
+    "startLine": 298,
+    "endLine": 304
+   },
+   {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9",
+    "startLine": 356,
+    "endLine": 372
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 417,
+    "endLine": 448
+   }
+  ]
  },
  {
   "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
+  "rationale": "mpjunior92: late population-scaled brewing-target idea independently reimplemented by i34-9 and retained in the leader closer.",
+  "evidence": "Public source 719b05bae904f21b81a7d2350741e49cd1a7b9cc (PR22); The #32/#40 notes and declarations expressly credit this idea. The source raises drink target near the end; bed30 retains endgame_supply() with population-scaled cap and reserve. No Caretaker code, action journal, or full policy from this source or its ancestors is claimed as copied.",
+  "citations": [
+   {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "path": "submission/plain/caretaker.py",
+    "fileSha256": "d41759eb2914781b9e1fb3ba4b1d0a4cd600e8f24a2836f3744cfdc4e8cb687f",
+    "startLine": 99,
+    "endLine": 106
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 361,
+    "endLine": 371
+   }
+  ]
  },
  {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
+  "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+  "rationale": "0xplemonade: own published malformed-tool/cancel-ID failure cases and validate-before-lookup idea retained through GordoAR.",
+  "evidence": "Public source 62195aa386b9cfa0be8f95029198116bbe588c9b (PR27); The #30 in-tree and public formal declarations expressly credit this source. Its recursive validator/controller are not copied. bed30 retains the two narrow nonstring-name and list/dict cancel-ID checks and the credited typed-argument tests. #27 failed attribution before games; no gameplay result or descent from the sibling #19 is asserted.",
+  "citations": [
+   {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+    "startLine": 24,
+    "endLine": 47
+   },
+   {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "path": "submission/plain/harness.py",
+    "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+    "startLine": 87,
+    "endLine": 117
+   },
+   {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "path": "submission/tests/test_controller.py",
+    "fileSha256": "dd1dec3b094ddf20dd38c7bf085527e0f5926908f5b55b926a51c3f4c1c6fe98",
+    "startLine": 217,
+    "endLine": 231
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 272,
+    "endLine": 285
+   },
+   {
+    "submissionId": null,
+    "path": "submission/plain/harness.py",
+    "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+    "startLine": 310,
+    "endLine": 339
+   },
+   {
+    "submissionId": null,
+    "path": "submission/tests/test_typed_arguments.py",
+    "fileSha256": "0be0fe384bfcbbc5b71b94272ba6fb65b409fea0137a6a91c7cab5b1bdab8dc9",
+    "startLine": 1,
+    "endLine": 82
+   }
+  ]
  },
  {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
+  "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+  "rationale": "mpjunior92: larger regular bed-manufacturing batch idea, narrowed and reimplemented for the leader migrant-goal flag.",
+  "evidence": "Public source d4699d5b3e046fc775394dfe3931988a7097d4b2 (PR52); Source supply():373-383 uses min(30, shortfall) for managed beds, otherwise 8, bundled with urgent-bed furniture priority and other housing/brewing/cadence changes. bed30 changes only supply():297 to the same batch ceiling with self.surge and recipe==make_bed. self.surge comes from the leader goal-text check, not the source clock/population condition. No isolated batch-size gain, peer outcome transfer, or wholesale port is asserted.",
+  "citations": [
+   {
+    "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+    "startLine": 373,
+    "endLine": 383
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 64,
+    "endLine": 68
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 329,
+    "endLine": 337
+   }
+  ]
  },
  {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
+  "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+  "rationale": "mpjunior92: earlier published port source of the corrected 30-job regular managed-bed batch carried into #52.",
+  "evidence": "Public source 09860b16dbb785f0186a4c0800031f4a03f46a50 (PR45); The #52 note/declaration names this actual port source. Its supply():343-353 contains the same 30-versus-8 branch and shortfall bound. bed30 reimplements only that batching idea with the leader surge guard, retaining its own citizens+12 target. The port was held before games but has a published candidate commit; its bundled local reports do not isolate batching. Earlier cancelled #41 is prose provenance, not an eligible formal target at the audit snapshot.",
+  "citations": [
+   {
+    "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+    "startLine": 343,
+    "endLine": 353
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 64,
+    "endLine": 68
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 241,
+    "endLine": 264
+   },
+   {
+    "submissionId": null,
+    "path": "submission/overseer/harness.py",
+    "fileSha256": "a8135d3cefe071f0d2d7968261cdec087b1375db7cf4d747e928240d26697e22",
+    "startLine": 329,
+    "endLine": 337
+   }
+  ]
+ },
+ {
+  "submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a",
+  "rationale": "mpjunior92: idea of scaling the number of Carpenters' workshops with population (its note: one plus floor(population/10), capped at six). This candidate applies a narrow, independently written variant only on the migrant task: up to three Carpenters' workshops while placed beds are short of citizens. No code was taken.",
+  "evidence": "Source: the afd1d5b6 public note (PR15), 'Carpenters scale to one plus floor(population/10), capped at six'. Use: overseer/harness.py closer(), the SURGE_CARPENTERS condition, which extends the inherited second-Carpenters rule credited to e-man07 efac22bf."
  }
 ]

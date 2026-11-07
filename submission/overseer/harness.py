@@ -30,6 +30,10 @@ REPORT_KEEP = 24        # action report lines kept for the model loop
 WEALTH_TARGET = 5500    # progression: the Hamlet rank needs 20 citizens and 5000 created wealth (docs/SUCCESS.md)
 PROGRESS_FROM_DAY = 40  # progression: crafts start once the core setup has had its logs
 LOG_RESERVE = 25        # progression: crafts take logs only above this stock, so beds and barrels come first
+SURGE_BEDS = 50         # migrant task: beds ordered from day 0 (public LT08 forts end at 45-50 citizens)
+SURGE_CARPENTERS = 3    # migrant task: Carpenters' workshops while beds are short (one job per shop at a time)
+SURGE_BREW_PLANTS = 2   # migrant task: the window's brew order runs on any 2 brewable plants (they are the limit)
+SURGE_DORM_DEPTH = 3    # migrant task: the dormitory room is dug first, at least this many levels down
 MOOD_WORKSHOP = {
     "WOODCRAFT": "Craftsdwarfs", "STONECRAFT": "Craftsdwarfs", "BONECARVE": "Craftsdwarfs", "CARPENTRY": "Carpenters",
     "MASONRY": "Masons", "WOOD_BURNING": "WoodFurnace", "GLASSMAKER": "GlassFurnace", "TANNER": "Leatherworks",
@@ -211,6 +215,13 @@ class Overseer:
             if room:
                 self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
 
+    def office_needs_chair(self):
+        """The manager's office still lacks a chair and no free chair is in stock to place there."""
+        mo = self.adm.get("manager_office")
+        if isinstance(mo, dict) and mo.get("chair"):
+            return False
+        return self.cit >= 14 and not (self.free.get("chair") or 0)
+
     def build(self, wtype, retry=3):
         sites = self.kind("W")
         if not sites or not self.material():
@@ -228,8 +239,29 @@ class Overseer:
             self.build("Fishery")
 
     def bed_target(self):
-        """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock."""
-        return self.cit + (12 if self.surge else 3)
+        """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock.
+        Surge: the waves take a ~19-dwarf fort to ~45-50 within ~20 days, and beds can only be placed before the
+        hands-off window, so the whole batch is ordered from day 0 instead of growing with the population."""
+        if self.surge:
+            return max(self.cit + 12, SURGE_BEDS)
+        return self.cit + 3
+
+    def beds_short(self):
+        """Citizens without a placed bed (the migrant task's bed clause)."""
+        return self.cit - (self.placed.get("bed") or 0)
+
+    def surge_beds_first(self):
+        """Surge: the task scores beds, not seats, so while beds are short the carpenters and the dug floor go to
+        beds (the manager's office chair is handled by office() and is exempt)."""
+        return self.surge and self.beds_short() > 0
+
+    def dorm_depth_ok(self, room):
+        """Surge: a room for the dormitory is at least SURGE_DORM_DEPTH levels below the surface (where the leader's
+        dormitory usually lands; shallow big rooms flooded in an earlier replay), one level less from day 8."""
+        if self.surface is None or room.get("z") is None:
+            return False
+        depth = SURGE_DORM_DEPTH - (1 if (self.day or 0) >= 8 else 0)
+        return room["z"] <= self.surface - depth
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -249,7 +281,12 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            if self.surge and "dorm" in need and self.dorm_depth_ok(r):
+                # surge: the wave's beds need the dormitory before more farm rooms (farms also use F sites)
+                result = self.act("dig_" + rid, "dig_room", {"site": rid, "w": 9, "h": 7}, retry=3, limit=2)
+                if result and result.get("ok"):
+                    self.roles[rid] = "dorm"
+            elif r.get("soil") and farms < self.farm_target():
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
@@ -293,8 +330,11 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.bed_target()),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.surge_beds_first() and (recipe == "make_table"
+                                            or (recipe == "make_chair" and not self.office_needs_chair())):
+                continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(30 if self.surge and recipe == "make_bed" else 8, want - have)}, retry=1, limit=99)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
@@ -314,7 +354,8 @@ class Overseer:
             self.housing_check()
         if self.surge:
             carp = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict) and w.get("type") == "Carpenters")
-            if carp == 1 and self.cit >= 15 and self.logs() >= 5:
+            more = carp == 1 or (1 <= carp < SURGE_CARPENTERS and self.surge_beds_first())
+            if more and self.cit >= 15 and self.logs() >= 5:
                 self.build("Carpenters", retry=3)   # one shop can't make a wave's beds before the window
 
     def endgame_supply(self):
@@ -342,7 +383,8 @@ class Overseer:
         LT01 wants a batch brewed inside it). Plants are food too, and food must also hold through the window, so
         half a plant per citizen stays unbrewed. Barrels are the usual limit: an extra barrel order runs alongside."""
         self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
-            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": max(3, self.cit // 2)},
+            {"stock": "drink", "below": 2000},
+            {"stock": "plants_brewable", "at_least": SURGE_BREW_PLANTS if self.surge else max(3, self.cit // 2)},
             {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
@@ -465,10 +507,14 @@ class Overseer:
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
+            before = self.count
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
+            ran = self.count > before   # the day's placement ran in this pass (not rate-limited)
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
                 self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
-        if dine:
+            if self.surge and ran and n > len(placed):
+                self.bed_overflow(dorm, n - len(placed))
+        if dine and not self.surge_beds_first():
             want = math.ceil(self.cit / 2) + 1
             placed = []
             for kind in ("table", "chair"):
@@ -477,6 +523,17 @@ class Overseer:
                     placed += self.place("f_" + kind, kind, dine, n)
             if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
+
+    def bed_overflow(self, dorm, left):
+        """Surge: the dorm level is full (or took fewer beds than asked), so the rest go to the other dug levels,
+        largest open area first. rezone() then puts a dormitory over loose built beds on each level."""
+        cands = [s for s in self.kind("A") if s.get("id") != dorm.get("id") and s.get("z") != dorm.get("z")
+                 and (s.get("open_tiles") or 0) >= 4 and (s.get("w") or 0) <= 20 and (s.get("h") or 0) <= 20]
+        cands.sort(key=lambda s: -(s.get("open_tiles") or 0))
+        for s in cands:
+            if left <= 0:
+                return
+            left -= len(self.place("beds_" + s["id"], "bed", s, min(left, 30)))
 
     def mood(self):
         for m in lst(self.o.get("moods")):
