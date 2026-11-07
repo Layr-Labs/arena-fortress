@@ -15,7 +15,16 @@ Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATU
 (digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
 farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
 and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
-workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
+workshop job_details are summarised by the digest instead).
+
+Cut 3 adds the autopilot (autopilot.py): before each model turn the harness itself takes the routine, unambiguous
+steps (manager, autochop/seedwatch/autofarm, the Carpenters/Still/Kitchen, standing orders for drink, barrels and
+meals, bed/table/chair orders, an underground farm) and, before a hands-off window, makes sure brewing keeps going
+through the window. The model's NEXT list leaves out what the autopilot covers. When the model can't be called any
+more (credits near their end, a failing model) the harness no longer exits: it keeps running the autopilot and
+advancing time itself, and exits only when the wall clock would otherwise cut the game short (the server's own
+run-out after an exit doesn't count against the wall cap). A model advance that would run into a hands-off window
+is cut to stop READY_CLAMP days before it, so the readiness check runs. The model's call cadence is unchanged.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -28,14 +37,14 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
-from . import digest, prompt
+from . import autopilot, digest, prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
-MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+MAX_API_STREAK = 5          # consecutive failed model turns before the harness stops calling the model
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
@@ -44,6 +53,16 @@ CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reason
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
 UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
+AUTO_DAYS = 7               # cut 3: days per harness advance once the model is off (autopilot only)
+AUTO_DAYS_BUSY = 3          #   ... while digging is pending or a workshop waits to be built
+READY_CLAMP = 2             # a model advance stops this many days before a hands-off window (the readiness check)
+WALL_RESERVE_S = 150        # exit when less wall time than this is left (the server then runs the rest itself)
+WALL_MODEL_S = 240          # no more model calls with less wall time than this left
+PRICES = {"input": 0.15, "cached_input": 0.03, "output": 0.50}   # gateway/prices.json, if the task has none
+
+
+class WallGuard(Exception):
+    """No wall time is left for the advance the model asked for: the harness exits and the server runs the rest."""
 
 
 def log(kind, **kw):
@@ -99,17 +118,29 @@ def signature(tool, args):
     return tool + ":" + json.dumps(args, sort_keys=True, separators=(",", ":"))
 
 
+def _num(x):
+    return x if isinstance(x, (int, float)) and not isinstance(x, bool) else None
+
+
 class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0,
+                      "model_turns": 0, "auto_actions": 0, "auto_failed": 0, "auto_advances": 0,
+                      "advance_clamped": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.autopilot = autopilot.Autopilot()   # cut 3
+        self.model_on = True  # cut 3: False once the credits, the wall clock or the model rule out more calls
+        self.model_off_reason = None
+        self.t0 = None        # wall clock at the first observe (the server's wall cap starts there)
+        self.sec_per_day = None   # measured wall seconds per advanced game day
+        self.stuck_advances = 0   # autopilot-only advances in a row that moved no time
 
     def setup(self):
         t = self.game.task()
@@ -123,41 +154,65 @@ class Plain:
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
         if info.get("brief"):
             self.extra["scenario"] = info["brief"]
+        if not self.model.prices and not (self.task.prices or None):
+            self.model.prices = dict(PRICES)   # so the credit stop works even if the gateway reports no cost
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
             system_chars=len(self.messages[0]["content"]))
 
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
 
+    # --- the loop -------------------------------------------------------------------------------------------
     def run(self, max_turns=None):
         self.setup()
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
+            if self.t0 is None:
+                self.t0 = time.time()
             resp = self.game.observe()
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 break
-            if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
-                self.stop_reason = "budget"
+            if self.wall_left() is not None and self.wall_left() < WALL_RESERVE_S:
+                self.stop_reason = "wall_guard"   # exit: the server runs the rest, outside the wall cap
                 break
             self.stats["turns"] += 1
+            try:
+                if self.autopilot_pass(resp):
+                    resp = self.game.observe()
+                    if resp.get("game_over"):
+                        self.stop_reason = "game_over"
+                        break
+            except (HandsOff, GameOver) as e:
+                self.stop_reason = type(e).__name__
+                break
+            if self.model_on and self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
+                self.model_off("budget")
+            if self.model_on and self.wall_left() is not None and self.wall_left() < WALL_MODEL_S:
+                self.model_off("wall")
+            if not self.model_on:
+                if not self.auto_advance(resp):
+                    break
+                continue
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
+            self.stats["model_turns"] += 1
             try:
                 msg = self.chat()
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
-                self.stop_reason = "budget_exhausted"
-                break
+                self.messages.pop()
+                self.model_off("budget_exhausted")
+                continue
             except ModelError as e:
                 self.stats["api_errors"] += 1
                 streak += 1
                 log("model_error", error=str(e)[:300], streak=streak)
                 self.messages.pop()
                 if streak >= MAX_API_STREAK:
-                    self.stop_reason = "model_failing"
-                    break
+                    self.model_off("model_failing")
+                    continue
                 if not self.advance(1, "model_error"):
                     break
                 continue
@@ -173,6 +228,9 @@ class Plain:
                 except (HandsOff, GameOver) as e:
                     self.stop_reason = type(e).__name__
                     break
+                except WallGuard:
+                    self.stop_reason = "wall_guard"
+                    break
                 for c in calls[1:]:
                     self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
                         {"ok": False, "error_code": "one_tool_per_turn", "error": "not run: one tool call per turn"})})
@@ -182,12 +240,92 @@ class Plain:
                 self.stats["stall_advances"] += 1
                 if not self.advance(1, "stall_guard"):
                     break
-        log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+        log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4),
+            model_off=self.model_off_reason, autopilot_gave_up=sorted(self.autopilot.gave_up),
+            sec_per_day=self.sec_per_day)
         return self.stats
 
+    def model_off(self, reason):
+        """Cut 3: no more model calls; the autopilot and the harness's own advances carry the game on."""
+        if self.model_on:
+            self.model_on = False
+            self.model_off_reason = reason
+            log("model_off", reason=reason, spent=round(self.spent(), 4), day=(self.game.last or {}).get("day"))
+
+    # --- cut 3: the autopilot -------------------------------------------------------------------------------
+    def autopilot_pass(self, resp):
+        """Run the autopilot's steps for this observation. Returns how many actions it took."""
+        obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else resp
+        env = {k: resp.get(k) for k in ENVELOPE if k in resp}
+        steps = self.autopilot.plan(obs, env, self.tool_names)
+        done = 0
+        for key, tool, args, why in steps:
+            tick = self.tick()
+            try:
+                r = self.game.act(tool, args)
+            except ActionLimit:
+                break
+            done += 1
+            self.stats["auto_actions"] += 1
+            self.stats["auto_failed"] += not r.get("ok")
+            day = (self.game.last or {}).get("day")
+            try:
+                self.autopilot.record(key, tool, args, r, tick, day)
+                self.memory.record_auto(day, tool, args, r)
+            except Exception as e:
+                log("memory_error", error=repr(e)[:200])
+            self.remember(tool, args, r, tick)
+            log("auto", key=key, tool=tool, args=args, ok=r.get("ok"), error_code=r.get("error_code"), why=why)
+        return done
+
+    def auto_advance(self, resp):
+        """The harness's own advance while the model is off. False when the game ended or the harness should exit."""
+        h = _num(resp.get("hands_off_in_days"))
+        busy = (_num((resp.get("observation") or {}).get("dig_designations_pending")) or 0) > 0 or any(
+            isinstance(w, dict) and not w.get("built") for w in (resp.get("observation") or {}).get("workshops") or [])
+        days = AUTO_DAYS_BUSY if busy else AUTO_DAYS
+        if h is not None and h > 0:
+            days = h if h <= READY_CLAMP else min(days, max(1, h - READY_CLAMP))
+        self.stats["auto_advances"] += 1
+        t = self.tick()
+        if not self.advance(days, "autopilot", stop_on=[]):
+            return False
+        moved = isinstance(t, int) and isinstance(self.tick(), int) and self.tick() > t
+        self.stuck_advances = 0 if moved else self.stuck_advances + 1
+        if self.stuck_advances >= 3:   # time isn't moving (never seen on the real server): stop, the server runs the rest
+            self.stop_reason = "no_progress"
+            return False
+        return True
+
+    def wall_left(self):
+        wall = _num(self.task.wall_s)
+        if not wall or self.t0 is None:
+            return None
+        return wall - (time.time() - self.t0)
+
+    def wall_days(self, days):
+        """The most days an advance can run before the wall reserve (None = no limit known)."""
+        left, spd = self.wall_left(), self.sec_per_day
+        if left is None or not spd:
+            return days
+        return min(days, int((left - WALL_RESERVE_S) / (1.25 * spd)))
+
+    def act_advance(self, args):
+        """advance_days with the wall clock measured (seconds per game day, for wall_days)."""
+        t = time.time()
+        r = self.game.act("advance_days", args)
+        res = r.get("result") if isinstance(r.get("result"), dict) else {}
+        ticks = _num(res.get("advanced_ticks"))
+        if r.get("ok") and ticks and ticks >= DAY // 2 and not res.get("hands_off"):
+            spd = (time.time() - t) / (ticks / DAY)
+            self.sec_per_day = spd if self.sec_per_day is None else 0.7 * self.sec_per_day + 0.3 * spd
+        return r
+
+    # --- the model's turn -----------------------------------------------------------------------------------
     def user_message(self, resp, obs):
         """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
-        observation as JSON. Any failure in the digest falls back to the raw observation alone."""
+        observation as JSON. Any failure in the digest falls back to the raw observation alone. Cut 3: the NEXT
+        items the autopilot covers are left out, and its hands-off readiness report is added."""
         raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
         try:
             env = {k: resp.get(k) for k in ENVELOPE if k in resp}
@@ -200,7 +338,10 @@ class Plain:
                 except GameAPIError as e:
                     log("query_error", query="units", error=str(e)[:200])
                     self.units_day = day   # don't retry every turn
-            status = digest.digest(obs, env, self.memory, units=self.units)
+            line, missing = self.autopilot.readiness(obs, env)
+            extra = ([(None, line)] if line else []) + [(k, t) for k, t in missing]
+            status = digest.digest(obs, env, self.memory, units=self.units, handled=self.autopilot.handled(),
+                                   extra=extra)
             self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
             compact = digest.compact_observation(obs)
             return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
@@ -232,6 +373,7 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
+        note = None
         if name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -245,17 +387,41 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                args, note = self.clamp_advance(args)
+                if args is None:   # the wall clock leaves no room for this advance: exit, the server runs the rest
+                    raise WallGuard()
             try:
-                resp = self.game.act(name, args)
+                resp = self.act_advance(args) if name == "advance_days" else self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
                 return True
             self.remember(name, args, resp, tick)
+            if note:
+                resp = {**resp, "harness_note": note}
         self.result(call, name, args, resp)
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved
         return moved
+
+    def clamp_advance(self, args):
+        """Cut 3: (args, note). A model advance that would reach the hands-off window stops READY_CLAMP days before
+        it (the autopilot's readiness check runs there), and no advance runs past the wall reserve. args None: no
+        wall time is left for any advance."""
+        days, note = args["days"], None
+        h = _num((self.game.last or {}).get("hands_off_in_days"))
+        if h is not None and h > READY_CLAMP and days > h - READY_CLAMP:
+            days = int(h - READY_CLAMP)
+            note = (f"advance cut to {days} days: the hands-off window starts in {h} days, and the harness stops "
+                    f"{READY_CLAMP} days before it to check that the fort will run itself through the window")
+        wd = self.wall_days(days)
+        if wd < days:
+            if wd < 1:
+                return None, None
+            days, note = wd, f"advance cut to {wd} days: the wall clock is nearly used up"
+        if days != args["days"]:
+            self.stats["advance_clamped"] += 1
+        return {**args, "days": days}, note
 
     def refuse(self, name, args, tick):
         """The order-churn guard: a local refusal (no API call), or None."""
@@ -272,7 +438,7 @@ class Plain:
             sig, t = self.added.get(args.get("order_id"), (None, None))
             if t is not None and tick - t < FRESH_DAYS * DAY:
                 return {"ok": False, "error_code": "order_churn", "error": (
-                    f"not run: you added order {args.get('order_id')} only {(tick - t) / DAY:.1f} days ago; a new "
+                    f"not run: order {args.get('order_id')} was added only {(tick - t) / DAY:.1f} days ago; a new "
                     "order waits for the manager's validation, and cancelling it restarts that wait.")}
         return None
 
@@ -286,6 +452,7 @@ class Plain:
             sig, _ = self.added.pop(args.get("order_id"), (None, None))
             if sig is not None:
                 self.cancelled = (self.cancelled + [(tick, sig, args.get("order_id"))])[-50:]
+            self.autopilot.on_cancel(args.get("order_id"), tick)
 
     def result(self, call, name, args, resp):
         ok = bool(resp.get("ok"))
@@ -299,18 +466,35 @@ class Plain:
             log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
-    def advance(self, days, reason):
-        """A harness-initiated advance. False when the game is over or the hands-off window has started."""
+    def advance(self, days, reason, stop_on=None):
+        """A harness-initiated advance. False when the game is over, the hands-off window has started, or the wall
+        clock leaves no room for it (the harness then exits and the server runs the rest)."""
+        days = self.wall_days(days)
+        if days < 1:
+            self.stop_reason = "wall_guard"
+            return False
+        args = {"days": int(days)}
+        if stop_on is not None:
+            args["stop_on"] = list(stop_on)
         try:
-            resp = self.game.act("advance_days", {"days": days})
+            resp = self.act_advance(args)
         except (HandsOff, GameOver) as e:
             self.stop_reason = type(e).__name__
             return False
         self.stats["advances"] += bool(resp.get("ok"))
-        log("harness_advance", reason=reason, ok=resp.get("ok"))
+        log("harness_advance", reason=reason, days=days, ok=resp.get("ok"), error_code=resp.get("error_code"))
         if resp.get("game_over"):
             self.stop_reason = "game_over"
             return False
+        if not resp.get("ok"):   # e.g. a stop_on value this server doesn't take: plain advance instead
+            try:
+                resp = self.act_advance({"days": int(days)})
+            except (HandsOff, GameOver) as e:
+                self.stop_reason = type(e).__name__
+                return False
+            if resp.get("game_over"):
+                self.stop_reason = "game_over"
+                return False
         return True
 
     def tick(self):

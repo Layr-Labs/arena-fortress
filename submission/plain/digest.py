@@ -11,6 +11,11 @@ Sources it adapts (RULES.md section 4 allows both; credited in NOTE.md):
   - policies.Scripted: the order of checks in the NEXT list (manager, automation, workshops, barrels before brewing,
     beds, meals, farm, squad and shelter).
 
+Cut 3: every NEXT item carries a key; the harness passes the keys its autopilot (autopilot.py) covers, and those
+items are left out of the model's NEXT list (the autopilot does them, and reports what it did in the memory lines).
+The units query's citizens are read from its `units` list (the server's shape; cut 2 looked for `citizens` and so
+never showed the labor line on the real server).
+
 Design rule: a digest bug must never cost a game. digest() catches every exception per section and leaves the
 section out; the harness falls back to the raw observation alone if the whole digest fails.
 """
@@ -119,6 +124,7 @@ class Memory:
         self.prev = None          # (tick, drink, food) of the previous digest, for the trend
         self.labors_missing = None    # from the last units query
         self.last_units_tick = None
+        self.auto = []            # (day, tool, args_short, error_code or None) of the autopilot's actions
 
     @staticmethod
     def short_args(args):
@@ -127,6 +133,11 @@ class Memory:
         except Exception:
             s = str(args)
         return s if len(s) <= 90 else s[:87] + "..."
+
+    def record_auto(self, day, tool, args, resp):
+        """An action the harness's autopilot took (not the model)."""
+        code = None if resp.get("ok") else str(resp.get("error_code") or "failed")
+        self.auto = (getattr(self, "auto", []) + [(day, tool, self.short_args(args), code)])[-self.DONE:]
 
     def record(self, day, tool, args, resp):
         a = self.short_args(args)
@@ -155,10 +166,27 @@ def fmt_days(x):
     return "%.0f" % x
 
 
-def digest(obs, env, memory=None, units=None, animals=None):
-    """The digest text. obs: the observation dict (the model's version is fine). env: the response envelope (day,
-    tick, days_left, hands_off_in_days). units/animals: the `units` query results (citizens / animals), or None."""
+def _nx(c, key, text, front=False):
+    """A NEXT item: (key, text). `front` puts it first (threats, moods)."""
+    if front:
+        c["next"].insert(0, (key, text))
+    else:
+        c["next"].append((key, text))
+
+
+def digest(obs, env, memory=None, units=None, animals=None, handled=None, extra=None):
+    """The digest text (see analyse())."""
+    return analyse(obs, env, memory, units, animals, handled, extra)[0]
+
+
+def analyse(obs, env, memory=None, units=None, animals=None, handled=None, extra=None):
+    """(the digest text, [NEXT keys left for the model]). obs: the observation dict (the model's version is fine).
+    env: the response envelope (day, tick, days_left, hands_off_in_days). units/animals: the `units` query results
+    (citizens / animals), or None. handled: NEXT keys the autopilot covers, left out of the NEXT list. extra:
+    [(key or None, line)] added after the sections (the autopilot's readiness report); a keyed one also goes to
+    NEXT."""
     mem = memory or Memory()
+    obs = obs if isinstance(obs, dict) else {}
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
@@ -173,14 +201,31 @@ def digest(obs, env, memory=None, units=None, animals=None):
                 lines.extend(out if isinstance(out, list) else [out])
         except Exception as e:   # a digest bug must never cost a game
             lines.append(f"{fn.__name__.strip('_')}: (digest error {type(e).__name__})")
+    keys = []
     try:
-        if ctx["next"]:
-            nxt = list(dict.fromkeys(ctx["next"]))   # deduplicated, order kept
+        for k, line in extra or []:
+            if line:
+                lines.append(str(line))
+            if k:
+                _nx(ctx, k, str(line))
+    except Exception:
+        pass
+    try:
+        hidden = set(handled or ())
+        seen, nxt = set(), []
+        for k, t in ctx["next"]:
+            if k in hidden or t in seen:
+                continue
+            seen.add(t)
+            nxt.append(t)
+            keys.append(k)
+        if nxt:
             lines.append("NEXT (gaps found, in playbook order; skip what the observation shows is already under way): "
                          + "; ".join(nxt[:6]))
     except Exception:
         pass
-    return "STATUS (derived by the harness from the observation and read-only queries; the observation is the ground truth)\n" + "\n".join(lines)
+    text = "STATUS (derived by the harness from the observation and read-only queries; the observation is the ground truth)\n" + "\n".join(lines)
+    return text, list(dict.fromkeys(keys))
 
 
 # --- sections ---------------------------------------------------------------------------------------------------
@@ -209,7 +254,7 @@ def _population(c):
     if idle and len(idle) <= 6:
         s += "; idle ids " + ",".join(str(d.get("id")) for d in idle)
     if n and stressed and stressed / n > 0.3:
-        c["next"].append("wellbeing: many stressed dwarves: check drink, beds, dining")
+        _nx(c, "wellbeing", "wellbeing: many stressed dwarves: check drink, beds, dining")
     return s
 
 
@@ -238,9 +283,9 @@ def _supply(c):
         s += "; free items: " + ", ".join(f"{k} {v}" for k, v in ff.items())
     c["stocks"] = st
     if drink / n < 3 or (d_days is not None and d_days < 30):
-        c["next"].append(f"DRINK LOW ({drink} for {n}): brew (needs Still + plants_brewable + barrels_empty); standing order brew_drink repeat=daily when drink below {8 * n}")
+        _nx(c, "drink_low", f"DRINK LOW ({drink} for {n}): check the brew chain: a built Still, plants_brewable, barrels_empty, a brewer, and the brew order's stuck: reason")
     if food / n < 2 or (f_days is not None and f_days < 30):
-        c["next"].append(f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
+        _nx(c, "food_low", f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
     return s
 
 
@@ -256,15 +301,15 @@ def _manager(c):
     if not active:
         s += "; NOT ACTIVE for orders: nothing gets validated"
         if not mgr or mgr == "VACANT":
-            c["next"].append("appoint_manager (no manager: orders never validate)")
+            _nx(c, "manager", "appoint_manager (no manager: orders never validate)")
     if isinstance(office, dict):
         s += f"; office zone {office.get('zone_id')} chair={'yes' if office.get('chair') else 'NO'}"
         if need_office and not office.get("chair"):
-            c["next"].append(f"manager office zone {office.get('zone_id')} has no built chair: place_furniture chair there (make_chair if none free)")
+            _nx(c, "office", f"manager office zone {office.get('zone_id')} has no built chair: place_furniture chair there (make_chair if none free)")
     else:
         s += "; office: none" + (f" (REQUIRED at {n} citizens: make_zone office, place a chair, assign_zone to the manager)" if need_office else " (needed from ~20 citizens)")
         if need_office and active:
-            c["next"].append("manager office missing at 20+ citizens: make_zone office on a dug A/R site, place_furniture chair, assign_zone to the MANAGER_id")
+            _nx(c, "office", "manager office missing at 20+ citizens: make_zone office on a dug A/R site, place_furniture chair, assign_zone to the MANAGER_id")
     c["manager_active"] = bool(active)
     c["office_ok"] = (not need_office) or (isinstance(office, dict) and bool(office.get("chair")))
     return s
@@ -291,10 +336,10 @@ def _workshops(c):
         s += "; MISSING core: " + ", ".join(missing)
         plugins = _d(obs.get("plugins"))
         if _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
-            c["next"].append("no usable log or boulder, so no workshop can be built: enable_automation autochop"
+            _nx(c, "wood", "no usable log or boulder, so no workshop can be built: enable_automation autochop"
                              + ("" if plugins.get("autochop") != "on" else " is on; advance a few days for logs") )
         else:
-            c["next"].append("build_workshop " + ", then ".join(missing) + " on free W sites")
+            _nx(c, "ws", "build_workshop " + ", then ".join(missing) + " on free W sites")
     if planned and _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
         s += "; placed workshops wait for a usable log/boulder"
     return s
@@ -360,11 +405,11 @@ def _orders(c):
     n = max(1, c["citizens"])
     if "Still" in built or "Still" in planned:
         if not (have & {"brew_drink", "brew_drink_from_fruit"}) and _n(st.get("plants_brewable")) > 0:
-            c["next"].append(f"no brew order: add_order brew_drink amount=5 repeat=daily when=[{{stock drink below {8 * n}}}]")
+            _nx(c, "order:brew", f"no brew order: add_order brew_drink amount=5 repeat=daily when=[{{stock drink below {8 * n}}}]")
         if _n(st.get("barrels_empty")) < 2 and "make_barrel" not in have and "Carpenters" in built:
-            c["next"].append("barrels_empty low: add_order make_barrel amount=3 repeat=daily when=[{stock barrels_empty below 3}]")
+            _nx(c, "order:barrel", "barrels_empty low: add_order make_barrel amount=3 repeat=daily when=[{stock barrels_empty below 3}]")
     if ("Kitchen" in built or "Kitchen" in planned) and "cook_meal" not in have and _n(st.get("prepared_meals")) < 2 * n:
-        c["next"].append(f"no cooking order: add_order cook_meal amount=3 repeat=daily when=[{{stock prepared_meals below {2 * n}}}]")
+        _nx(c, "order:cook", f"no cooking order: add_order cook_meal amount=3 repeat=daily when=[{{stock prepared_meals below {2 * n}}}]")
     return [head] + out if out else head
 
 
@@ -383,26 +428,26 @@ def _farms(c):
     if pend:
         s += f"; digging pending: {pend} tiles"
     for p in ("autochop", "seedwatch"):
-        if plugins.get(p) != "on" and not any(p in x for x in c["next"]):
-            c["next"].append(f"enable_automation {p}")
+        if plugins.get(p) != "on" and not any(p in x for _, x in c["next"]):
+            _nx(c, "plugin:" + p, f"enable_automation {p}")
     if plots and plugins.get("autofarm") != "on":
-        c["next"].append("enable_automation autofarm (plots have no crop choice without it)")
+        _nx(c, "plugin:autofarm", "enable_automation autofarm (plots have no crop choice without it)")
     if not plots:
         sites = _l(_d(obs.get("map")).get("sites"))
         dug = [x for x in sites if x.get("kind") == "R" and x.get("dug") and x.get("soil") and not x.get("used_by")]
         desig = [x for x in sites if x.get("kind") == "R" and x.get("designated") and not x.get("dug")]
         f_sites = [x for x in sites if x.get("kind") == "F"]
         if dug or f_sites:
-            c["next"].append("no farm yet: build_farm on " + ", ".join(x.get("id") for x in (dug + f_sites)[:3]))
+            _nx(c, "farm", "no farm yet: build_farm on " + ", ".join(x.get("id") for x in (dug + f_sites)[:3]))
         elif desig or pend:
             pass   # digging under way
         else:
             s_sites = [x.get("id") for x in sites if x.get("kind") == "S"]
             r_sites = [x.get("id") for x in sites if x.get("kind") == "R" and not x.get("designated")]
             if r_sites:
-                c["next"].append("no farm yet: dig_room " + r_sites[0] + " (soil R site preferred), then build_farm once dug")
+                _nx(c, "farm", "no farm yet: dig_room " + r_sites[0] + " (soil R site preferred), then build_farm once dug")
             elif s_sites:
-                c["next"].append("no farm yet: dig_stairs " + s_sites[0] + " down 1 level, then dig_room an R site beside it")
+                _nx(c, "farm", "no farm yet: dig_stairs " + s_sites[0] + " down 1 level, then dig_room an R site beside it")
     return s
 
 
@@ -434,13 +479,13 @@ def _housing(c):
     rooms = [x.get("id") for x in sites if x.get("kind") == "A" or (x.get("kind") == "R" and x.get("dug") and not x.get("used_by"))]
     if beds_placed < n:
         if _n(ff.get("bed")) > 0 and rooms:
-            c["next"].append(f"{_n(ff.get('bed'))} free beds: place_furniture bed count={min(30, _n(ff.get('bed')))} on {rooms[0]} (make_zone dormitory there)")
+            _nx(c, "beds:place", f"{_n(ff.get('bed'))} free beds: place_furniture bed count={min(30, _n(ff.get('bed')))} on {rooms[0]} (make_zone dormitory there)")
         elif _n(st.get("beds")) < n and "make_bed" not in (c.get("have_orders") or set()) and "Carpenters" in (c.get("built") or {}):
-            c["next"].append(f"beds {_n(st.get('beds'))} < {n} citizens: add_order make_bed amount={min(30, n - _n(st.get('beds')))}")
+            _nx(c, "beds:order", f"beds {_n(st.get('beds'))} < {n} citizens: add_order make_bed amount={min(30, n - _n(st.get('beds')))}")
         elif not rooms:
-            c["next"].append("no dug room for beds: dig_stairs + dig_room (a 5x5 or larger room via w,h)")
+            _nx(c, "beds:room", "no dug room for beds: dig_stairs + dig_room (a 5x5 or larger room via w,h)")
     if seats < (n + 1) // 2 and rooms and (_n(ff.get("chair")) and _n(ff.get("table"))):
-        c["next"].append(f"dining: make_zone dining_hall on {rooms[-1]} and place_furniture table + chair there")
+        _nx(c, "dining", f"dining: make_zone dining_hall on {rooms[-1]} and place_furniture table + chair there")
     return s
 
 
@@ -465,10 +510,10 @@ def _threats(c):
     shelter = any(b.get("civ_alert_burrow") for b in _l(bur.get("list")))
     s += f"; shelter burrow {'yes' if shelter else 'no'}; civilian_alert {'ON' if bur.get('civilian_alert') else 'off'}; weapons_free {_n(mil.get('weapons_free'))}"
     if hostiles:
-        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles, else " if sq else "")
+        _nx(c, "hostiles", front=True, text="HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles, else " if sq else "")
                          + ("civilian_alert on (shelter exists)" if shelter else "create_burrow on an A site, then civilian_alert on"))
     elif bur.get("civilian_alert"):
-        c["next"].insert(0, "no hostiles but civilian_alert is ON: civilians aren't working: civilian_alert on=false")
+        _nx(c, "alert", front=True, text="no hostiles but civilian_alert is ON: civilians aren't working: civilian_alert on=false")
     return s
 
 
@@ -488,7 +533,7 @@ def _moods(c):
         out.append(line)
         if not m.get("claimed_workshop") and str(m.get("mood")) in ("Fey", "Secretive", "Possessed", "Macabre", "Fell"):
             if ws and ws not in (c.get("built") or {}):
-                c["next"].insert(0, f"MOOD: build_workshop {ws} (the {skill} mood needs it) before the dwarf goes insane")
+                _nx(c, "mood", front=True, text=f"MOOD: build_workshop {ws} (the {skill} mood needs it) before the dwarf goes insane")
     return ["moods:"] + out
 
 
@@ -520,7 +565,9 @@ def _labors(c):
     units = c.get("units")
     if units is None:
         return c["mem"].labors_missing   # the last known line, if any
-    cits = _l(_d(units).get("citizens")) or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None)
+    u = _d(units)
+    cits = (_l(u.get("units")) or _l(_d(u.get("result")).get("units")) or _l(u.get("citizens"))
+            or _l(u.get("result")) or _l(units if isinstance(units, list) else None))
     cits = [u for u in cits if isinstance(u.get("labors"), list)]
     if not cits:
         return None
@@ -530,7 +577,7 @@ def _labors(c):
         line = "labors: every core labor (mining, woodcutting, carpentry, brewing, cooking, farming) is held by someone"
     else:
         line = "labors MISSING: " + "; ".join(f"{k} ({why})" for k, why in missing) + ". enable_automation autolabor assigns labors automatically"
-        c["next"].append("labors missing (" + ", ".join(k for k, _ in missing) + "): enable_automation autolabor")
+        _nx(c, "labors", "labors missing (" + ", ".join(k for k, _ in missing) + "): enable_automation autolabor")
     c["mem"].labors_missing = line
     return line
 
@@ -543,6 +590,9 @@ def _memory(c):
             f"d{d} {t} {a} -> {code}: {err[:60]}" for d, t, a, code, err in mem.failed[-6:]))
     if mem.done:
         out.append("your recent actions: " + " | ".join(f"d{d} {t} {a}" for d, t, a in mem.done[-5:]))
+    if getattr(mem, "auto", None):
+        out.append("the harness's autopilot did (not you; don't repeat or undo): " + " | ".join(
+            f"d{d} {t} {a}" + (f" FAILED {code}" if code else "") for d, t, a, code in mem.auto[-6:]))
     if mem.stops:
         out.append("recent advance stops: " + " | ".join(f"d{d} {r} {det}" for d, r, det in mem.stops))
     return out or None

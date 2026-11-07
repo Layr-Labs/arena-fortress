@@ -1,12 +1,17 @@
 [
   {
     "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. This submission keeps the whole harness and the PLAYBOOK, removes cut 1's overlapping KNOWLEDGE block, and adds the STATUS digest, the failed-action memory and the compacted observation on top.",
-    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text; submission/plain/harness.py: the loop, guards and client are cut 1's (unchanged from the baseline), with user_message(), the Memory hook in result() and the STATUS stub in window() added; submission/plain/digest.py is new."
+    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. Kept (through cuts 2 and 3); this submission adds the manager's office step to cut 3's autopilot.",
+    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text (cut 2 removed its KNOWLEDGE block); submission/plain/harness.py: the loop, guards and client calls are cut 1's (the baseline's), extended in cuts 2 and 3; submission/dfbench_client/ is unchanged."
   },
   {
-    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-    "rationale": "The first attempt of this same submission (same account), which failed admission on a stale base before it ran. This submission is that submission/ tree unchanged, resubmitted on the re-exported trusted tree.",
-    "evidence": "submission/plain/ (digest.py, harness.py, prompt.py and the rest) is identical to the archive of 514f4ac8; submission/dependencies.json differs only by this entry; the base commit outside submission/ differs."
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "Cut 2 (same account): the STATUS digest before the observation, the failed/recent-action memory and the compacted observation, on top of cut 1. Kept whole (through cut 3).",
+    "evidence": "submission/plain/digest.py: cut 2's sections, Memory and compact_observation (keyed NEXT items from cut 3); submission/plain/harness.py: cut 2's user_message(), window() and memory hooks."
+  },
+  {
+    "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
+    "rationale": "Cut 3 (same account): the autopilot (routine steps before each model turn, hands-off readiness, model-off continuation with a wall guard). This submission keeps it and adds the manager's office step to it.",
+    "evidence": "submission/plain/autopilot.py: cut 3's Autopilot (plan, record, handled, readiness, farm pipeline) with _office(), _office_room(), _site_of() and the office's room reservation added; submission/plain/harness.py is cut 3's unchanged; submission/plain/prompt.py: the AUTOPILOT paragraph names the office step."
   }
 ]
