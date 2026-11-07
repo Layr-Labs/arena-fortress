@@ -23,6 +23,8 @@ MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
 MEAL_CAP = 200
+MEAT_DAYS = 14          # the last days of an open-play run: meat keeps the food stock rising into the horizon
+BIG_ANIMALS = ("WATER_BUFFALO", "YAK", "COW", "HORSE", "DONKEY", "MULE", "REINDEER", "LLAMA", "ALPACA", "SHEEP", "PIG", "GOAT")
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
@@ -70,6 +72,7 @@ class Overseer:
         self.hands_off = None
         self.days_left = None
         self.day = None
+        self.full_sites = set()  # sites that answered no_space: open_tiles can count floor under farm plots
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
@@ -308,6 +311,7 @@ class Overseer:
     def closer(self):
         if self.in_endgame():
             self.endgame_supply()
+            self.final_meat()
             self.housing_check()
         elif self.in_window_prep():
             self.window_supply()
@@ -335,6 +339,22 @@ class Overseer:
             {"stock": "food_edible", "at_least": max(30, 4 * self.cit)}]}, retry=3, limit=4)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
             self.butcher()
+
+    def final_meat(self):
+        """In the last days, slaughter the largest spare tame animal unless food is already plentiful."""
+        if not 2 <= self.days_left <= MEAT_DAYS or (self.st.get("food_edible") or 0) >= 40 * self.cit:
+            return
+        if not any(isinstance(w, dict) and w.get("type") == "Butchers" for w in lst(self.o.get("workshops"))):
+            self.build("Butchers")
+        if not self.may("slaughter_end", 3, 5):
+            return
+        q = self.game.query("units", kind="animals")
+        animals = [d(a) for a in lst(d(q.get("result")).get("units") or d(q.get("result")).get("animals"))]
+        animals = [a for a in animals if a.get("tame") and a.get("pet_owner_id") in (None, -1) and not a.get("marked_for_slaughter")]
+        animals.sort(key=lambda a: (BIG_ANIMALS.index(a.get("race")) if a.get("race") in BIG_ANIMALS else len(BIG_ANIMALS),
+                                    not a.get("adult")))
+        if animals:
+            self.act("slaughter_end", "slaughter", {"unit_id": animals[0].get("id")}, retry=3, limit=5)
 
     def window_supply(self):
         """Before a hands-off window: brew whenever a plant and a barrel allow, at a cap the window can't reach, so
@@ -454,14 +474,24 @@ class Overseer:
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
         if not result.get("ok"):
+            if result.get("error_code") == "no_space":
+                self.full_sites.add(room["id"])
             return []
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
             points = [points]
         return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
 
+    def with_space(self, room):
+        """The room, or if it answered no_space another dug level, levels without farm plots first."""
+        if room and room["id"] not in self.full_sites:
+            return room
+        farm_z = {x.get("z") for x in lst(self.o.get("farm_plots")) if isinstance(x, dict)}
+        spare = [s for s in self.kind("A") if s["id"] not in self.full_sites and s.get("open_tiles", 0) >= 6]
+        return next((s for s in spare if s.get("z") not in farm_z), spare[0] if spare else None)
+
     def furnish(self):
-        dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
+        dorm, dine = self.with_space(self.room_for("dorm")), self.with_space(self.room_for("dine") or self.room_for("dorm"))
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
@@ -473,9 +503,11 @@ class Overseer:
             placed = []
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
-                if n > 0:
+                dine = self.with_space(dine)
+                if n > 0 and dine:
                     placed += self.place("f_" + kind, kind, dine, n)
-            if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
+            dine = self.with_space(dine)
+            if dine and self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
 
     def mood(self):
