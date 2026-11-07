@@ -1,12 +1,17 @@
 [
   {
-    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. This submission keeps the whole harness and the PLAYBOOK, removes cut 1's overlapping KNOWLEDGE block, and adds the STATUS digest, the failed-action memory and the compacted observation on top.",
-    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text; submission/plain/harness.py: the loop, guards and client are cut 1's (unchanged from the baseline), with user_message(), the Memory hook in result() and the STATUS stub in window() added; submission/plain/digest.py is new."
+    "submissionId": "6ad71ca7-3685-4d4b-8117-1bd6f63624df",
+    "rationale": "Used the published note's recommendation to expose public jobs/stocks/orders context and diagnose production bottlenecks. No code from that submission was restored or copied; this candidate starts from the organisers' plain baseline on main.",
+    "evidence": "Read yukon submission-note 6ad71ca7-3685-4d4b-8117-1bd6f63624df and its empty declared dependency list. Its note describes periodic jobs/orders/stocks diagnostics and future bottleneck investigation. Candidate submission/plain/inspect.py exposes model-selected, allowlisted read-only inspection; submission/plain/advisor.py supplies bounded public-facts diagnostics. These are independently implemented alternatives, not the predecessor's every-fourth-turn query schedule. The public game API/manual independently documents all queried fields and production prerequisites."
   },
   {
-    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-    "rationale": "The first attempt of this same submission (same account), which failed admission on a stale base before it ran. This submission is that submission/ tree unchanged, resubmitted on the re-exported trusted tree.",
-    "evidence": "submission/plain/ (digest.py, harness.py, prompt.py and the rest) is identical to the archive of 514f4ac8; submission/dependencies.json differs only by this entry; the base commit outside submission/ differs."
+    "submissionId": "d8164ec2-7202-4383-8dcf-caa164ef70fd",
+    "rationale": "Directly inherits the published public-facts advisor, deterministic-failure memory, allowlisted inspection and sustainable standing-guard implementation that was present at this iteration start. Adds bounded sequential action batches and repairs batch/history/stall interactions. Also retains subsequent bounded public catalogue/placement/packing/zone repairs and adds a conditional validation-pending advisory; these local repairs have not yet been officially scored.",
+    "evidence": "The starting submission/plain/{harness,prompt,advisor,inspect}.py and submission Dockerfile match the local standing-guard candidate described in the published note for d8164ec2. Existing tests and defense diagnostics are retained. New behavior is localized to Plain.run_batch, Plain.count_idle, window, the batch prompt paragraph and test_batch.py. Official predecessor was rejected at 75.84 versus 77.10; no improvement over frontier is assumed. Current farm-capacity advice is a further local strategy hypothesis, not inherited measured performance."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "Uses the promoted submission as a measured offline renderer comparator in the candidate method note. No digest, prompt, harness runtime code or packing design is copied from it; the new lossless packing implementation is independently authored on fb56696. This is measured comparison use, not an assertion of runtime or design inheritance.",
+    "evidence": "NOTE.md Iteration5 Untouched promoted leader comparison: reads exact promoted3ed866583d0cab5a7392701f02939d7e8707f1f4 submission/plain/harness.py user_message and digest.py compact_observation on identical retained observations. The standalone local report reports/iter5-frontier/replay_packing.py loads the frozen published source and reports19583664 leader characters with fresh memory/noquery, vs16212376 candidate. Those local reports are not bundled runtime. Candidate plain/harness.py calls only new plain/packing.py and imports no leader digest. Leader declared references514f4ac8 andd74e941b remain pending, no verified graph edges; no claims about their validity or redundancy are made."
   }
 ]

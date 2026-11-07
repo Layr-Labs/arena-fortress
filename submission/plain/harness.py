@@ -1,21 +1,17 @@
-"""The plain baseline harness: the model plays the fort from the raw game API, one tool call per turn.
+"""The model plays from the public game API with bounded sequential action batches.
 
 One turn:
   1. GET /observe -> the observation as the API returns it, plus days_left_in_run, hands_off_in_days, goal, scenario
-  2. the user message "OBSERVATION {...}"; the history window (system prompt + last HISTORY messages, older
+  2. losslessly pack repeated public records in "OBSERVATION {...}"; the history window (system prompt + last HISTORY messages, older
      observations stubbed, older tool results trimmed)
   3. one chat call through the gateway (tool_choice required)
-  4. run the first tool call (POST /act); its result goes back to the model as JSON
+  4. run up to four independent tool calls (POST /act) until an observation barrier; return all results
   5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
      actions are used up; stop calling the model near the end of the credits
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
-Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATUS digest before the observation
-(digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
-farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
-and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
-workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
+The raw facts are retained alongside bounded advisory diagnostics and recent deterministic action failures.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -28,7 +24,8 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
-from . import digest, prompt
+from . import inspect, packing, prompt
+from .advisor import Advisor
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
@@ -43,7 +40,6 @@ ORDER_TOOLS = ("add_order", "add_manager_order")
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
-UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
 
 
 def log(kind, **kw):
@@ -51,7 +47,7 @@ def log(kind, **kw):
 
 
 def prepare_tools(tools):
-    """The API's tool schemas, with advance_days capped at MAX_DAYS."""
+    """Copy API schemas; cap advances and expose make_zone's accepted size overrides."""
     out = copy.deepcopy(tools or [])
     for t in out:
         f = t.get("function") or {}
@@ -59,6 +55,22 @@ def prepare_tools(tools):
             days = ((f.get("parameters") or {}).get("properties") or {}).get("days")
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
+        if f.get("name") == "make_zone":
+            props = (f.get("parameters") or {}).get("properties")
+            if isinstance(props, dict) and "site" in props:
+                # Game.act accepts w/h for site tools; _t_make_zone validates 1..20.
+                # Expose an explicit model choice, never silently clip the site's box.
+                for axis in ("w", "h"):
+                    props.setdefault(axis, {"type": "integer", "minimum": 1, "maximum": 20,
+                        "description": "Optional zone size from the site's top-left; default is the site's size."})
+                note = (
+                    " Zone dimensions must each be 1-20; some advertised sites are larger."
+                    " Use explicit w/h for a smaller rectangle from the same top-left only when it"
+                    " includes the intended built furniture; otherwise choose another site."
+                    " Omitted axes keep the site's dimensions. No automatic resizing.")
+                description = f.get("description") or ""
+                if note not in description:
+                    f["description"] = description + note
     return out
 
 
@@ -78,18 +90,21 @@ def observation(resp, extra):
 def window(messages):
     """System prompt + the last HISTORY messages, never starting with a tool result; older observations become a
     one-line stub and older tool results are trimmed."""
-    m = messages[:1] + messages[1:][-HISTORY:]
+    latest_group = max((i for i, x in enumerate(messages)
+                        if x["role"] == "assistant" and x.get("tool_calls")), default=len(messages))
+    start = min(max(1, len(messages) - HISTORY), latest_group)
+    m = messages[:1] + messages[start:]
     while len(m) > 1 and m[1]["role"] == "tool":
         m.pop(1)
     last_user = max((i for i, x in enumerate(m) if x["role"] == "user"), default=-1)
-    last_tool = max((i for i, x in enumerate(m) if x["role"] == "tool"), default=-1)
+    latest_group = max((i for i, x in enumerate(m)
+                        if x["role"] == "assistant" and x.get("tool_calls")), default=len(m))
     out = []
     for i, x in enumerate(m):
         c = x.get("content")
-        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and (
-                c.startswith("OBSERVATION {") or c.startswith("STATUS")):
+        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and c.startswith("OBSERVATION {"):
             x = {**x, "content": "OBSERVATION (older, omitted)"}
-        elif x["role"] == "tool" and i != last_tool and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
+        elif x["role"] == "tool" and i < latest_group and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
             x = {**x, "content": c[:TOOL_RESULT_OLD] + " ...(trimmed)"}
         out.append(x)
     return out
@@ -99,21 +114,50 @@ def signature(tool, args):
     return tool + ":" + json.dumps(args, sort_keys=True, separators=(",", ":"))
 
 
+def placement_shortfall(name, resp):
+    """Explain a partial public API result, without treating designations as built furniture."""
+    if name != "place_furniture" or resp.get("ok") is not True:
+        return None
+    r = resp.get("result")
+    if not isinstance(r, dict):
+        return None
+    n, wanted, available = (r.get(k) for k in ("n", "requested", "available"))
+    if not all(type(v) is int for v in (n, wanted, available)):
+        return None
+    if not (0 < n < wanted <= 30 and n <= available):
+        return None
+    limitation = "free_items" if n == available else "space_or_tile_rejection"
+    if limitation == "free_items":
+        advice = ("Free furniture item cap reached; space may also limit placement. Inspect furniture_free, "
+                  "planned furniture and built furniture separately before producing more or selecting a new site.")
+    else:
+        advice = ("Free items remained: floor space or tile eligibility/rejections limited this request. "
+                  "A smaller count in the same unchanged box does not create space. Inspect the revealed map "
+                  "and site footprint; select or excavate other eligible space rather than manufacturing more items.")
+    return {"basis": "public place_furniture result; designations, not completed construction",
+            "designated": n, "requested": wanted, "not_designated": wanted - n,
+            "free_items_before": available, "limitation": limitation, "advice": advice +
+            " These are designations, not completed beds/seats; verify built furniture after time passes."}
+
+
 class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "retry_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0,
+                  "batch_skipped": 0}
         self.stop_reason = None
+        self.idle = 0
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
-        self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
-        self.units = None     # the last `units` query result (citizens), for the digest's labor check
-        self.units_day = None
+        self.advisor = Advisor()
 
     def setup(self):
         t = self.game.task()
         self.tools = prepare_tools(t.get("tools") or [])
+        self.query_names = inspect.advertised(t.get("queries"))
+        if self.query_names:
+            self.tools.append(inspect.tool(self.query_names))
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
@@ -131,7 +175,7 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
-        idle = streak = 0
+        streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
             if resp.get("game_over"):
@@ -142,7 +186,8 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
-            self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
+            obs["harness_status"] = self.advisor.observe(obs, self.tick())
+            self.messages.append({"role": "user", "content": packing.observation_message(obs)})
             self.messages = window(self.messages)
             try:
                 msg = self.chat()
@@ -160,54 +205,22 @@ class Plain:
                     break
                 if not self.advance(1, "model_error"):
                     break
+                self.idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
             if not calls:
                 self.stats["no_tool_call"] += 1
-                idle += 1
+                self.count_idle(False)
             else:
                 self.messages.append({k: msg[k] for k in ("role", "content", "tool_calls") if k in msg})
-                try:
-                    moved = self.run_call(calls[0])
-                except (HandsOff, GameOver) as e:
-                    self.stop_reason = type(e).__name__
+                moved = self.run_batch(calls)
+                if self.stop_reason:
                     break
-                for c in calls[1:]:
-                    self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
-                        {"ok": False, "error_code": "one_tool_per_turn", "error": "not run: one tool call per turn"})})
-                idle = 0 if moved else idle + 1
-            if idle >= STALL_AFTER:
-                idle = 0
-                self.stats["stall_advances"] += 1
-                if not self.advance(1, "stall_guard"):
-                    break
+            if self.stop_reason:
+                break
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
-
-    def user_message(self, resp, obs):
-        """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
-        observation as JSON. Any failure in the digest falls back to the raw observation alone."""
-        raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
-        try:
-            env = {k: resp.get(k) for k in ENVELOPE if k in resp}
-            day = env.get("day")
-            if isinstance(day, int) and (self.units_day is None or day - self.units_day >= UNITS_EVERY):
-                try:
-                    q = self.game.query("units", kind="citizens")
-                    self.units = q.get("result", q)
-                    self.units_day = day
-                except GameAPIError as e:
-                    log("query_error", query="units", error=str(e)[:200])
-                    self.units_day = day   # don't retry every turn
-            status = digest.digest(obs, env, self.memory, units=self.units)
-            self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
-            compact = digest.compact_observation(obs)
-            return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
-        except Exception as e:   # never let the digest cost a turn
-            self.stats["digest_errors"] = self.stats.get("digest_errors", 0) + 1
-            log("digest_error", error=repr(e)[:300])
-            return raw
 
     def chat(self):
         params = {**CHAT, "seed": self.seed}
@@ -222,8 +235,47 @@ class Plain:
             resp = self.model.chat(self.messages, tools=self.tools, **params)
         return resp["choices"][0].get("message") or {}
 
+    def count_idle(self, moved):
+        """Count actions, not model turns. A forced advance is an observation barrier."""
+        self.idle = 0 if moved else self.idle + 1
+        if self.idle >= STALL_AFTER:
+            self.idle = 0
+            self.stats["stall_advances"] += 1
+            self.advance(1, "stall_guard")
+            return True
+        return moved
+
+    def run_batch(self, calls):
+        """Sequential, model-selected actions; never cross a state/observation barrier."""
+        moved = False
+        stopped = None
+        for i, call in enumerate(calls):
+            if stopped is not None or i >= 4:
+                self.stats["batch_skipped"] += 1
+                self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": json.dumps({
+                    "ok": False, "error_code": "batch_stopped", "error": "not run: " + (
+                        stopped or "at most four calls per turn") + "; inspect the next observation before retrying"})})
+                continue
+            try:
+                moved = self.run_call(call)
+            except (HandsOff, GameOver) as e:
+                self.stop_reason = type(e).__name__
+                self.result(call, (call.get("function") or {}).get("name"), None,
+                            {"ok": False, "error_code": self.stop_reason, "error": str(e)})
+                stopped = self.stop_reason
+                continue
+            moved = self.count_idle(moved)
+            if moved:
+                stopped = "game time advanced"
+            elif not self.call_ok:
+                stopped = "a preceding call failed"
+            elif self.call_barrier:
+                stopped = "new public information requires a fresh decision"
+        return moved
+
     def run_call(self, call):
         """Run one tool call and append its result. Returns True when game time moved."""
+        self.call_ok = self.call_barrier = False
         fn = call.get("function") or {}
         name = fn.get("name")
         try:
@@ -236,9 +288,19 @@ class Plain:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
             resp = {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
+        elif name == "inspect_fort":
+            resp = inspect.run(self.game, args, self.query_names)
+            self.call_ok, self.call_barrier = bool(resp.get("ok")), True
+            self.messages.append({"role": "tool", "tool_call_id": call.get("id"),
+                                  "content": json.dumps(resp, ensure_ascii=False)})
+            log("inspect", query=args.get("name"), ok=bool(resp.get("ok")), truncated=resp.get("truncated", False))
+            return False
         elif refused:
             resp = refused
             self.stats["churn_refused"] += 1
+        elif (retry_refusal := self.advisor.refuse(name, args, tick)):
+            resp = retry_refusal
+            self.stats["retry_refused"] += 1
         else:
             if name == "advance_days":
                 try:
@@ -252,6 +314,7 @@ class Plain:
                 self.advance(1, "action_limit")
                 return True
             self.remember(name, args, resp, tick)
+            self.advisor.remember(name, args, resp, tick)
         self.result(call, name, args, resp)
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved
@@ -289,14 +352,15 @@ class Plain:
 
     def result(self, call, name, args, resp):
         ok = bool(resp.get("ok"))
+        self.call_ok = ok
+        partial = placement_shortfall(name, resp)
+        self.call_barrier = bool(resp.get("game_over") or partial)
+        if partial:
+            resp = {**resp, "harness_placement": partial}
         self.stats["actions"] += 1
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
-        try:
-            self.memory.record((self.game.last or {}).get("day"), name, args, resp)
-        except Exception as e:
-            log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
