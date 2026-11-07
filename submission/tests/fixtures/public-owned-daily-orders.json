@@ -1,0 +1,156 @@
+{
+  "source": {
+    "public_seed": 2009,
+    "day": 97,
+    "api_line_sha256": "3eba463d745b440a309624241f328b6a56165bf0e75976bcc6197d8cb91f82c2"
+  },
+  "tick": 940000,
+  "orders": [
+    {
+      "active": true,
+      "id": 0,
+      "job": "CustomReaction",
+      "jobs_in_progress": 1,
+      "left": 1,
+      "reaction": "BREW_DRINK_FROM_PLANT",
+      "repeat": "daily",
+      "total": 3,
+      "validated": true,
+      "when": [
+        {
+          "item_type": "DRINK",
+          "test": "LessThan",
+          "value": 600,
+          "flags": [],
+          "stock": "drink"
+        },
+        {
+          "flags": [
+            "unrotten"
+          ],
+          "item_type": "PLANT",
+          "reaction_product": "DRINK_MAT",
+          "test": "AtLeast",
+          "value": 2,
+          "stock": "plants_brewable"
+        },
+        {
+          "flags": [
+            "empty"
+          ],
+          "item_type": "BARREL",
+          "test": "AtLeast",
+          "value": 1,
+          "stock": "barrels_empty"
+        }
+      ],
+      "recipe": "brew_drink",
+      "created_tick": 823200
+    },
+    {
+      "active": false,
+      "id": 1,
+      "job": "MakeBarrel",
+      "jobs_in_progress": 0,
+      "left": 2,
+      "material_category": [
+        "wood"
+      ],
+      "repeat": "daily",
+      "total": 2,
+      "validated": true,
+      "when": [
+        {
+          "flags": [
+            "empty"
+          ],
+          "item_type": "BARREL",
+          "test": "LessThan",
+          "value": 4,
+          "stock": "barrels_empty"
+        },
+        {
+          "item_type": "WOOD",
+          "test": "AtLeast",
+          "value": 2,
+          "flags": [],
+          "stock": "logs"
+        }
+      ],
+      "recipe": "make_barrel",
+      "created_tick": 823200
+    },
+    {
+      "active": false,
+      "id": 2,
+      "job": "PrepareMeal",
+      "jobs_in_progress": 0,
+      "left": 2,
+      "meal_kind": -1,
+      "repeat": "daily",
+      "total": 2,
+      "validated": true,
+      "when": [
+        {
+          "item_type": "FOOD",
+          "test": "LessThan",
+          "value": 200,
+          "flags": [],
+          "stock": "prepared_meals"
+        },
+        {
+          "flags": [
+            "unrotten"
+          ],
+          "item_type": "PLANT",
+          "test": "AtLeast",
+          "value": 10,
+          "stock": "plants_total"
+        }
+      ],
+      "recipe": "cook_meal",
+      "created_tick": 823200
+    },
+    {
+      "active": true,
+      "id": 3,
+      "job": "CustomReaction",
+      "jobs_in_progress": 0,
+      "left": 10,
+      "reaction": "BREW_DRINK_FROM_PLANT",
+      "total": 10,
+      "validated": true,
+      "recipe": "brew_drink",
+      "created_tick": 823200
+    },
+    {
+      "active": true,
+      "id": 7,
+      "job": "MakeCrafts",
+      "jobs_in_progress": 1,
+      "left": 2,
+      "material_category": [
+        "wood"
+      ],
+      "repeat": "daily",
+      "total": 3,
+      "validated": true,
+      "when": [
+        {
+          "item_type": "WOOD",
+          "test": "AtLeast",
+          "value": 25,
+          "flags": []
+        }
+      ],
+      "created_tick": 881200
+    }
+  ],
+  "owned_ids": [
+    0,
+    1,
+    2,
+    3,
+    7
+  ]
+}

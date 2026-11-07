@@ -29,6 +29,8 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from overseer.harness import Overseer
+from overseer.frontier import Overseer as FrontierOverseer
+from overseer.year import YearOverseer
 
 from . import digest, prompt
 
@@ -63,6 +65,21 @@ def prepare_tools(tools):
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
     return out
+
+
+
+def overseer_class(task):
+    """Apply window repairs only to a task that explicitly declares a future hands-off window."""
+    info = task.task or {}
+    hands = info.get("hands_off")
+    days = info.get("days") or task.days
+    if (isinstance(hands, dict) and type(hands.get("from_day")) is int
+            and type(hands.get("days")) is int and hands["days"] > 0
+            and type(days) is int and 0 <= hands["from_day"] < days):
+        return Overseer
+    if type(days) is int and days >= 336:
+        return YearOverseer
+    return FrontierOverseer
 
 
 def observation(resp, extra):
@@ -111,7 +128,7 @@ class Plain:
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
-        self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
+        self.guard = overseer_class(task)(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
@@ -293,8 +310,12 @@ class Plain:
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
                 left = (self.game.last or {}).get("hands_off_in_days")
-                if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
-                    args["days"] = 1
+                if type(left) is int and left > 0:
+                    o = getattr(self.guard, "o", {})
+                    cap = 1 if left <= 4 or o.get("dig_designations_pending") else 2
+                    args["days"] = min(args["days"], cap)
+            if name == "advance_days":
+                args["days"] = self.alert_advance_days(args["days"])
             try:
                 resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
@@ -318,6 +339,29 @@ class Plain:
             return {"ok": False, "error_code": "layer_owned", "error": (
                 f"not run: order {args.get('order_id')} is a standing order of the deterministic layer; it keeps "
                 "drink, food, barrels and furniture coming, inside hands-off windows too.")}
+        # Unbounded model repeats must not bypass the layer's observed production reserves.
+        if (name in ORDER_TOOLS and args.get("repeat") == "daily"
+                and ("when" not in args or args.get("when") == [])):
+            orders = getattr(self.guard, "orders", [])
+            if not isinstance(orders, list):
+                orders = []
+            for order in orders:
+                if (not isinstance(order, dict) or type(order.get("id")) is not int
+                        or order["id"] not in self.guard.owned or order.get("repeat") != "daily"):
+                    continue
+                recipe = args.get("recipe")
+                same_recipe = (name == "add_order" and isinstance(recipe, str)
+                               and recipe in {"brew_drink", "cook_meal", "make_barrel"}
+                               and order.get("recipe") == recipe)
+                same_wood_crafts = (name == "add_manager_order" and args.get("job") == "MakeCrafts"
+                                    and args.get("material_category") == ["wood"]
+                                    and not any(k in args for k in ("reaction", "material", "item_subtype", "meal_kind"))
+                                    and order.get("job") == "MakeCrafts"
+                                    and order.get("material_category") == ["wood"])
+                if same_recipe or same_wood_crafts:
+                    return {"ok": False, "error_code": "layer_owned", "error": (
+                        f"not run: the deterministic layer already owns daily {recipe or 'wood crafts'} "
+                        f"order {order['id']}; use the existing production or provide explicit bounding conditions.")}
         if not isinstance(tick, int):
             return None
         if name in ORDER_TOOLS:
@@ -358,10 +402,17 @@ class Plain:
             log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
+    def alert_advance_days(self, days):
+        until = getattr(self.guard, "combat_retreat_until", None)
+        now = getattr(self.guard, "now", None)
+        if type(until) is int and type(now) is int and until > now:
+            return min(days, 1)
+        return days
+
     def advance(self, days, reason):
         """A harness-initiated advance. False when the game is over or the hands-off window has started."""
         try:
-            resp = self.game.act("advance_days", {"days": days})
+            resp = self.game.act("advance_days", {"days": self.alert_advance_days(days)})
         except (HandsOff, GameOver) as e:
             self.stop_reason = type(e).__name__
             return False
