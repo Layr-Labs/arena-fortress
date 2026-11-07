@@ -25,6 +25,7 @@ DRINK_CAP = 300
 MEAL_CAP = 200
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
+SURGE_BEDS = 20         # cut 9: beds beyond the citizens on a migrant task, ordered and placed before its window
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
 REPORT_KEEP = 24        # action report lines kept for the model loop
 WEALTH_TARGET = 5500    # progression: the Hamlet rank needs 20 citizens and 5000 created wealth (docs/SUCCESS.md)
@@ -228,8 +229,10 @@ class Overseer:
             self.build("Fishery")
 
     def bed_target(self):
-        """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock."""
-        return self.cit + (12 if self.surge else 3)
+        """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock.
+        Cut 9: on a migrant task the second wave can arrive inside the hands-off window, when nothing can be placed,
+        so the margin covers it (the task's forts peak at 42-49 citizens from about 19, docs/SEED-FORTS.md)."""
+        return self.cit + (SURGE_BEDS if self.surge else 3)
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -463,7 +466,8 @@ class Overseer:
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
-            short = self.cit + 2 - (self.placed.get("bed") or 0)
+            # cut 9: on a migrant task every free bed up to bed_target() is placed while placing is still possible
+            short = (self.bed_target() if self.surge else self.cit + 2) - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
