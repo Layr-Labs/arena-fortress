@@ -36,6 +36,7 @@ HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
+LABS_BELOW_DAYS = 100       # runs shorter than this use the labs package
 STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
@@ -381,8 +382,12 @@ def main():
     game = GameClient(task.game_url)
     model = ModelClient(task.model_base_url, task.model_name, task.api_key, prices=task.prices)
     log("start", task=repr(task), model=task.model_name)
+    horizon = (task.task or {}).get("days") or task.days
+    runner = Plain
+    if isinstance(horizon, (int, float)) and horizon < LABS_BELOW_DAYS:
+        from labs.harness import Plain as runner   # short runs use the labs package
     try:
-        Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0"))).run()
+        runner(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0"))).run()
     except GameAPIError as e:   # the game server went away: nothing more to do
         log("game_error", error=str(e)[:300])
         return 1
