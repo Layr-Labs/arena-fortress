@@ -61,7 +61,7 @@ class Repairs(unittest.TestCase):
         self.check_failed_dig(True, "farm")
 
     def test_failed_room_dig_keeps_role_free_and_retries_after_delay(self):
-        self.check_failed_dig(False, "dorm")
+        self.check_failed_dig(False, "office")   # operator rule: office is dug first
 
     def check_failed_dig(self, soil, role):
         overseer, game = self.overseer([room(soil)], failures=1)
@@ -80,7 +80,7 @@ class Repairs(unittest.TestCase):
         self.assertEqual(overseer.tries["dig_R1"], 1)
 
     def test_successful_dig_assigns_role_once(self):
-        for soil, role in ((True, "farm"), (False, "dorm")):
+        for soil, role in ((True, "farm"), (False, "office")):
             with self.subTest(soil=soil):
                 overseer, game = self.overseer([room(soil)])
                 overseer.digging()
@@ -89,8 +89,8 @@ class Repairs(unittest.TestCase):
                 self.assertEqual(overseer.roles, {"R1": role})
                 self.assertEqual(len(game.calls), 1)
                 self.assertEqual(overseer.tries["dig_R1"], 0)
-                if role == "dorm":
-                    self.assertEqual(game.calls[0][1], {"site": "R1", "w": 9, "h": 7})
+                if role == "office":
+                    self.assertEqual(game.calls[0][1], {"site": "R1"})   # default 3x3
 
     def test_failed_dig_retains_existing_retry_limit(self):
         overseer, game = self.overseer([room(True)], failures=2)

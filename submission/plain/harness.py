@@ -35,6 +35,7 @@ from . import digest, prompt
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
+SHORT_DAYS = 3              # advance cap while citizens outnumber placed beds
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
@@ -292,6 +293,8 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                if self.guard.housing_short():   # beds short: let the layer place them every few days (LT08 iter23:
+                    args["days"] = min(args["days"], SHORT_DAYS)   # one 14-day jump left 15 migrants bedless to the end)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1

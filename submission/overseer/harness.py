@@ -19,6 +19,9 @@ import time
 from dfbench_client import ActionLimit, GameAPIError, GameClient, GameOver, HandsOff, load_task
 
 DAY = 1200
+FULL_DAYS = 10
+DORM_SPARE = 3        # beds beyond the current citizens, for the next migrants
+MAX_DORM = 15         # dig_room w/h cap
 MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
@@ -29,6 +32,9 @@ WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when
 REPORT_KEEP = 24        # action report lines kept for the model loop
 WEALTH_TARGET = 5500    # progression: the Hamlet rank needs 20 citizens and 5000 created wealth (docs/SUCCESS.md)
 PROGRESS_FROM_DAY = 40  # progression: crafts start once the core setup has had its logs
+MEAL_FLOOR = 10         # operator rule: at least 10 prepared meals at all times, so there is always food
+DRINK_FLOOR = 10        # operator rule: same for drink (per citizen floor below)
+STONE_MIN = 4           # stone work (statues, stone crafts) only from boulders above this stock
 LOG_RESERVE = 25        # progression: crafts take logs only above this stock, so beds and barrels come first
 MOOD_WORKSHOP = {
     "WOODCRAFT": "Craftsdwarfs", "STONECRAFT": "Craftsdwarfs", "BONECARVE": "Craftsdwarfs", "CARPENTRY": "Carpenters",
@@ -64,6 +70,7 @@ class Overseer:
         self.days = days or 0
         self.tries, self.last = {}, {}
         self.roles = {}          # room id -> farm | dorm | dine | office
+        self.full = {}           # site id -> time placement said no_space; skipped for FULL_DAYS (rooms may still be digging)
         self.brew_orders = set()
         self.now = 0
         self.alert_since = None
@@ -166,6 +173,7 @@ class Overseer:
         self.furnish()
         self.rezone()
         self.progress()
+        self.stonework()
         self.closer()
 
     def management(self):
@@ -180,10 +188,15 @@ class Overseer:
         if self.o.get("farm_plots") and plugins.get("autofarm") != "on":
             self.act("plug_autofarm", "enable_automation", {"name": "autofarm"}, retry=5)
         self.office()
+        # operator rule: manager + office first so delegation is automated, then roles are assigned (autolabor is the
+        # API's only labor-assignment tool)
+        if self.adm.get("manager_active_for_orders") and plugins.get("autolabor") != "on":
+            self.act("plug_autolabor", "enable_automation", {"name": "autolabor"}, retry=5)
 
     def office(self):
-        """DF stops validating orders around 20 citizens unless the manager has an office with a chair."""
-        if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
+        """Operator rule: the manager's office (zone + chair) is built as soon as a manager exists, not at ~14 citizens.
+        DF stops validating orders around 20 citizens unless the manager has an office with a chair."""
+        if not self.adm.get("manager_active_for_orders"):
             return
         mo = self.adm.get("manager_office")
         if isinstance(mo, dict) and mo.get("chair"):
@@ -232,6 +245,10 @@ class Overseer:
         return self.cit + (12 if self.surge else 3)
 
     def farm_target(self):
+        """Operator: farm heavily on full-year forts (food + plump helmet drink). Short lab tasks keep the old count:
+        on LT08 the extra plots took rooms and labour from the migrant wave's beds (iteration 22)."""
+        if self.days >= 200 and not self.surge:
+            return max(6, min(14, math.ceil(self.cit / 3)))
         return max(4, min(10, math.ceil(self.cit / 5)))
 
     def digging(self):
@@ -248,7 +265,12 @@ class Overseer:
             rid = r["id"]
             if rid in self.roles:
                 continue
-            need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
+            need = [x for x in ("office", "dorm", "dine") if x not in self.roles.values()]   # operator: office asap
+            if not need and self.cit + 2 > (self.placed.get("bed") or 0) and not any(
+                    v == "dorm" and not self.is_full(k) for k, v in self.roles.items()):
+                need = ["dorm"]   # every dorm is full and beds are short: dig another
+            if need and need[0] == "dine" and not self.tavern_level(r):
+                need = []   # operator rule: the tavern (dining hall) goes on the first level down, nowhere else
             if r.get("soil") and farms < self.farm_target():
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
@@ -256,10 +278,26 @@ class Overseer:
                     farms += 1
             elif need:
                 role = need[0]
-                size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
+                size = {"dorm": self.dorm_size(), "dine": {"w": 7, "h": 5}, "office": {}}[role]
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = role
+
+    def dorm_size(self):
+        """A small dorm with one tile per bed still needed (citizens + DORM_SPARE - beds placed), 3x3 at least.
+        Replaces a fixed 9x7 dig: smaller digs finish sooner and open less wet rock; a full dorm digs the next one."""
+        n = max(9, self.cit + DORM_SPARE - (self.placed.get("bed") or 0))
+        w = min(MAX_DORM, max(3, math.ceil(math.sqrt(n))))
+        return {"w": w, "h": min(MAX_DORM, max(3, math.ceil(n / w)))}
+
+    def tavern_level(self, r):
+        """True when room r is on the first level below the surface, or no such room is offered at all."""
+        if self.surface is None:
+            return True
+        top = self.surface - 1
+        if r.get("z") == top:
+            return True
+        return not any(x.get("z") == top for x in self.undug_rooms() if x["id"] not in self.roles)
 
     def farms(self):
         plots = lst(self.o.get("farm_plots"))
@@ -284,7 +322,8 @@ class Overseer:
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
         if not self.standing("cook_meal"):
             self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-                {"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]}, retry=3)
+                {"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "food", "at_least": 4}]}, retry=3)
+        self.floors()
         plants = d(self.st.get("plants_by_kind"))
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
@@ -295,6 +334,33 @@ class Overseer:
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
             if have < want and not self.pending(recipe) and self.logs():
                 self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+
+    def floors(self):
+        """Operator rule: never run out. Below 10 prepared meals cook a batch now; drink below its floor brews now."""
+        meals = self.st.get("prepared_meals") or 0
+        if meals < MEAL_FLOOR and (self.st.get("food_edible") or 0) >= 2 and not self.pending("cook_meal"):
+            self.act("o_cook_floor", "add_order", {"recipe": "cook_meal", "amount": min(15, MEAL_FLOOR + 5 - meals)},
+                     retry=1, limit=99)
+        if (self.st.get("drink") or 0) < max(DRINK_FLOOR, 2 * self.cit) and self.st.get("plants_brewable") \
+                and not self.pending("brew_drink"):
+            self.act("o_brew_floor", "add_order", {"recipe": "brew_drink", "amount": 5}, retry=1, limit=99)
+
+    def stonework(self):
+        """Operator rule: miners' stone goes to masons: statues and stone crafts (never wood for anything traded)."""
+        if (self.st.get("boulders_usable") or 0) < STONE_MIN:
+            return
+        have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+        if "Masons" not in have:
+            self.build("Masons", retry=4)
+            return
+        if not any(x.get("job") == "ConstructStatue" and x.get("repeat") for x in self.orders):
+            self.act("o_statue_prog", "add_manager_order", {"job": "ConstructStatue", "amount": 1, "repeat": "daily",
+                     "material": "INORGANIC", "when": [{"item_type": "BOULDER", "at_least": STONE_MIN}]},
+                     retry=5, limit=4)
+        if "Craftsdwarfs" in have:   # "_prog" key: added once per game (observed orders don't report material)
+            self.act("o_stonecraft_prog", "add_manager_order", {"job": "MakeCrafts", "amount": 2, "repeat": "daily",
+                     "material": "INORGANIC", "when": [{"item_type": "BOULDER", "at_least": STONE_MIN}]},
+                     retry=5, limit=4)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
@@ -430,18 +496,26 @@ class Overseer:
                      "material_category": ["wood"], "when": [{"item_type": "WOOD", "at_least": LOG_RESERVE}]},
                      retry=4, limit=6)
 
+    def housing_short(self):
+        return self.cit > (self.placed.get("bed") or 0)
+
+    def is_full(self, sid):
+        return self.now - self.full.get(sid, -1e18) < FULL_DAYS * DAY
+
     def room_for(self, role):
-        """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""
-        rooms = [r for r in self.kind("R") if self.roles.get(r["id"]) == role]
+        """The dug level of a role's big room (its A site covers the whole dig), else the room itself.
+        Sites that last answered no_space are skipped: a full dorm otherwise ate every bed attempt (iteration 22)."""
+        rooms = [r for r in self.kind("R") if self.roles.get(r["id"]) == role and not self.is_full(r["id"])]
         for r in rooms:
             a = next((s for s in self.kind("A") if s.get("z") == r.get("z")), None)
-            if a and role != "farm" and (r.get("dug") or a.get("open_tiles", 0) >= 6):
+            if a and role != "farm" and not self.is_full(a["id"]) and (r.get("dug") or a.get("open_tiles", 0) >= 6):
                 return a
         dug = [r for r in rooms if r.get("dug")]
         if dug:
             return dug[0]
         taken = {r.get("z") for r in self.kind("R") if self.roles.get(r["id"], "").startswith("farm")}
-        return next((s for s in self.kind("A") if s.get("z") not in taken and s.get("open_tiles", 0) >= 6), None)
+        return next((s for s in self.kind("A") if s.get("z") not in taken and not self.is_full(s["id"])
+                     and s.get("open_tiles", 0) >= 6), None)
 
     def needs_zone(self, room, zones, kinds, placed=()):
         if any(covers(z, room) for z in zones):
@@ -454,6 +528,8 @@ class Overseer:
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
         if not result.get("ok"):
+            if result.get("error_code") == "no_space":
+                self.full[room["id"]] = self.now
             return []
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
