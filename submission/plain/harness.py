@@ -29,6 +29,7 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from overseer.harness import Overseer
+from overseer.migrant import MigrantOverseer, applies as migrant_task
 
 from . import digest, prompt
 
@@ -120,9 +121,11 @@ class Plain:
         t = self.game.task()
         self.tools = prepare_tools(t.get("tools") or [])
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
-        self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
+        self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names, info)}]
         days = info.get("days") or self.task.days
+        if migrant_task(info):
+            self.guard = MigrantOverseer(self.game, goal=info.get("goal", ""), days=days)
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -136,6 +139,8 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
+        if isinstance(self.guard, MigrantOverseer):
+            return min(2, self.guard.advance_cap(resp))
         return 2
 
     def spent(self):
@@ -248,6 +253,8 @@ class Plain:
                     self.units_day = day   # don't retry every turn
             status = digest.digest(obs, env, self.memory, units=self.units,
                                    layer={"report": self.guard.report, "owned": self.guard.owned})
+            if isinstance(self.guard, MigrantOverseer):
+                status += "\n" + self.guard.status(resp)
             self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
             compact = digest.compact_observation(obs)
             return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
@@ -292,6 +299,8 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                if isinstance(self.guard, MigrantOverseer):
+                    args["days"] = min(args["days"], self.guard.advance_cap(self.game.observe()))
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
