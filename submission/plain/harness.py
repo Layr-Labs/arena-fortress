@@ -29,6 +29,8 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from overseer.harness import Overseer
+from overseer.frontier import Overseer as FrontierOverseer
+from overseer.year import YearOverseer
 
 from . import digest, prompt
 
@@ -63,6 +65,21 @@ def prepare_tools(tools):
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
     return out
+
+
+
+def overseer_class(task):
+    """Apply window repairs only to a task that explicitly declares a future hands-off window."""
+    info = task.task or {}
+    hands = info.get("hands_off")
+    days = info.get("days") or task.days
+    if (isinstance(hands, dict) and type(hands.get("from_day")) is int
+            and type(hands.get("days")) is int and hands["days"] > 0
+            and type(days) is int and 0 <= hands["from_day"] < days):
+        return Overseer
+    if type(days) is int and days >= 336:
+        return YearOverseer
+    return FrontierOverseer
 
 
 def observation(resp, extra):
@@ -111,7 +128,7 @@ class Plain:
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
-        self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
+        self.guard = overseer_class(task)(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
@@ -293,8 +310,10 @@ class Plain:
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
                 left = (self.game.last or {}).get("hands_off_in_days")
-                if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
-                    args["days"] = 1
+                if type(left) is int and left > 0:
+                    o = getattr(self.guard, "o", {})
+                    cap = 1 if left <= 4 or o.get("dig_designations_pending") else 2
+                    args["days"] = min(args["days"], cap)
             try:
                 resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
