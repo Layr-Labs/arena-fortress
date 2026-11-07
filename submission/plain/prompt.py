@@ -13,6 +13,9 @@ allows both), rewritten for the v3 API (site ids, add_order `when` stock names, 
 STATUS digest itself is built by digest.py. Everything else in this file is the organiser's plain baseline.
 
 Every token is paid for at every call, and the credits are per game: the playbook is kept to about 1,300 tokens.
+
+Cut 3 adds AUTOPILOT: what the harness's autopilot (autopilot.py) does without the model, so the model neither
+duplicates nor undoes it, and spends its turns on what is left.
 """
 import re
 
@@ -121,6 +124,22 @@ your recent FAILED actions with their error codes (don't repeat them unchanged) 
 NEXT list: the gaps found, in the playbook's order. The digest is derived information: the observation is the
 ground truth where they disagree. The raw observation omits the per-item furniture list (the digest counts it)."""
 
+AUTOPILOT = """
+THE HARNESS'S AUTOPILOT. Before each of your turns the harness itself takes the routine steps, from the
+observation: appoint_manager when there is no manager; enable_automation autochop and seedwatch (autofarm once a
+farm plot exists); build_workshop Carpenters, Still and Kitchen on a free W site once a usable log or boulder
+exists; repeating orders brew_drink (when drink is below about 10 per dwarf), make_barrel (when barrels_empty is
+below 3) and cook_meal (when prepared meals are below 2 per dwarf and drink is at least 4 per dwarf, so plants go
+to the still first); one-shot orders for beds up to one per dwarf, then tables and chairs for dining; an
+underground farm (dig_stairs, dig_room on a soil R site, build_farm once it is dug, up to 2-4 plots). While a
+dwarf is in a strange mood it adds nothing that uses up logs: the mood's workshop and items are yours. Before a hands-off window it adds a brew order that keeps brewing
+through the window, and an advance that would run into the window stops 2 days before it so this check runs.
+STATUS lists what it did ("the harness's autopilot did"); don't repeat it, add duplicates or cancel it. The NEXT
+list leaves out what the autopilot covers, so what NEXT shows is yours: rooms for beds and dining, placing
+furniture and making zones, the manager's office, labors, defence, moods, and whatever STATUS says is stuck or
+missing. When nothing there needs you, advance_days.
+"""
+
 API_SECTIONS = ("4", "6")   # of the served manual: "## 4. Sites", "## 6. The observation"
 
 
@@ -136,7 +155,7 @@ def system_prompt(api_manual=None, tool_names=None):
     s = MANUAL + PLAYBOOK
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
-    s += "\n" + OBSERVATION
+    s += "\n" + OBSERVATION + "\n" + AUTOPILOT
     ref = api_sections(api_manual)
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"
