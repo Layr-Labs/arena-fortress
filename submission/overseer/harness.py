@@ -49,8 +49,12 @@ class Overseer:
         self.tries, self.last = {}, {}
         self.roles = {}          # room id -> farm | dorm | dine | office
         self.brew_orders = set()
+        self.window_brew_added = False
+        self.report = []
+        self.day = None
         self.now = 0
         self.alert_since = None
+        self.previous_manager_office = None
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -72,10 +76,13 @@ class Overseer:
                 order_id = d(r.get("result")).get("order_id")
                 if type(order_id) is int:
                     self.brew_orders.add(order_id)
+        self.report = (self.report + [{"day": self.day, "tool": tool, "args": args, "ok": bool(r.get("ok")),
+                                      "error_code": r.get("error_code"), "error": str(r.get("error") or "")[:100]}])[-24:]
         return r
 
     # ---- facts
     def load(self, resp):
+        self.day = resp.get("day")
         self.o = d(resp.get("observation"))
         self.st, self.map = d(self.o.get("stocks")), d(self.o.get("map"))
         self.adm = d(self.o.get("administrators"))
@@ -93,6 +100,7 @@ class Overseer:
             if isinstance(f, dict):
                 self.placed[f.get("kind")] = self.placed.get(f.get("kind"), 0) + 1
         self.surface = self.map.get("surface_z")
+        self.hands_left = resp.get("hands_off_in_days")
 
     def kind(self, k):
         return [s for s in self.sites if s.get("kind") == k]
@@ -148,10 +156,23 @@ class Overseer:
         if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
             return
         mo = self.adm.get("manager_office")
-        if isinstance(mo, dict) and mo.get("chair"):
-            return
         mgr = self.adm.get("MANAGER_id")
+        if isinstance(mo, dict) and mo.get("chair"):
+            if type(mo.get("zone_id")) is int and type(mgr) is int:
+                self.previous_manager_office = (mo["zone_id"], mgr)
+            return
         offices = self.zone("office")
+        previous = self.previous_manager_office
+        if (type(self.hands_left) is int and self.hands_left > 0 and self.cit >= 25
+                and type(mgr) is int and previous and previous[1] != mgr):
+            prior = next((z for z in offices if z.get("id") == previous[0]
+                          and z.get("owner") == previous[1] and d(z.get("furniture")).get("chair")), None)
+            if prior:
+                r = self.act("office_handoff_" + str(mgr), "assign_zone",
+                             {"zone_id": prior["id"], "dwarf_id": mgr}, retry=1, limit=6)
+                if r and r.get("ok"):
+                    self.previous_manager_office = (prior["id"], mgr)
+                return
         mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
         if not mine:
             spare = next((z for z in offices if z.get("owner") is None), None)
@@ -188,6 +209,10 @@ class Overseer:
                 self.build(t)
         if "Fishery" not in have and any(p.get("job") == "Fish" for p in self.people):
             self.build("Fishery")
+        carp = sum(w.get("type") == "Carpenters" for w in lst(self.o.get("workshops")) if isinstance(w, dict))
+        if (type(self.hands_left) is int and self.hands_left > 0 and self.cit >= 25
+                and carp == 1 and self.logs() >= 5 and (self.st.get("beds") or 0) < self.cit):
+            self.build("Carpenters", retry=3)
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -207,7 +232,10 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            # In a large managed fort, do not consume every soil room as a farm before housing exists.
+            reserve_housing = (type(self.hands_left) is int and self.hands_left > 0
+                               and self.cit >= 25 and bool(need) and farms >= 2)
+            if r.get("soil") and farms < self.farm_target() and not reserve_housing:
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
@@ -224,7 +252,10 @@ class Overseer:
         target = self.farm_target()
         if len(plots) >= target:
             return
-        cands = self.kind("F") + [r for r in self.dug_rooms() if r.get("soil") and self.roles.get(r["id"], "farm") == "farm"]
+        housing_levels = {r.get("z") for r in self.kind("R") if self.roles.get(r["id"]) in ("dorm", "dine", "office")}
+        managed_housing = type(self.hands_left) is int and self.hands_left > 0 and self.cit >= 25
+        floors = [f for f in self.kind("F") if not managed_housing or f.get("z") not in housing_levels]
+        cands = floors + [r for r in self.dug_rooms() if r.get("soil") and self.roles.get(r["id"], "farm") == "farm"]
         seeds = d(self.st.get("seeds_by_kind"))
         if any(not d(v).get("underground") for v in seeds.values()):
             cands += self.kind("G")[:2]
@@ -237,6 +268,21 @@ class Overseer:
             self.act("o_brew", "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": [
                 {"stock": "drink", "below": DRINK_CAP}, {"stock": "plants_brewable", "at_least": 2},
                 {"stock": "barrels_empty", "at_least": 1}]}, retry=3)
+        # A managed fort may enter a window with more than the ordinary 300-drink stock cap.
+        # Keep the existing small daily job; add a separate protected reserve job only near that window.
+        left = self.hands_left
+        reserve = max(600, 32 * self.cit)
+        if (not self.window_brew_added and type(left) is int and 0 < left <= 14 and self.cit >= 25
+                and (self.st.get("drink") or 0) < reserve
+                and not any(x.get("recipe") == "brew_drink" and x.get("repeat")
+                            and any(isinstance(c, dict) and c.get("stock") == "drink"
+                                    and (c.get("below") or 0) >= reserve for c in lst(x.get("when")))
+                            for x in self.orders)):
+            reserve_result = self.act("o_window_brew", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
+                {"stock": "drink", "below": reserve}, {"stock": "plants_brewable", "at_least": 2},
+                {"stock": "barrels_empty", "at_least": 1}]}, retry=1, limit=6)
+            if reserve_result and reserve_result.get("ok"):
+                self.window_brew_added = True
         if not self.standing("make_barrel"):
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
@@ -251,8 +297,13 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.cit + 3),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            managed = type(self.hands_left) is int and self.hands_left > 0 and self.cit >= 25
+            urgent_beds = managed and (self.st.get("beds") or 0) < self.cit
+            if urgent_beds and recipe != "make_bed" and have >= 1:
+                continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = 32 if managed and recipe == "make_bed" else 8
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
 
     def room_for(self, role):
         """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""

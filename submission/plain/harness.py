@@ -1,20 +1,8 @@
-"""The plain baseline harness: the model plays the fort from the raw game API, one tool call per turn.
+"""Promoted daily controller with layer-aware factual STATUS and bounded action memory.
 
-One turn:
-  1. GET /observe -> the observation as the API returns it, plus days_left_in_run, hands_off_in_days, goal, scenario
-  2. the user message "OBSERVATION {...}"; the history window (system prompt + last HISTORY messages, older
-     observations stubbed, older tool results trimmed)
-  3. one chat call through the gateway (tool_choice required)
-  4. run the first tool call (POST /act); its result goes back to the model as JSON
-  5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
-     actions are used up; stop calling the model near the end of the credits
-The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
-low; the server then runs the fort on unmanaged to the horizon (contract §2).
-
-There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
-reads the raw facts. README.md lists the obvious places to improve.
-
-Run: python -m plain   (reads DFBENCH_TASK)
+The model uses the task's gateway and public API. Every new observed day first runs
+Overseer.step. Its outcomes and protected brewing orders appear in the derived STATUS.
+The ordinary model loop, four-turn stall guard and credit stopping behavior are retained.
 """
 import copy
 import json
@@ -27,7 +15,7 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from overseer.harness import Overseer
 
-from . import prompt
+from . import digest, prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
@@ -84,7 +72,7 @@ def window(messages):
     out = []
     for i, x in enumerate(m):
         c = x.get("content")
-        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and c.startswith("OBSERVATION {"):
+        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and (c.startswith("OBSERVATION {") or c.startswith("STATUS")):
             x = {**x, "content": "OBSERVATION (older, omitted)"}
         elif x["role"] == "tool" and i != last_tool and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
             x = {**x, "content": c[:TOOL_RESULT_OLD] + " ...(trimmed)"}
@@ -104,6 +92,8 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
+        self.memory = digest.Memory()
+        self.units_day = None
         self.guard = Overseer(game)
         self.guard_day = None
 
@@ -146,8 +136,7 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
-            self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
-                obs, separators=(",", ":"), ensure_ascii=False)})
+            self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
             try:
                 msg = self.chat()
@@ -191,6 +180,25 @@ class Plain:
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
 
+    def user_message(self, resp, obs):
+        raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
+        try:
+            units = None
+            day = resp.get("day")
+            if type(day) is int and (self.units_day is None or day - self.units_day >= 10):
+                self.units_day = day
+                try:
+                    q = self.game.query("units", kind="citizens")
+                    units = q.get("result", q)
+                except GameAPIError as e:
+                    log("query_error", query="units", error=str(e)[:200])
+            status = digest.digest(obs, {k: resp.get(k) for k in ENVELOPE if k in resp}, self.memory,
+                                   units=units, layer={"report": self.guard.report, "owned": self.guard.brew_orders})
+            return status + "\n\nOBSERVATION " + json.dumps(digest.compact_observation(obs), separators=(",", ":"), ensure_ascii=False)
+        except Exception as e:
+            log("digest_error", error=repr(e)[:300])
+            return raw
+
     def chat(self):
         params = {**CHAT, "seed": self.seed}
         try:
@@ -227,6 +235,13 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+            if name == "advance_days":
+                last = self.game.last or {}
+                left = last.get("hands_off_in_days")
+                if type(left) is int and left > 0:
+                    o = getattr(self.guard, "o", {})
+                    cap = 1 if left <= 4 or o.get("dig_designations_pending") else 2
+                    args["days"] = min(args["days"], cap)
             try:
                 resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
@@ -279,6 +294,10 @@ class Plain:
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
+        try:
+            self.memory.record((self.game.last or {}).get("day"), name, args, resp)
+        except Exception as e:
+            log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):

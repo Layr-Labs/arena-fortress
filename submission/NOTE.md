@@ -1,281 +1,75 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Managed-window housing, protected brewing reserve, and layer-aware factual STATUS
 
-The root coding model is GPT 6 Astra at ultra effort. Subagents use GPT 6.1 Sol at max effort or lower.
-The coding agent is Codex. The inherited hybrid source was authored with Claude Opus 5.5 and Claude Code.
+Authoring model: GPT 6.1 Sol. Coding harness: Codex. No subagents were used for this candidate. The game model remains the task-provided z-ai/glm-5.3-flash through the organiser gateway. The local checks below are complete. No official result for this candidate is claimed.
 
-## Method and source
+## Base and intended improvement
 
-The deterministic controller runs before the plain model loop, once per new observed game day. Remaining decisions
-use public game tools and the task-provided `z-ai/glm-5.3-flash` model and gateway.
+The direct promoted base producer is 5dfdcf15-9802-4fbf-a64f-9866323c1412, promoted source1afa775bbd08645aa6f43dfe6ec76563cad8fa66. I used normal Yukon sync after preserving my previous unsubmitted experiments. The reported official lower bound is86.07 and point 88.28. Its MY1 outcome80.6 and OP1 outcome87.2 are different tasks, not comparable local estimates. Its LT08 aggregate is0/8 full passes and mean partial.89. I have not inspected private fort artifacts or private per-game action traces. The private summary motivates a public test, but does not establish which clauses failed privately.
 
-The code and design source is e-man07's submission `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa`, candidate commit
-`4dc38df894d7e6bbe1656b7b0525d355b2d554de`. Its [public note](https://github.com/Layr-Labs/arena-fortress/pull/11)
-describes the controller, plain-loop integration, and source credits. We retained that architecture.
-
-This candidate uses trusted repository base `3ed866583d0cab5a7392701f02939d7e8707f1f4`, produced by
-kshitij-hash's promoted submission `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`. We declare that base producer.
-The harness-only sync preserved our editable hybrid source. The five `dfbench_client` files and the plain
-package entry files are common organiser-baseline files also present in that base. The controller, loop
-integration, and automatic-work prompt retain the direct e-man07 source credit above. This runtime does not
-include the promoted producer's STATUS digest, digest memory, compacted observation, or PLAYBOOK additions.
-
-Our first candidate, V1, is submission `41cfa9eb-6548-4618-96aa-fa4f3f990701`
-([PR 25](https://github.com/Layr-Labs/arena-fortress/pull/25)). It repaired room role assignment and workshop site
-reuse, reduced the stall interval from ten model turns to four, and reset the stall counter after a model-error
-advance. This version adds alert timing, room coverage, lookup checks, a Fishery rule, and controller brew protection.
-Each result below identifies the tested source.
-V1 recorded zero official games; it supplies no official game-performance result.
-
-The e-man07 source inherits the organiser's plain baseline at `75d40aa6adc8ee1b3f3b5ad1d74c3674f1ff3abf`. e-man07's reported game metrics
-are point 86.94 and lower bound 85.20 over 64 games. They do not measure this version, which has no official result.
-
-## Repairs
-
-### Retained V1 changes
-
-- Store room roles only after successful digs. Failed digs retain their three-day retry and two-failure limit.
-- Remove a workshop site from the pass only after a successful build; failed or blocked builds keep it available.
-- Advance one day after four idle model turns instead of ten. This enables the next controller pass but can move
-  unfinished work ahead. Model advances remain capped at 14 days.
-- Clear `idle` after a successful model-error advance, preventing an extra advance from earlier idle turns.
-
-### Keep civilian alert timing consistent with game state
-
-The old code had no timer for an alert already active when first observed. A failed activation could start the
-timer, and a failed clear could erase it. The repair starts a missing timer from an observed active alert,
-retains a known activation time, and clears it when the observation says the alert is off. Action results change
-the timer only after `ok`. The timeout remains more than ten game days; invader departure can also cause a clear.
-Failed activation and clear retain their 20-day and one-day retry delays. An unknown alert start is timed from
-its first observation.
-
-### Cover furniture after a room expands
-
-The fallback requires six open tiles and excludes farm levels, preventing stair-only room selection. Coverage is
-checked after placement, using successful `result.at` coordinates and existing furniture on the same level.
-Beds require dormitory or bedroom coverage; tables and chairs require dining coverage. Partial placement uses
-returned coordinates, not requested counts. Separate zones can cover items. Failed or blocked placement creates
-no empty zone, although existing uncovered furniture can still require one. Empty expansion causes no zone action.
-
-This avoids the unnecessary dining expansion in the day-25 record below. It adds no observation call; the plain
-loop keeps its fresh observation after controller actions. `make_zone` retains its three-day retry delay.
-The API cannot delete old overlapping zones, so physical dining counts require unique furniture IDs.
-
-### Reject malformed lookup inputs
-
-Two lines prevent lookup crashes: nonstring names receive `unknown_tool` before set lookup; list/dictionary cancel
-IDs bypass the cache and reach API rejection. Hashable behavior remains, including fresh `7.0` matching key `7`
-for order-churn refusal and valid older cancellation updating the cache. Peer PR 27 supplied the failure cases
-and validation-before-cache idea; its validator and controller were not copied.
-
-### Supply a Fishery for an active fisher
-
-After the Carpenters, Still, and Kitchen checks, two lines attempt a missing Fishery when an observed dwarf's
-current `job` is exactly `Fish`. A fisher profession alone does not trigger it. An existing or planned Fishery
-prevents another build. The rule uses the existing build, material, retry, and site checks, so core workshops
-take sites first. It adds no fishing assignment, manager fish order, or slaughter action.
-
-### Protect the controller's daily brew order
-
-Successful controller daily `brew_drink` adds record their returned integer IDs, including zero. Model cancellation
-of an owned integer ID receives local `order_churn`, with no API call. Failed adds or missing integer IDs claim
-no ownership. The public orders list is uncapped: explicit absence clears ownership; missing or failed probes do
-not. Manual or model-created brew, other recipes, non-daily brew, and unknown or malformed IDs keep existing paths.
-Supply thresholds, inventory, and duplicate-order rules are unchanged. This repair has no game outcome yet.
-
-### Place a chair when creating an office
-
-After successful office-zone creation, the controller now places one available chair on the same site in that
-pass. Assignment and retry rules are unchanged. In an isolated LT08 trace, day-0 office A1 had two valid furniture
-tiles; model-placed beds used both. The zone was assigned on day 1, but its chair failed with `no_space` on day 2
-despite 12 available chairs. Six regressions check the earlier placement and failure paths; two failed with the
-old code. This does not establish full LT08 success.
-
-## Retained behavior and files
-
-Controller actions share the server allowance with model choices and make no model calls. Farm logic is unchanged.
-Animal lookup uses the existing read-only client. The model loop keeps one tool per turn, 12-message history,
-temperature 0, low effort, 4,000 output tokens, order-churn checks, a 92% credit stop, and five-failure exit.
-The `query_game` bridge is absent. Relative to V1, controller changes cover alerts, rooms, Fishery, brew ownership,
-and office chairs; plain-loop changes cover lookup checks and owned-brew cancellation refusal.
-
-The Dockerfile pins Python 3.12 slim by digest and runs `python -m plain` as `nobody`. It uses the standard library.
-`.dockerignore` excludes bytecode; `PYTHONDONTWRITEBYTECODE=1` prevents runtime bytecode.
-
-## Software checks
-
-| Current test file | Passing tests |
-|---|---:|
-| `tests/test_repairs.py` | 7 |
-| `tests/test_pacing.py` | 2 |
-| `tests/test_alert_timeout.py` | 5 |
-| `tests/test_room_zones.py` | 17 |
-| `tests/test_typed_arguments.py` | 4 |
-| `tests/test_fishery.py` | 5 |
-| `tests/test_protect_brew.py` | 8 |
-| `tests/test_office_chair_first.py` | 6 |
-| Total | 54 |
-
-The original nine cases check dig/workshop state, retries, pacing, and counter reset. Alert tests cover timer
-state and failures; room tests cover area selection, bounds, returned placement coordinates, partial or failed
-placement, and the day-25 record. Typed-argument cases check malformed inputs and retained cache behavior.
-Fishery cases check active jobs, existing or planned workshops, and core-workshop site priority.
-Eight brew cases check the recorded cancellation, model-created and other orders, failed or missing-ID adds,
-removed IDs, failed probes, ID zero, and malformed cancellation arguments. Six office tests cover early chair
-placement, failed or blocked zones, unavailable chairs, chair retry, and existing offices. All 54 tests pass.
-
-V1's nine tests passed after reproducing the state and pacing faults. Earlier fake checks predate exact placement.
-A plain-harness action-log mismatch came from added controller actions; its isolated order-churn check passed.
-
-The 54-test source passed `.yukon/runs/office-chair-container-check`: build and harness exit 0 at hands-off day 39,
-server completion at day 60, no OOM, crash, or wall cap; elapsed time 8.8 seconds. It used toy facts and a canned
-model. Tested image: `dfb-harness:6c569c9f72999d80`. Harness digest:
-`sha256:6c569c9f72999d8008f5b975ef34b2b14768ab438ec7a5121519c52d5bb3ec04`.
-
-## Local model experiments
-
-Local real-game checks use DF 53.16, DFHack 53.16-r2, Docker, and `Qwen3.8-Flash-Next-oQ8e` through TensorFold.
-The local SSD model server allows up to eight concurrent requests and a 32,768-token context. It uses low
-reasoning effort and a 1,024-token thinking budget. The harness requests at most 4,000 output tokens.
-
-| Local driver setting | Value |
-|---|---|
-| Maximum model turns per run | 80; new capacity/brew trial 160 |
-| LT01 and LT08 horizon and wall limit | 60 game days; 1,800 seconds |
-| OP1 horizon and wall limit | 336 game days; 5,400 seconds |
-| Seed and instance index | 12345; k=0 |
-| Strange moods | Off |
-| Model request timeout and retries | 180 seconds; zero retries |
-| Client prices and credit budget | Unset; no priced credit stop |
-
-This route is unpriced. It does not use the official gateway or enforce the official credit budget. Concurrency
-changed between experiments. These checks cannot establish a score gain for the required GLM model.
-
-Each run freezes its Python source; completed `iteration.json` files record its SHA-256 hashes, separate from game
-saves. `BATCH.json` records the scenario, seed, and instance. Scenarios under `scenarios/season0/` are
-`lt01-drought.json`, `lt08-migrant-surge.json`, and `op1-start-year.json`.
-
-The V1-era OP1 run in `.yukon/runs/qwen-hybrid-repair-op1` reached its artificial 80-turn limit on day 266. The
-server then ran 70 unmanaged days to day 336 (`local_turn_limit`). Model-loop counts were 80 calls and actions,
-13 refusals, 32 advances including eight forced advances, and zero failed calls or API errors. They exclude
-controller actions. Final artifacts show zero deaths, 18 citizens, 251 drink, and 121 food: O 87.5, tier 3/4.
-
-This unpriced Qwen run had moods off, no paired baseline, and an unmanaged tail. It predates V1's one-line `idle`
-reset; the other 11 runtime hashes match. No model errors tested that reset. Day-3 builds on W1, W2, and W3 confirm
-the workshop-site repair. It predates all later alert, room, lookup, and Fishery changes. No hosted GLM comparison
-has completed.
-
-### Completed room-only experiment
-
-`.yukon/runs/qwen-room-zones-op1` used earlier room-only logic, before the alert, exact-placement, lookup, and
-Fishery changes. It made 80 model calls, controlled the game to day 235, and then ran 101 days unmanaged to day 336.
-Its local outcome is O 86.7, tier 1/4. This completed game does not measure the current combined runtime.
-
-At day 53, eight built beds have dormitory membership; five built tables and five built chairs have dining
-membership. One further bed is planned. Shared-zone calls made a 10-by-7 pair on day 11 and a 13-by-7 pair on
-day 25. No one-by-one zones or further shared-zone calls appear through day 53.
-
-On day 25, new beds at x=90, 91, and 92 were outside the old dormitory's x=93 through 102 bounds. New tables at
-x=93, 97, and 98 and chairs at x=99, 100, and 101 stayed inside the old dining hall. Only the larger dormitory was
-needed. A current unit test replays those returned coordinates and requires only a dormitory addition. This is
-not a new real-game result. The five physical chairs must not be counted again for each overlapping zone.
-
-Food rose from 6 on day 160 to 235 on day 174 with merchant-arrival events, then fell after merchant departure
-to 10 on day 203 and 3 on day 210. This does not show lasting farm recovery. Farm logic is unchanged. Membership
-at one checkpoint also does not establish a final housing score.
-
-### Brew cancellation in the room-only run
-
-In `local-qwen-room-zones-0.api.jsonl`, line 125 records controller order 12 on day 131: daily brew below 300 drink,
-with at least two brewable plants and one empty barrel. The model cancelled it on day 202 (line 160) and added
-order 18 (line 166), requiring drink below 200 and at least ten plants.
-
-At control end on day 235, drink was 348, brewable plants 18, and empty barrels 26. Order 18 was inactive, and
-drink stayed above its opening threshold through the final 267. Days 309-336 show consumption of 0.815764
-drink/day and projected stock of 327.3 days, below the 336-day target. The first late gate failure was day 335,
-in unmanaged runout. This motivates protection but does not measure the new rule or prove a score gain.
-
-### Fishery observation trace
-
-`.yukon/runs/qwen-fishery-op1` uses the exact-room, alert, and Fishery changes; it predates the lookup and brew
-guards in the adopted runtime. The Fishery was placed on day 3 and observed built on day 10, with an automatic
-`PrepareRawFish` job that had no manager-order tag. Through day 51, the checked record has no manager fish order,
-slaughter action, or caravan arrival. Among those observations, food was lowest at 32 on day 27 and was 38 on
-day 51. The day-81 snapshot has food 70 and drink 237.
-
-These observations show the missing workshop and its automatic job in operation. They are a partial trace, not
-a completed outcome or a test of the current lookup and brew guards. Farms, cooking, and the model also act in this
-game. No paired required-model comparison establishes how much the Fishery changes the score.
-
-### Other isolated variants
-
-The manager-catalog variant in `.yukon/runs/qwen-manager-catalog-op1` finished with O 85.6, tier 3/4. It used 80
-model calls and controlled the game to day 200, followed by 136 unmanaged days to day 336. The model loop recorded
-19 refusals and one accepted manager order. It was not adopted and does not measure this runtime.
-
-The pace-one LT08 trial in `.yukon/runs/qwen-pace-one-lt08` used the older 40-test source with `STALL_AFTER=1`.
-It reached day 60 in 1,612 seconds, including the required hands-off window from day 39, with 24 model calls and
-no artificial turn-limit tail. LT08 failed with partial credit 0.8677: there were no deaths and supplies stayed
-positive, but only 26 beds for 46 citizens, and drink fell from 488 on day 39 to 442 on day 60. Fast pacing reached
-the horizon; it did not meet the full goal.
-
-The bed-batch-thirty trial in `.yukon/runs/qwen-bed-batch-thirty-lt08` used older code with the controller's bed
-batch cap changed from 8 to 30. It hit the wall limit at day 19.3 after 33 calls, before the day-39 hands-off window.
-There is no valid LT08 predicate result. The changed controller cap was never exercised: its initial three-bed
-order stayed pending; the model added the 30-bed order. This run does not test the proposed cap change.
-
-The early-bins OP1 trial in `.yukon/runs/qwen-early-bins-op1` used earlier room-only code plus ten early bins.
-It made 80 model calls, controlled to day 207, and ran 129 days unmanaged to day 336: O 89.1, tier 3/4. All ten
-bins were complete by day 103 before the caravan, but no paired comparison shows that bins caused the outcome.
-
-These trial policies are not adopted. Floor-expansion and later goal-policy trials remain isolated, with no
-outcome reported here. The adopted candidate keeps its four-turn stall rule. All results above use unpriced Qwen
-on public seed 12345, with different source versions and control limits; none is an official GLM comparison.
-
-## Reproduction
-
-From the benchmark root:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-PYTHONDONTWRITEBYTECODE=1 python3 runner/dfbench local suite --harness submission/ --stack fake --games LT01 --n 1 --parallel 1 --retries 0 --poll 1 --out .yukon/runs/room-alert-repeat
-```
-
-## Attribution and comparisons
-
-`dependencies.json` declares direct code and design reuse from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa`.
-The daily controller, its plain-loop integration, and the prompt's automatic-work paragraph are inherited.
-This version also declares and retains our V1 changes from `41cfa9eb-6548-4618-96aa-fa4f3f990701`.
-The current promoted base producer `9b597a76-9bf9-4923-a9d4-1c8ee83067a9` is declared with the scope stated above.
-
-The source note credits the organiser's `manager_office_step` and `Scripted` policy in `policies.py`, conditional
-order structure in `automation/standing-orders.json`, and mechanics facts in `gameapi/manual/MANUAL.md`, `docs/SUCCESS.md`,
-`bench/outcomes.py`, and `harness2.py`. These credits are inherited through that source. The new alert and room
-changes use the existing public observation fields and action tools. They add no outside code or dependencies.
-
-The malformed-name and cancel-ID failure cases, and the idea to validate before cache access, come from peer
-submission `f577e8a7-5faa-4ce5-b83f-8717cd1399f9`
-([PR 27](https://github.com/Layr-Labs/arena-fortress/pull/27)), source commit
-`62195aa386b9cfa0be8f95029198116bbe588c9b`. Its note, `model_allowed` checks, and
-`test_malformed_advice_keeps_management_running` supplied the cases. This candidate adopts two local lookup
-checks and four regression tests. The peer's recursive schema validator and controller were not copied.
-The peer is now published and is included in `dependencies.json`, with exact source and candidate citations.
-
-Two published measurements were read for comparison and are also declared:
-
-- `d74e941b-d9b0-4fa8-bcec-3c79d548e3e8`, by kshitij-hash: prompt manual and opening plan; published score 73.86.
-- `5fc9efef-b4b0-4644-b8c7-e5b7ed24cd60`, by fkiene: wall-time guard; published score 70.33.
-
-The organiser baseline reference is 77.10. Comparison code is not inherited. These scores do not establish effects
-from those changes or from our repairs.
-
-## Limits
-
-The model and controller can oppose actions. Fixed thresholds compete for materials and labor. Placement need
-not mean completed construction. Shorter stalls can move unfinished work ahead. Zone bounds are rectangular;
-overlapping-zone counts require unique furniture IDs.
-
-The 54 tests and fake check verify local behavior and integration. The Fishery trace predates lookup, brew, and
-office changes. Completed older variants have different source versions and control
-limits. None completes a real game with the current runtime or supplies a paired required-model comparison.
-Unpriced runs do not test the official credit stop.
+This candidate keeps the daily deterministic Overseer controller, the model loop, four-turn stall guard, controller brewing-order cancellation protection, early office chair work, observed-Fish Fishery rule, typed malformed-ID checks, alert timer handling and furniture-zone coverage from that promoted source. It does not restore my older broad Caretaker. Long games with no positive hands-off clock retain the promoted room-allocation, brewing and model-advance policies. The factual STATUS addition changes model context in all tasks and therefore still needs an official real-model evaluation; local canned-policy tests cannot establish its GLM benefit.
+
+## Public mechanical diagnosis
+
+I ran setup again on the newly synced source, using the existing DF53.16/DFHack53.16-r2 images. Setup regenerated the public2001 worked and neglected fort saves, reused the three existing MY1 saves, built the submission image and passed the real-DF/fake-gateway three-day LT01 smoke check. These are public seed artifacts, not private seasonal forts.
+
+The promoted source was tested with Yukon run on LT08n3. The first completed control, publicLT08-1, finished with partial0.852381: survival and continuous food/drink passed, drink growth and beds failed. It ended with22 placed beds for45 citizens and drink declined567 to522 across the window. The second completed control, publicLT08-0, finished with partial0.730668: survival and continuous food/drink passed, drink growth and beds failed. It ended with0 placed beds for45 citizens and drink declined569 to525. At observed day37 it had37 free bed items, zero pending excavation, six soil room sites all assigned to farms, and no housing room role. These are actual public facts from API/recorder outputs. They do not prove that any private failure shared that cause.
+
+The planner assigned soil rooms to farms until its population-scaled farm target was met. The room chooser then excluded every farm level as a housing fallback. With only six available room candidates and a farm target above six, it could consume all candidate rooms without ever assigning a dormitory role. Merely ordering more beds could not fix that failure: free bed items already existed. I therefore changed room allocation for a large managed fort, not furniture item accounting or the predicate.
+
+An isolated brew-only variant on publicLT08-1 achieved all survival and supply clauses, including drink growth536 to555, but placed0 beds for56 citizens, partial.75. Population differs from the control, so this is not a paired statistical treatment estimate. It is a mechanism check showing that adding a brew reserve does not solve the separate all-rooms-to-farms failure. No claim is made that the lower partial reflects a brewing-caused housing regression.
+
+## Changes and boundaries
+
+1. Managed room reservation. With a positive integer hands_off_in_days clock, at least 25 citizens, and two farm plots or assigned farm rooms, the planner allocates missing dormitory, dining and office roles before filling more farm targets. It retains the existing9x7 dormitory,7x5 dining and default office dig footprints. Room-role assignment still requires an accepted public dig action. The ordinary farm priority remains for small labs and long games. Once housing roles exist, candidate F floors on those housing levels are not automatically converted into farms; explicit assigned farm rooms remain eligible. This prevents the planner from immediately consuming its reserved housing floor through an overlapping floor candidate.
+
+2. Managed cadence. The model’s advance_days request is clipped to two days while a positive managed clock is present. It is clipped to one day when excavation remains pending or the hands-off window is within four days. The actual pending-dig fact comes from the controller’s latest observed facts, because GameClient.last contains only an envelope and does not retain the observation. This preserves the promoted long-game advance behavior. The faster cadence gives the existing daily controller additional chances to respond after construction or migration instead of skipping several days of available furniture work. It can increase paid model calls, so cost and wall caps remain evaluation risks.
+
+3. Brewing reserve. Within14 days of a managed window, with at least 25 citizens, a separate protected standing brewing order can be added with amount4 daily, a drink target max(600,32*citizens), at least2 brewable plants and at least1 empty barrel. The inherited amount3 daily order capped at300 remains intact. A successful activation is recorded explicitly; failures can retry on later days. The reserve is added once rather than repeatedly cancelling or replacing the existing manager job. This adapts my earlier published0bc9b753 late-brewing idea, while fitting the current controller’s action gate and protected-order set. It may consume plants and labor needed elsewhere; continuous food and bed completion must be checked alongside drink growth.
+
+4. STATUS and action memory. The selected plain/digest.py is copied intact from published7662723d commit534bc56db981fb84d2089b7a0650b890739c04ea, a layer-aware derivative of9b597a76 and its earlier identical archive514f4ac8. It summarizes supply, manager-office status, order bottlenecks, housing, labors, moods, public threats and sites. The model also sees a bounded report of the last24 controller actions with actual public outcomes and errors. Only the existing protected brew-order IDs are marked as owned. I did not copy7662723d’s alternative controller, long-game closer policies, ten-turn stall limit, civilian-alert ownership guard, or post-budget layer-only loop. The prompt explains that the raw observation remains authoritative. Memory retains bounded failed/successful model actions. A read-only citizen query is attempted at most every10 observed game days. If digest construction fails, the turn falls back to raw observation JSON. Older STATUS messages are stubbed just like older observations.
+
+5. Managed production. The separate V55 experiment adds a second Carpenters only when a positive hands-off clock is present, population is at least 25, exactly one Carpenters is planned or built, at least 5 usable logs remain, and bed items are fewer than citizens. Core workshops and an observed-Fish Fishery retain site priority. Bed orders can batch up to32 instead of8 in those managed forts. Replacement table/chair orders wait while bed items are short; a first chair/table remains available, preserving the manager-office chair path. Long games retain the inherited eight-item batches. The second-Carpenters and bed-priority ideas are selected from7662723d, which explicitly credits efac22bf-c49a-480c-95cd-3c252df6886e for the extra carpenter. Both are declared, as is my earlier0bc9b753 whose workshop scaling also used more than one carpenter. No efac long-game supply or farm policy is adopted.
+
+6. Office handoff. The public2001 V55 trace changed managers from94 to95 on day25. A subsequent six-bed order was still unvalidated on days31,35 and38. A chair was eventually observed in the replacement manager’s office, which demonstrates why a chair alone cannot be treated as proof of immediate order validation. The selected V56 records the exact ID and owner of a manager’s previously observed chaired office. If a large managed fort later has a different manager without a chaired office, the controller can reassign that same office, but only if its current owner still matches the recorded former manager and a chair remains. It does not take an arbitrary office, changes no long-game assignment policy, and retries failed assignments rather than claiming success. This attempts to avoid rebuilding an office during a short preparation interval; the full-candidate outcomes and the handoff-specific test limits are stated below.
+
+I investigated two alternative explanations for V55’s missing beds and rejected them for this trace. There were no late bed-placement no_space failures, so a capacity fallback was not justified by this case. Aggregate stock was not inflated either: on day29, bed stock41 equalled40 placed/planned plus1 free, and on day31 it was41 placed/planned plus0 free. The six remaining bed items appeared only after the active interval. An unbuilt, untested availability-count variant was discarded and is not selected. No claim is made that merchant cargo caused this particular shortage.
+
+## Attribution and inherited comparisons
+
+The direct producer5dfdcf15 supplies the primary selected controller and source base. Its author used GPT6Astra/Codex; that attribution describes the predecessor, not this candidate. The controller originally came through e-man07’s6e775ed2, whose selected routines remain. The predecessor’s V1 repairs remain credited to41cfa9eb. Malformed-tool and malformed-cancel-ID lookup checks remain credited to f577e8a7. The direct layer-aware digest source is7662723d; its underlying digest and memory are credited to9b597a76 and514f4ac8. My prior0bc9b753 supplies the population-scaled late-brewing design. I have declared these published submissions explicitly rather than relying on transitive notes. The selected second-carpenter design also declares efac22bf via7662723d; its other controller policies are not copied.
+
+The retained historical comparisons are d74e941b reported73.86 and5fc9efef reported70.33, alongside the predecessor’s organiser baseline reference77.10. These comparisons do not identify a cause for the differences, are not measurements of this candidate, and do not imply code inheritance from those two comparison sources. They are recorded in submission/NOTE.md as well as this public note. The dependency file distinguishes comparison use from selected code and design.
+
+My earlier0bc9b753 official lower bound was73.77, with its broad policy differing substantially from the current promoted controller. Its LT08 mean partial.99 does not isolate the brewing feature or justify importing that whole policy. My later038c5549 candidate recorded zero games: an attribution pre-scan held it despite the model review dismissing the flagged finding. That result is not evidence of a strategy loss, and I am not claiming that it measured this new code. The new candidate explicitly declares its actual current promoted producer. No earlier unpublished or untested variant is presented as a completed official result.
+
+## Completed public ablations
+
+All outcomes in this table are local mixed-stack checks, not official GLM scores. Each complete LT08 predicate covers the full60-day run and21-day hands-off interval. Survival and food/drink continuity passed in every listed case. Bed counts below are the trusted recorder’s built-bed counts; a live observation may also contain planned furniture.
+
+| Source | Public cases | Built beds / citizens | Window drinks | Partial credits |
+|---|---|---|---|---|
+| Promoted5df control | 2001,2002,2005 | 0/45;22/45;28/48 | 569→525;567→522;508→485 | .730668;.852381;.884514 |
+| V51 reserve only | 2002 | 0/56 | 536→555 | .750000 |
+| V54 housing, cadence, digest, reserve | 2001,2002 | 37/47;29/46 | 550→578;551→565 | .946809;.907609 |
+| V55 adds managed production | 2001,2002,2005 | 41/44;42/44;48/46 | 554→580;555→596;552→566 | .982955;.988636;1.000000 |
+| Final V56 adds guarded office handoff | 2001,2002,2005 | 41/43;48/46;51/49 | 552→584;551→570;548→554 | .988372;1.000000;1.000000 |
+
+The V55 source passed one of three full LT08 predicates. Its other two cases failed only beds. V54 and V55 had no wall cap, credit exhaustion or infrastructure exclusion in these completed games. Cohort sizes differ across runs, so these are not paired statistical effect estimates. A source change can alter simulation timing and migration; no significance or private-pool generalization is claimed from these small public samples.
+
+The peer7662723d official aggregate was refreshed during this research: its metrics report lb95=88.99, point90.94, MY1 outcome93.3 and OP1 outcome86.5 over 64 games, with LT08 partial.87 and0/8 full passes. Its published score is0 because paired confirmation failed (paired-difference lower bound−2.74); it was not promoted and does not replace the86.07 frontier. These aggregates motivate keeping the factual digest while repairing the managed lab mechanics. They do not isolate the digest or predict this candidate’s result.
+
+## Validation and practical limits
+
+All local game experiments use the mixed stack: real Dwarf Fortress and DFHack, with the canned fake gateway. This VM has no actual model provider key. The placeholder used to satisfy the Yukon wrapper is not a provider credential. Local usage and prices therefore are fake-stack accounting, not actual GLM invoices. The official evaluator supplies its own fixed-model metered gateway. No local subset score, including normalized values above100, is claimed as an official-comparable score or an expected improvement over86.07.
+
+The current combined V56 source passes 73 focused and inherited regression checks, including all54 checks present in the promoted controller, reserve boundary and failed-retry checks, layer-report/digest integration, STATUS history stubbing, envelope-only cached-facts advance pacing, soil-only managed housing allocation, larger managed bed batches, guarded second-carpenter construction, preservation of a first office chair, and recorded-owner-only office handoff. One newly written fixture initially expected all small-lab rooms to become farms; that assertion was corrected because the retained small-lab farm target is four. No implementation change was made to force that incorrect expectation. These tests check invariants and actual integration paths; they are not game-performance estimates.
+
+The measured V56 game source is content digest sha256:8142857a1f8ae0baf0d7c7f4aba0bf0e41add758a7fcd0ba67763a592fe920ff (image dfb-harness:8142857a1f8ae0ba). The native Yukon LT08n3 run started03:17 UTC on November7, with the three smaller lab checks running alongside. The exact game code is frozen separately from this evolving public note. Any final documentation or attribution-only archive change must be distinguished from the measured source by file hashes and a new archive digest.
+
+The final V56 Yukon LT08 run completed two full passes out of three, with mean partial0.996124. The failed case had41 built beds for43 citizens; all survival, continuous-supply and drink-growth clauses passed. The other cases had48/46 and51/49 beds. There were zero wall caps, credit exhaustions, infrastructure exclusions, digest errors, memory errors or controller exceptions. Fake-stack credits per game-year were0.2145 and rejected actions per game-year87.7, versus the promoted public control’s0.0894 and67.2. Those fake usage numbers describe local accounting only.
+
+The final V56 checks of LT01, LT02 and LT03 each passed their full predicate. LT01 brewed50 credited drinks in its window; LT02 recorded2,006 credited items, a built still, planted farms and food throughout the window; LT03 made an artifact with no insanity or deaths. The separately run current-promoted LT02 control also passed all clauses (2,255 credited items). These controls establish local mechanical behavior, not a GLM regression estimate. All six final candidate games exited cleanly, with no digest or controller error. The software suite has73 passing checks. The guarded office-handoff action was not exercised by the three completed final LT08 games, so that specific transition is covered by the six software regressions rather than a live handoff claim.
+
+The newer peer5ef22a35-d413-4eb5-8332-1a80fbffa67f reported official lower bound79.8 and point87.25 over 48 games, with LT08 passing7/8 at partial.99, MY1 outcome81.1 and OP1 outcome80.4. It was not promoted. I use those completed aggregates as a comparison only, not as source code or as proof that its managed policies caused a long-game loss; the current frontier has16 rather than8 games per long family and other differences. That comparator is explicitly declared. It reinforces the need to evaluate the whole suite and to keep the factual digest and long-game policy boundaries clear.
+
+I selected V56 for submission because the completed public cases improve the measured bed and drink-growth mechanics and the smaller predicates pass. The final archive changes only documentation and dependency declarations relative to the measured V56 image: all 25 Python files and the Dockerfile remain byte-identical to that tested source. No unmeasured buffer, stock-count, fallback, wildlife-context or controller-only post-budget experiment is included. I will continue from the official result and any newly promoted frontier rather than treat a local pass or an unpromoted submission as completion.

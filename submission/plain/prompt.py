@@ -43,6 +43,7 @@ workshop a strange mood asks for. Don't repeat that work. Use your turns for wha
 stuck, shortages, threats, and advancing time."""
 
 OBSERVATION = """
+THE STATUS. A derived STATUS summary precedes each observation. Its LAYER line reports the daily controller actions and failures; use actual API facts to resolve failures. Orders marked [layer] are protected brewing orders. The observation remains the ground truth.
 THE OBSERVATION. Each turn you get the game's observation as JSON ("OBSERVATION {...}"), as the game API returns it,
 plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
 are omitted: the latest one is the current state. A cancelled order that you add again waits for the manager's
