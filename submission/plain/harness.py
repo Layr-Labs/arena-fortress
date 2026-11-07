@@ -17,6 +17,11 @@ farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT
 and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
 workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
 
+This variant adds, on top of cut 2: a wall-clock guard (the task's limits.wall_s is tracked with time.monotonic; when
+under 10% is left the model loop hands over to the layer, which sprints to the horizon on big advances under 2%), a
+gateway probe that returns the loop to the model after a model-failure handover, and adaptive advance caps read from
+the layer's view of the fort.
+
 Run: python -m plain   (reads DFBENCH_TASK)
 """
 import copy
@@ -47,6 +52,11 @@ CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reason
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
 UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
+WALL_RESERVE = 0.10         # hand the run to the layer when less than this fraction of the wall clock is left
+WALL_FINAL_RESERVE = 0.02   # inside layer-only: under this fraction, sprint to the horizon on big advances
+PROBE_EVERY_DAYS = 7        # game days between gateway probes while the loop is in layer-only mode
+PROBE_MAX_TOKENS = 16       # the probe is a minimal call: system + one short user message
+HANDS_OFF_NEAR = 14         # a hands-off window this close caps advances: the layer must act daily inside it
 
 
 def log(kind, **kw):
@@ -106,7 +116,8 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0,
+                      "adv_clamped": 0, "probe_ok": 0, "probe_fails": 0, "wall_sprints": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
@@ -115,6 +126,10 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        w = getattr(task, "wall_s", None)   # DFBENCH_TASK limits.wall_s (seconds); absent in some stubs
+        self.wall_s = w if isinstance(w, (int, float)) and w > 0 else None
+        self.t0 = time.monotonic()          # wall-clock guard: elapsed real time since the run was built
+        self.probe_day = None   # game day of the last layer-only gateway probe
 
     def setup(self):
         t = self.game.task()
@@ -129,7 +144,47 @@ class Plain:
         if info.get("brief"):
             self.extra["scenario"] = info["brief"]
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
-            system_chars=len(self.messages[0]["content"]))
+            system_chars=len(self.messages[0]["content"]), wall_s=self.wall_s)
+
+    def wall_left(self):
+        """Seconds of the task's wall clock left (time.monotonic based), or None when no wall limit is set."""
+        if self.wall_s is None:
+            return None
+        return self.wall_s - (time.monotonic() - self.t0)
+
+    def wall_frac(self):
+        """The wall clock left as a fraction of the limit, or None when no wall limit is set."""
+        left = self.wall_left()
+        return None if left is None else left / self.wall_s
+
+    def wall_low(self, frac=WALL_RESERVE):
+        f = self.wall_frac()
+        return f is not None and f < frac
+
+    def wall_sprint_due(self):
+        f = self.wall_frac()
+        return f is not None and f < WALL_FINAL_RESERVE
+
+    def sprint_days(self, resp):
+        """The wall-sprint advance: min(MAX_DAYS, the days left in the run), so the layer reaches the horizon."""
+        left = resp.get("days_left")
+        return max(1, min(MAX_DAYS, left)) if isinstance(left, int) and left > 0 else MAX_DAYS
+
+    def probe(self):
+        """A minimal gateway call from layer-only mode (system + one short user message, tiny max_tokens).
+        False on any failure; the failure count only steers the log."""
+        params = {k: v for k, v in CHAT.items() if k != "tool_choice"}   # no tools here, so no forced tool call
+        params["max_tokens"] = PROBE_MAX_TOKENS
+        params["seed"] = self.seed
+        try:
+            self.model.chat([self.messages[0], {"role": "user", "content": "reply ok"}], **params)
+        except Exception as e:
+            self.stats["probe_fails"] += 1
+            log("probe_fail", error=str(e)[:160], fails=self.stats["probe_fails"])
+            return False
+        self.stats["probe_ok"] += 1
+        log("probe_ok", fails_before=self.stats["probe_fails"])
+        return True
 
     def quiet_days(self, resp):
         obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
@@ -143,8 +198,11 @@ class Plain:
 
     def layer_only(self, reason):
         """No model: run the deterministic layer alone to the horizon (the baseline exited here and left the fort
-        unmanaged). The layer runs once per game day; between its passes a day or two passes. False when the game is
-        over or the hands-off window has begun."""
+        unmanaged). The layer runs once per game day; between its passes a day or two passes. Every PROBE_EVERY_DAYS
+        game days a minimal gateway probe goes out and success returns to the normal loop with the message history
+        intact; when the wall clock is nearly spent, big advances take the run to the horizon instead of the usual
+        quiet pacing. False when the game is over or the hands-off window has begun, True when the model loop may
+        resume."""
         self.stop_reason = reason
         log("layer_only", reason=reason)
         while True:
@@ -159,6 +217,19 @@ class Plain:
                 except (HandsOff, GameOver) as e:
                     self.stop_reason = type(e).__name__
                     return False
+            day = resp.get("day")
+            if isinstance(day, int) and (self.probe_day is None or day - self.probe_day >= PROBE_EVERY_DAYS):
+                self.probe_day = day
+                if self.probe():
+                    return True
+            if self.wall_sprint_due():
+                days = self.sprint_days(resp)
+                left = self.wall_left()
+                log("wall_guard", phase="sprint", days=days, left_s=round(left, 1) if left else left)
+                self.stats["wall_sprints"] += 1
+                if not self.advance(days, "wall_sprint"):
+                    return False
+                continue
             if not self.advance(self.quiet_days(resp), reason):
                 return False
 
@@ -178,9 +249,17 @@ class Plain:
                 except (HandsOff, GameOver) as e:
                     self.stop_reason = type(e).__name__
                     break
+            if self.wall_low():   # the wall clock is nearly up: no more model calls, the layer plays it out
+                left = self.wall_left()
+                log("wall_guard", phase="layer_only", reason="reserve", left_s=round(left, 1) if left else left)
+                if not self.layer_only("wall"):
+                    break
+                idle = streak = 0
+                continue
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 if not self.layer_only("budget"):   # no model left; the layer still runs
                     break
+                idle = streak = 0
                 continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
@@ -202,6 +281,7 @@ class Plain:
                 if streak >= MAX_API_STREAK:
                     if not self.layer_only("model_failing"):   # the model is unusable; the layer plays on
                         break
+                    idle = streak = 0   # the probe recovered the gateway: judge the next turns on their own
                     continue
                 if not self.advance(1, "model_error"):
                     break
@@ -269,6 +349,39 @@ class Plain:
             resp = self.model.chat(self.messages, tools=self.tools, **params)
         return resp["choices"][0].get("message") or {}
 
+    def advance_cap(self):
+        """The cap for a model-requested advance_days, from the layer's view of the fort.
+
+        WARNING on freshness: the guard's attributes describe the step() the layer ran most recently — once per game
+        day, before the model's turn. Mid-day they do not refresh, so an advance approved here acts on that morning's
+        picture and the fort can change under it; that is why the caps are tight. A missing attribute (the layer has
+        not stepped yet, or changed shape) only means the cap stays loose.
+        """
+        g = self.guard
+        cap = MAX_DAYS
+        o = getattr(g, "o", None)
+        o = o if isinstance(o, dict) else {}
+        if o.get("moods"):   # a strange mood: check its workshop and items daily
+            cap = min(cap, 1)
+        # Visible hostiles are NOT clamped: an advance stops early on the hostile_visible tripwire by itself, so a
+        # clamp here only doubles the call count. Measured on OP1 s0: 156 vs the base's 76 calls/game-year and
+        # 6893 s vs 3793 s of wall time for the same score (runs/cmp-*-op1-s0) — on the official 5400 s wall that
+        # is a cap-out risk for no defensive gain.
+        if getattr(g, "surge", False):   # a migrant wave: keep the carpenters on the beds
+            placed = (getattr(g, "placed", None) or {}).get("bed") or 0
+            st = getattr(g, "st", None)
+            stocked = (st.get("beds") or 0) if isinstance(st, dict) else 0
+            try:
+                need = g.bed_target()
+            except Exception:
+                need = (getattr(g, "cit", None) or 0) + (12 if g.surge else 3)
+            if placed + stocked < need:
+                cap = min(cap, 2)
+        ho = getattr(g, "hands_off", None)
+        if isinstance(ho, int) and 0 < ho <= HANDS_OFF_NEAR:   # the hands-off window is close: the layer preps daily
+            cap = min(cap, 3)
+        return cap
+
     def run_call(self, call):
         """Run one tool call and append its result. Returns True when game time moved."""
         fn = call.get("function") or {}
@@ -288,10 +401,13 @@ class Plain:
             self.stats["churn_refused"] += 1
         else:
             if name == "advance_days":
+                cap = self.advance_cap()
                 try:
-                    args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
+                    req = max(1, int(args.get("days") or 1))
                 except (TypeError, ValueError):
-                    args = {**args, "days": 1}
+                    req = 1
+                args = {**args, "days": min(cap, req)}
+                self.stats["adv_clamped"] += req > args["days"]
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1

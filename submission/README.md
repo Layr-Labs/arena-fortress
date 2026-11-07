@@ -1,51 +1,45 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Migrant-bed capacity, wall and pacing guards (batch 1)
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+This builds on the promoted leader `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4` (main), which is kept as the base:
+the deterministic layer, the digest model loop, the closers, the ownership guard and the test layout are its code
+except where this note says otherwise. New work, in two groups:
 
-## Operation
+## Migrant-bed capacity (LT08)
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+- The bed stock for a migrant task is sized to the wave's peak (`SURGE_BEDS = 20`, the seed forts' waves reach
+  42-49 citizens per `docs/SEED-FORTS.md`), not to the census when the order runs. Idea first measured by
+  ryan48's `7c3e587`.
+- A second Carpentry starts at 10 citizens when the bed stock is short on a surge task (was 15, unconditional
+  on beds). The pre-window carpenter bonus is unchanged otherwise.
+- When `place_furniture` into the primary dormitory answers `no_space`, the day's free beds go to the next
+  biggest dug floor on the same level (farm rooms and their levels stay out of the bedrooms) and, if none, to an
+  unused area site on another level; the new floor gets a dormitory zone unless one is already there. One
+  attempt a day; a floor once tried is not retried. Idea first measured by pepedesigner's `a9f894e`
+  (LT08 pass 0/8 -> 2/8 in its official run).
+- The model loop's `advance_days` is capped (1-3 days, by the layer's view: a mood waits, hostiles are visible,
+  a surge fort is short of beds, or a hands-off window is within 14 days) so the layer gets daily passes to
+  build and place while it matters. Inside 4 days of a window the existing 1-day rule still wins.
+- The system prompt tells the model that on a surge task the layer owns the wave's bed chain (ordering, placing,
+  overflow), so it does not duplicate `make_bed` work. Pattern from pepedesigner's `1812e71`.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+## Robustness and pacing guards (new here)
 
-## Repairs
-
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+- **Wall guard**: the harness now tracks `limits.wall_s` (time.monotonic). Under 10% left, the model loop hands
+  the run to the deterministic layer; inside layer-only, under 2% left, big advances (up to the horizon) take
+  the run to the end. Previously the harness ignored the wall clock entirely.
+- **Gateway probe**: the "model failing" handover used to be permanent (five errors = no model to the horizon).
+  Layer-only mode now probes the gateway every 7 game days with a minimal call and returns to the normal loop
+  on success, message history intact.
+- Adaptive advance caps (above) and accounting for them (`adv_clamped`, `probe_ok`, `probe_fails`,
+  `wall_sprints` in the harness stats).
 
 ## Checks
 
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+- `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests`:
+  **57 tests pass** (46 inherited + 11 new: 5 bed-overflow, 6 loop-guard).
+- `docker build` of `submission/` (pinned base, `USER nobody`) builds clean.
+- Real-model local games (node1, box64 DF, the season's public seeds; official games use the private pool, so
+  these are directional, not predictions): LT08 mod 0.92 partial vs the unmodified leader 0.82 on the same seed
+  and wall setting; MY1 mod 100.0 = leader 100.0 (tier 4/4); LT01 1.00, LT02 1.00, LT03 1.00 partial each
+  (the leader's official per-task means are 1.00/1.00/1.00); no wall-capped game, no credit exhaustion
+  (<= 0.09 USD of the 0.50 budget per game).

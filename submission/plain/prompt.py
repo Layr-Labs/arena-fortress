@@ -112,8 +112,10 @@ ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before yo
 autochop/seedwatch/autofarm, the Carpenters/Still/Kitchen workshops, standing brew/barrel/cook orders, digging rooms,
 farm plots, ordering and placing beds, tables and chairs, the dormitory and dining zones, the shelter burrow, the
 workshop a strange mood asks for, and near the end of the run (or before a hands-off window) extra standing orders
-for drink, meals, barrels, beds and seats. Don't repeat that work. The STATUS digest's LAYER line lists what the
-layer tried today and what the API answered: a refused step there is work for you (another site, a missing input),
+for drink, meals, barrels, beds and seats. On a migrant-surge task the layer also sizes the wave's bed order
+(make_bed), places those beds itself, and re-routes placements that come back no_space to another room; don't add
+your own make_bed orders for the wave or retry its placements. Don't repeat that work. The STATUS digest's LAYER
+line lists what the layer tried today and what the API answered: a refused step there is work for you (another site, a missing input),
 and orders marked [layer] are its standing orders. Those orders and the civilian alert are its own: cancel_order on
 them and civilian_alert are refused (error_code layer_owned). Use your turns for what it can't see: why something is
 stuck, shortages, threats, moods, and advancing time.

@@ -8,8 +8,10 @@ Lineage: the layer and its regular steps are e-man07's submission 6e775ed2 as re
 Two housing-measurement steps (seats counted inside dining zones, re-zoning loose furniture) come from e-man07's
 efac22bf. This copy adds the "closer" steps (endgame supply mode for the scored final stretch, the pre-window boost on
 lab tasks, a housing check sized to the window), a progression step for full-year games (the Hamlet rank's created
-wealth, from wood crafts made only from surplus logs), a bed target sized for a migrant wave, an action report for the
-model loop, and the ownership record the model-loop guard reads (owned orders).
+wealth, from wood crafts made only from surplus logs), a bed stock sized to a migrant task's wave peak (SURGE_BEDS)
+with a second Carpentry while that stock is short, a no_space overflow floor that keeps beds installable once the
+primary dormitory is full, an action report for the model loop, and the ownership record the model-loop guard reads
+(owned orders).
 """
 import json
 import math
@@ -30,6 +32,10 @@ REPORT_KEEP = 24        # action report lines kept for the model loop
 WEALTH_TARGET = 5500    # progression: the Hamlet rank needs 20 citizens and 5000 created wealth (docs/SUCCESS.md)
 PROGRESS_FROM_DAY = 40  # progression: crafts start once the core setup has had its logs
 LOG_RESERVE = 25        # progression: crafts take logs only above this stock, so beds and barrels come first
+SURGE_BEDS = 20         # bed_target: a migrant task's waves peak at 42-49 citizens (docs/SEED-FORTS.md), so the
+                        #   stock is sized to the peak, not to the census at the moment the orders run
+OVERFLOW_ERROR = "no_space"  # overflow: place_furniture's answer when a room's floor has no space left
+OVERFLOW_MIN_TILES = 6  # overflow: a diversion floor needs this much open space, like a dig room's own sites
 MOOD_WORKSHOP = {
     "WOODCRAFT": "Craftsdwarfs", "STONECRAFT": "Craftsdwarfs", "BONECARVE": "Craftsdwarfs", "CARPENTRY": "Carpenters",
     "MASONRY": "Masons", "WOOD_BURNING": "WoodFurnace", "GLASSMAKER": "GlassFurnace", "TANNER": "Leatherworks",
@@ -73,6 +79,8 @@ class Overseer:
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
+        self.overflow = set()    # site ids already tried as bed-overflow floors: each is considered once
+        self.last_place = {}     # raw result of the last place_furniture (the overflow divert reads its error)
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -229,7 +237,7 @@ class Overseer:
 
     def bed_target(self):
         """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock."""
-        return self.cit + (12 if self.surge else 3)
+        return self.cit + (SURGE_BEDS if self.surge else 3)
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -314,7 +322,9 @@ class Overseer:
             self.housing_check()
         if self.surge:
             carp = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict) and w.get("type") == "Carpenters")
-            if carp == 1 and self.cit >= 15 and self.logs() >= 5:
+            beds = (self.placed.get("bed") or 0) + (self.st.get("beds") or 0)
+            short = beds < self.bed_target()   # the wave's peak outruns the bed stock: every builder counts
+            if carp == 1 and self.logs() >= 5 and (self.cit >= 15 or (short and self.cit >= 10)):
                 self.build("Carpenters", retry=3)   # one shop can't make a wave's beds before the window
 
     def endgame_supply(self):
@@ -453,6 +463,7 @@ class Overseer:
     def place(self, key, kind, room, count):
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
+        self.last_place = result   # the bed overflow divert reads the refusal reason of the dormitory's attempt
         if not result.get("ok"):
             return []
         points = d(result.get("result")).get("at") or []
@@ -460,12 +471,54 @@ class Overseer:
             points = [points]
         return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
 
+    def floor_full(self):
+        """Whether the last place_furniture was refused for lack of floor (the room is full, not busy or hidden)."""
+        return d(self.last_place).get("error_code") == OVERFLOW_ERROR \
+            or OVERFLOW_ERROR in str(self.last_place.get("error") or "")
+
+    def overflow_site(self, dorm):
+        """Where beds go when the primary dormitory's floor answered no_space: the largest other dug area on the
+        dormitory's own level (farm rooms and their levels stay out of the bedrooms), else the largest unused
+        area site on another level. Floors already tried as overflow are not considered again."""
+        farm_z = {r.get("z") for r in self.kind("R") if self.roles.get(r["id"], "").startswith("farm")}
+
+        def free_floor(s, allow_rooms):
+            return (s.get("id") != dorm.get("id") and s.get("id") not in self.overflow
+                    and s.get("z") not in farm_z and (s.get("open_tiles") or 0) >= OVERFLOW_MIN_TILES
+                    and (s.get("kind") == "A" or (allow_rooms and s.get("dug"))))
+
+        same = [s for s in self.sites if s.get("z") == dorm.get("z") and free_floor(s, True)]
+        other = [s for s in self.kind("A") if s.get("z") != dorm.get("z") and free_floor(s, False)]
+        biggest = lambda pool: max(pool, key=lambda s: s.get("open_tiles") or 0, default=None)
+        return biggest(same) or biggest(other)
+
+    def overflow_beds(self, dorm, n):
+        """The primary dormitory's floor is full: put this day's free beds on the next floor instead and zone it (a
+        dormitory zone already there is reused). The act gate allows one attempt a day; a floor is marked as tried as
+        soon as it is attempted, so the next pass knocks somewhere else instead of on the same full one."""
+        alt = self.overflow_site(dorm)
+        if not alt:
+            return
+        result = d(self.act("beds_ov", "place_furniture", {"kind": "bed", "site": alt["id"], "count": n},
+                            retry=1, limit=30))
+        if not result:
+            return
+        self.overflow.add(alt["id"])
+        points = d(result.get("result")).get("at") or []
+        if points and not isinstance(points[0], list):
+            points = [points]
+        placed = [{"kind": "bed", "x": x, "y": y, "z": z} for x, y, z in points]
+        if placed and self.needs_zone(alt, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
+            self.act("z_dorm_ov", "make_zone", {"kind": "dormitory", "site": alt["id"]}, retry=3)
+
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
+            if n > 0 and not placed and self.surge and self.floor_full():
+                self.overflow_beds(dorm, n)   # a migrant wave outruns the primary dormitory's floor
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
                 self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
         if dine:
