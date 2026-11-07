@@ -11,8 +11,11 @@ One turn:
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
-There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
-reads the raw facts. README.md lists the obvious places to improve.
+Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATUS digest before the observation
+(digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
+farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
+and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
+workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -27,21 +30,23 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from overseer.harness import Overseer
 
-from . import prompt
+from . import digest, prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
+LAYER_TOOLS = ("civilian_alert",)   # the deterministic layer owns these: the model's calls are refused locally
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
+UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
 
 
 def log(kind, **kw):
@@ -84,7 +89,8 @@ def window(messages):
     out = []
     for i, x in enumerate(m):
         c = x.get("content")
-        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and c.startswith("OBSERVATION {"):
+        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and (
+                c.startswith("OBSERVATION {") or c.startswith("STATUS")):
             x = {**x, "content": "OBSERVATION (older, omitted)"}
         elif x["role"] == "tool" and i != last_tool and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
             x = {**x, "content": c[:TOOL_RESULT_OLD] + " ...(trimmed)"}
@@ -104,8 +110,11 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
-        self.guard = Overseer(game)
+        self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
+        self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
         self.guard_day = None
+        self.units = None     # the last `units` query result (citizens), for the digest's labor check
+        self.units_day = None
 
     def setup(self):
         t = self.game.task()
@@ -114,6 +123,10 @@ class Plain:
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
+        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
+            self.guard.set_task(info)
+        except Exception as e:
+            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -122,8 +135,41 @@ class Plain:
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
             system_chars=len(self.messages[0]["content"]))
 
+    def quiet_days(self, resp):
+        obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
+        left = resp.get("hands_off_in_days")
+        if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
+            return 1
+        try:
+            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
+                return 1
+        except Exception:
+            pass
+        return 2
+
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
+
+    def layer_only(self, reason):
+        """No model: run the deterministic layer alone to the horizon (the baseline exited here and left the fort
+        unmanaged). The layer runs once per game day; between its passes a day or two passes. False when the game is
+        over or the hands-off window has begun."""
+        self.stop_reason = reason
+        log("layer_only", reason=reason)
+        while True:
+            resp = self.game.observe()
+            if resp.get("game_over"):
+                self.stop_reason = "game_over"
+                return False
+            if resp.get("day") != self.guard_day:
+                self.guard_day = resp.get("day")
+                try:
+                    self.guard.step(resp)
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    return False
+            if not self.advance(self.quiet_days(resp), reason):
+                return False
 
     def run(self, max_turns=None):
         self.setup()
@@ -142,30 +188,32 @@ class Plain:
                     self.stop_reason = type(e).__name__
                     break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
-                self.stop_reason = "budget"
-                break
+                if not self.layer_only("budget"):   # no model left; the layer still runs
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
-            self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
-                obs, separators=(",", ":"), ensure_ascii=False)})
+            self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
             try:
                 msg = self.chat()
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
-                self.stop_reason = "budget_exhausted"
-                break
+                self.messages.pop()
+                if not self.layer_only("budget_exhausted"):   # the credits are gone; the layer plays on
+                    break
+                continue
             except ModelError as e:
                 self.stats["api_errors"] += 1
                 streak += 1
                 log("model_error", error=str(e)[:300], streak=streak)
                 self.messages.pop()
                 if streak >= MAX_API_STREAK:
-                    self.stop_reason = "model_failing"
-                    break
+                    if not self.layer_only("model_failing"):   # the model is unusable; the layer plays on
+                        break
+                    continue
                 if not self.advance(1, "model_error"):
                     break
-                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
@@ -191,6 +239,31 @@ class Plain:
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
 
+    def user_message(self, resp, obs):
+        """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
+        observation as JSON. Any failure in the digest falls back to the raw observation alone."""
+        raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
+        try:
+            env = {k: resp.get(k) for k in ENVELOPE if k in resp}
+            day = env.get("day")
+            if isinstance(day, int) and (self.units_day is None or day - self.units_day >= UNITS_EVERY):
+                try:
+                    q = self.game.query("units", kind="citizens")
+                    self.units = q.get("result", q)
+                    self.units_day = day
+                except GameAPIError as e:
+                    log("query_error", query="units", error=str(e)[:200])
+                    self.units_day = day   # don't retry every turn
+            status = digest.digest(obs, env, self.memory, units=self.units,
+                                   layer={"report": self.guard.report, "owned": self.guard.owned})
+            self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
+            compact = digest.compact_observation(obs)
+            return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
+        except Exception as e:   # never let the digest cost a turn
+            self.stats["digest_errors"] = self.stats.get("digest_errors", 0) + 1
+            log("digest_error", error=repr(e)[:300])
+            return raw
+
     def chat(self):
         params = {**CHAT, "seed": self.seed}
         try:
@@ -214,6 +287,8 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
+        # name must be a string before the set lookup, and only hashable cancel ids reach the cache (peer
+        # f577e8a7's failure cases, idea credited: validate before cache access; the API rejects the rest)
         if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -227,6 +302,14 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                try:
+                    if self.guard.beds_unmet():   # a surrogate goal the layer is still catching up on: advance
+                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
+                except Exception:
+                    pass
+                left = (self.game.last or {}).get("hands_off_in_days")
+                if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
+                    args["days"] = 1
             try:
                 resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
@@ -240,11 +323,16 @@ class Plain:
         return moved
 
     def refuse(self, name, args, tick):
-        """The order-churn guard: a local refusal (no API call), or None."""
-        order_id = args.get("order_id")
-        if name == "cancel_order" and type(order_id) is int and order_id in self.guard.brew_orders:
-            return {"ok": False, "error_code": "order_churn", "error": (
-                f"not run: order {order_id} is the controller's daily brew order and stays in place.")}
+        """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
+        if name in LAYER_TOOLS:
+            return {"ok": False, "error_code": "layer_owned", "error": (
+                f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
+                "alert keeps civilians from drink and food).")}
+        oid = args.get("order_id") if isinstance(args, dict) else None
+        if name == "cancel_order" and isinstance(oid, int) and oid in self.guard.owned:
+            return {"ok": False, "error_code": "layer_owned", "error": (
+                f"not run: order {oid} is a standing order of the deterministic layer; it keeps "
+                "drink, food, barrels and furniture coming, inside hands-off windows too.")}
         if not isinstance(tick, int):
             return None
         if name in ORDER_TOOLS:
@@ -279,6 +367,10 @@ class Plain:
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
+        try:
+            self.memory.record((self.game.last or {}).get("day"), name, args, resp)
+        except Exception as e:
+            log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
