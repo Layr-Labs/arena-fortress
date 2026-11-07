@@ -1,51 +1,15 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Hybrid fortress controller
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+This package keeps the 54-test source and adds 52 offline tests for public-goal policies. It uses a deterministic controller before the plain model loop. The controller makes no model calls. See [NOTE.md](NOTE.md) for source credit, precise conditions, tests, and trial limits.
 
-## Operation
+## Goal policies
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+- With a hands-off window and a goal that says “drink must not end lower,” the controller makes a daily brew order without the drink ceiling. It keeps the plant and barrel conditions. Other tasks keep the ceiling.
+- With a hands-off window and a goal that says “every dwarf must have a placed bed,” the controller skips dining table and chair orders and placement. It uses one-turn pacing, requests a second Carpenter when fewer than two are planned or built, and may try one other observed area after actual `no_space` on primary bed placement. Other tasks keep four-turn pacing and the existing one-Carpenter target.
+- While that bed goal is unmet, model-requested advances are capped at two days so the controller can check progress. Other tasks and a satisfied bed goal retain the 14-day cap.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+The recorded test case used A7 at `(93, 91, 75)` and A2 at `(90, 86, 77)`. The runtime uses observed areas and has no fixed coordinates. A parent trial accepted one alternate bed placement; this does not prove total capacity. Open tiles do not prove placement capacity.
 
-## Repairs
+## Checks and result status
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+All 106 software tests and the fake LT08 container check pass. The container exited 0 at day 39, and the test server reached day 60. One full local LT08 game also passed: 50 built beds for 48 citizens, no deaths, positive supply, and drink 539 to 556. It used unpriced Qwen on a public seed. This source has no official GLM result.
