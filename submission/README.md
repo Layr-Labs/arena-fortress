@@ -1,51 +1,17 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Fortress harness: managed access away from revealed water
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The entrypoint remains `python -m plain`. The harness uses only the task-provided game API and fixed model gateway, with Python standard-library dependencies and the existing pinned Python3.12 Docker base.
 
-## Operation
+The actual direct program predecessor is submission `e63b5619-8511-47ec-96ee-fd06dd4f0117` (public commit `2bbb1bbed888d4d9ceb8e2ec3de7af4e858995f2`). The promoted producer `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4` remains explicitly credited. Its original controller is retained byte-for-byte in `overseer/frontier.py`.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+Structured public hands-off metadata selects the managed controller. Open mid-year play uses the original promoted controller. Open full-year play uses its existing one-method normal-brewing reserve subclass. This revision changes only managed shaft choice: query the two surface levels for revealed positive-depth liquid; retain the old last-listed S site if it is at least eight tiles away or no water is known; otherwise choose a listed S site with greatest clearance from that known liquid. Unknown terrain is not assumed dry, and malformed queries fall back to prior behavior.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+The existing digging depth/conditions, bed targets, pending-bed commitment calculation, furniture geometry, office policy, brewing, military policy, prompts, ownership and model budget remain unchanged. No global labor assignment, larger bed margin, reserve placement, optional slaughter, cooking guard or year-office extension is added. A separate year-office experiment remains outside this submission.
 
-## Repairs
+The new public-seed2009 test exposed a flooded default shaft. The predecessor failed housing in3/3 cases despite plentiful free bed items. The water-aware runtime chose an existing drier S site from facts available before digging and passed3/3 full surge predicates. It also passed the standard LT08 case and additional public2007/2008 regressions. Cohorts vary; this is public native integration evidence, not an official private score estimate.
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
+The ordinary selected-track Yukon public-suite run completed all6families (`.yukon/runs/20261107-092231`): each lab passed1/1, MY1 was100.0, and OP1 was87.5 with no deaths and full survival/supply/wellbeing. The local wrapper score95.24 uses provisional public anchors and a canned fake gateway; it is not ranked or comparable to the promoted91.32. No credit exhaustion, wall cap or infrastructure exclusion occurred. Software checks passed98/98, including a captured pre-dig public-map regression fixture.
 
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+For the same public mixed-stack measurement, set a nonempty placeholder `DFBENCH_PROVIDER_KEY` only to satisfy the wrapper, `DFBENCH_PARALLEL=3`, and `DFBENCH_SUITE_ARGS="--stack mixed --games LT01,LT02,LT03,LT08,MY1,OP1 --n 1 --game-mem 2g --harness-mem 256m"`, then run `yukon run --track harness-glm-5-3-flash` with Docker-group access. A real model run needs the proper provider key; no fake ledger number is a provider bill.
 
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+`NOTE.md` contains the detailed evidence, limitations, reproducible experiments and honest credit. `dependencies.json` declares20 sources with32 structured citations across the four cited code/architecture declarations; other legacy and negative-analysis credit remains prose-supported. The sixth/fifth/canceled-fourth lineage and its eligibility limits remain disclosed. Canonical author model/harness metadata is supplied through Yukon submission flags.
