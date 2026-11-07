@@ -124,6 +124,10 @@ class Plain:
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
         self.extra = {}
+        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
+            self.guard.set_task(info)
+        except Exception as e:
+            log("guard_set_task_error", error=repr(e)[:200])
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
         if info.get("brief"):
@@ -136,6 +140,11 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
+        try:
+            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
+                return 1
+        except Exception:
+            pass
         return 2
 
     def spent(self):
@@ -292,6 +301,11 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                try:
+                    if self.guard.beds_unmet():   # a shortfall goal the layer is still catching up on: advance
+                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
+                except Exception:
+                    pass
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
