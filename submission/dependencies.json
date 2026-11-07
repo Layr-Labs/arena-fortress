@@ -1,72 +1,432 @@
 [
- {
-  "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
- },
- {
-  "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
- },
- {
-  "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
- },
- {
-  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
- },
- {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
- },
- {
-  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
- },
- {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
- },
- {
-  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
- },
- {
-  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
- },
- {
-  "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
- },
- {
-  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
- },
- {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
- },
- {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
- },
- {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
- }
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "i34-9 is the actual promoted producer, at2f3abb30f6291e05a8d37a8c40c34a29732000b4. Its daily layer, STATUS/PLAYBOOK loop, closer, progression, ownership guard, fallback, surge manufacturing reserve and Docker pin are retained through the actual published13 and its preserved source chain. Its original controller file remains byte-identical in submission/overseer/frontier.py, as the base of open midyear and full-year subclasses. The selected midyear subclass adds only the explicitly credited late-food extension. The revision starts from13 and claims no independent reconstruction of this producer.",
+    "evidence": "Normal Yukon sync selected this promoted91.32 producer before7. This revision obtains retained frontier/controller/model-loop material through actual published13 with preserved predecessor credit. No independent reconstruction is claimed. The new research additions are explicitly distinguished from retained producer passages.",
+    "citations": [
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 320,
+        "endLine": 337
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 440,
+        "endLine": 457
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 414,
+        "endLine": 431
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 539,
+        "endLine": 556
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 308,
+        "endLine": 318
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 428,
+        "endLine": 438
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+        "path": "submission/plain/harness.py",
+        "startLine": 144,
+        "endLine": 163
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 163,
+        "endLine": 182
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 158,
+        "endLine": 169
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 158,
+        "endLine": 169
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 184,
+        "endLine": 212
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 184,
+        "endLine": 212
+      }
+    ]
+  },
+  {
+    "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+    "rationale": "Actual direct runtime predecessor, published13 at c3a90abfe9c9088ccea5cbf9ae4d260c2e31d4fe. All inherited material remains: exact promoted frontier, managed housing/bed commitments/water clearance, Year brewing/required-office repair, wildlife retreat and invasion handoff, second-office STATUS correction, attributed Year late-food timing, bounded owned wood crafts, observed-water shaft choice, and Plain.refuse unbounded daily duplicate guard. This candidate only extends the already credited late14day/40food-per-citizen threshold to structured168..335day open horizons through a MidyearFood subclass and explicit router branch. Window priority, original animal selection, slaughter key/five-day gate and all Year behavior are retained. No independent reconstruction or new ranking policy is claimed.",
+    "evidence": "All56 actual public13 archive files were authenticated against the frozen upload. Only existing runtime Plain routing/import and an appended MidyearFood class change; inherited Year147lines remain exact prefix, Plain.refuse AST is identical, and all other existing runtime bytes are unchanged. One window-isolation expectation changes and one focused test module is added; combined142checks pass. All24 prior direct-parent selectors remain authentic, including the now-published complete duplicate guard. Parent13 was cap-refused before build/judge/games, not performance-rejected. Earlier12/11/10/9/8/7/6/5/canceled4 credit remains through published lineage and final notes; no accepted edge is requested removed. Food-only102 native pilots establish healthy-case activation, not a controlled quality gain; two public2018 pilots had no uniquely new eligible action. Ordinary combined six-family native-DF/canned-gateway measurement completed with all54 nonmetadata files frozen. Prototype and measured runtime RootFS/fullConfig match. Its point is a public regression result, not a causal or ranked estimate. Full public-note results distinguish food-only102 ablations from the combined104 image.",
+    "citations": [
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 186,
+        "endLine": 242
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 186,
+        "endLine": 242
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 244,
+        "endLine": 286
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 244,
+        "endLine": 286
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 381,
+        "endLine": 417
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 381,
+        "endLine": 417
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 459,
+        "endLine": 475
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 459,
+        "endLine": 475
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "48db42f5573cb27d07d5d85939695cdb6ff151f3f16421e108805cde4a385775",
+        "path": "submission/plain/harness.py",
+        "startLine": 289,
+        "endLine": 329
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 291,
+        "endLine": 331
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "48db42f5573cb27d07d5d85939695cdb6ff151f3f16421e108805cde4a385775",
+        "path": "submission/plain/harness.py",
+        "startLine": 71,
+        "endLine": 87
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 71,
+        "endLine": 89
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "6e8f69044ca0924d93e41b26ee71f34ccf67ade5446e837f733b9ed61888bd61",
+        "path": "submission/overseer/year.py",
+        "startLine": 1,
+        "endLine": 147
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "e37aa2dbdc9b609048b4464d642c97a726560d27b7bc79e947768661b21dd913",
+        "path": "submission/overseer/year.py",
+        "startLine": 1,
+        "endLine": 147
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 508,
+        "endLine": 542
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 508,
+        "endLine": 542
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "48db42f5573cb27d07d5d85939695cdb6ff151f3f16421e108805cde4a385775",
+        "path": "submission/plain/harness.py",
+        "startLine": 405,
+        "endLine": 424
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 407,
+        "endLine": 426
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 495,
+        "endLine": 506
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/frontier.py",
+        "startLine": 495,
+        "endLine": 506
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "696b396fb9a147ff8dea59a0bd2851d5bc1a75a69d56d104dd974c055f13a445",
+        "path": "submission/plain/digest.py",
+        "startLine": 250,
+        "endLine": 281
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "696b396fb9a147ff8dea59a0bd2851d5bc1a75a69d56d104dd974c055f13a445",
+        "path": "submission/plain/digest.py",
+        "startLine": 250,
+        "endLine": 281
+      },
+      {
+        "submissionId": "107421e2-9e92-4d8d-810c-c81bf906c8cb",
+        "fileSha256": "48db42f5573cb27d07d5d85939695cdb6ff151f3f16421e108805cde4a385775",
+        "path": "submission/plain/harness.py",
+        "startLine": 331,
+        "endLine": 380
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 333,
+        "endLine": 382
+      }
+    ]
+  },
+  {
+    "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+    "rationale": "Retains the source-informed split-policy architecture through own10/12/13: this candidate retains structured public hands_off and one model loop rather than copying the peer whole-loop100day selection. Also retains the1e6cbe5e late-food timing/threshold, adopted in own10 after local74/76 research: slaughter with2to14days left unless edible food reaches40percitizen, through the original butcher helper on year horizons, now extended to structured168..335day open horizons by MidyearFood. This remains material reuse and direct credit. Its largest-animal ranking, separate slaughter_end action key, three-day cadence and five-attempt mechanism are not copied.",
+    "evidence": "Authentic public commit88830055ad859a27b797cf40fcd2323945ffdcb6: plain.main/LABS_BELOW_DAYS supply the architectural comparison; MEAT_DAYS26 and final_meat343..357 supply the reused food timing/threshold. Candidate overseer_class/Plain.__init__ and retained Year.endgame_supply show use. The food timing IS selected through own10; saying that the entire final_meat policy was not selected would overstate the exclusion. Only the distinct ranking/cadence mechanism and overflow code are excluded. The peer official86.97 was not promoted. Own74/76 composites and10 native outcomes are disclosed separately; unpaired component results do not prove ranked gains. This revision also selects that same timing and threshold in MidyearFood.endgame_supply; the added exact candidate-method selector illustrates the new use. It preserves original first-eligible animal choice, slaughter action key, five-day gate and accepted-action bookkeeping; no peer largest-animal ranking or separate slaughter_end cadence is adopted. Food-only native2014 actions atdays203/210 above the old4cit trigger were accepted, with foodH196 and no deaths; native2018 scores100/97.5 had zero uniquely new eligible actions and are not proof of caused improvement. The combined runtime needs its own full regression.",
+    "citations": [
+      {
+        "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+        "fileSha256": "5c930777de57ee359f20ef2af9ad5465653af67534c7ccfd97cc39a55e712186",
+        "path": "submission/plain/harness.py",
+        "startLine": 380,
+        "endLine": 394
+      },
+      {
+        "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+        "fileSha256": "5c930777de57ee359f20ef2af9ad5465653af67534c7ccfd97cc39a55e712186",
+        "path": "submission/plain/harness.py",
+        "startLine": 39,
+        "endLine": 39
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 71,
+        "endLine": 84
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "46c9168e228859d7b8992cc0561dea59fd60d4e896d09f3ddf9797a8f33a5661",
+        "path": "submission/plain/harness.py",
+        "startLine": 125,
+        "endLine": 136
+      },
+      {
+        "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+        "fileSha256": "133b4557ecb134b67a7d7cea9bf4af2b76a4046949e4ba6bbc3c36e529281407",
+        "path": "submission/overseer/harness.py",
+        "startLine": 26,
+        "endLine": 26
+      },
+      {
+        "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+        "fileSha256": "133b4557ecb134b67a7d7cea9bf4af2b76a4046949e4ba6bbc3c36e529281407",
+        "path": "submission/overseer/harness.py",
+        "startLine": 343,
+        "endLine": 357
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "e37aa2dbdc9b609048b4464d642c97a726560d27b7bc79e947768661b21dd913",
+        "path": "submission/overseer/year.py",
+        "startLine": 81,
+        "endLine": 85
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "e37aa2dbdc9b609048b4464d642c97a726560d27b7bc79e947768661b21dd913",
+        "path": "submission/overseer/year.py",
+        "startLine": 152,
+        "endLine": 157
+      }
+    ]
+  },
+  {
+    "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+    "rationale": "newjordan: public optional bounded zone-dimension idea already credited in my fifth source; adapted to the public site resolver and accepted40-tile furniture/20-tile zone limits. No provider wrapper or inspect-tool code is copied.",
+    "evidence": "prepare_tools at published commit3e3b3782f08780a3af39be1742a6c781c39ffb70 exposes optional zone w/h1..20. Own bounded office/area helpers keep site origin and min(actual bound, API limit); native proof and real resolver checks accompany the port.",
+    "citations": [
+      {
+        "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+        "fileSha256": "dc2488eddf6dec5049b45277bb52e3e99f9cb5342f49266d91fbc97ecb9dc248",
+        "path": "submission/plain/harness.py",
+        "startLine": 49,
+        "endLine": 74
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "f2b44e697d0e6394d2fb32808dfc6e2f451a5e18d27a51c6e11492ea849f6549",
+        "path": "submission/overseer/harness.py",
+        "startLine": 588,
+        "endLine": 593
+      }
+    ]
+  },
+  {
+    "submissionId": "ae0c2b7b-522c-4d4b-b161-bd8d663cb009",
+    "rationale": "The public negative optional-food analysis informed earlier exclusions in own7/8/9. Its reasoning remains credited while own10 revisited a narrow late-food timing addition after reviewing full-food components in own74/76. This candidate retains10 food behavior unchanged; no ae0c code is copied and no earlier negative result is erased.",
+    "evidence": "The earlier negative composite did not isolate food causality. Own74/76 had full food components despite drink or early-mortality failures;10 then adopted the explicitly credited1e6cbe5e timing. Completed outcomes and remaining negative evidence are preserved in public10 and will remain in the final note. This is inherited analysis provenance, not a new claim that meat guarantees improvement."
+  },
+  {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "i34-9: STATUS integration with the deterministic layer, layer-aware digest, closer, layer-only fallback and owned-order/alert guard, retained through fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "GordoAR: the prior promoted daily-controller and model-loop repairs, typed checks, alerts, Fishery, office chairs, zone coverage, Docker pin and tests retained through fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
+  },
+  {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "rationale": "GordoAR: success-only room/site bookkeeping and stall/idle repairs retained through5dfdcf15 and fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "kshitij-hash: STATUS digest, recent action/failure memory, compact observation and PLAYBOOK lineage retained through7662723d and fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "kshitij-hash: the PLAYBOOK prompt inherited through cut2 and the new promoted base.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/prompt.py PLAYBOOK, against d74e941b."
+  },
+  {
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+    "rationale": "kshitij-hash: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
+  },
+  {
+    "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
+    "rationale": "kshitij-hash: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "e-man07: the founding deterministic Overseer and daily hybrid architecture; its regular policy steps remain beneath the port.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "e-man07: dining seat counting/re-zoning, extra migrant carpenter, window pacing and continued layer play retained through the promoted base.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
+  },
+  {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "rationale": "e-man07: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py: seats and rezone share lines with 44352f28."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "mpjunior92 (this solver): earlier published late-game brewing-target idea acknowledged by the inherited closer; no broad old Caretaker is copied into this candidate.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
+  },
+  {
+    "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
+    "rationale": "ryan48: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
+  },
+  {
+    "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
+    "rationale": "ryan48: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
+  },
+  {
+    "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
+    "rationale": "akhilc08: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
+  },
+  {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "rationale": "0xplemonade: malformed tool-name/cancel-id failure cases and validate-before-cache lesson behind the inherited typed checks and tests; its recursive schema validator is not copied.",
+    "evidence": "Typed checks in plain/harness.py and test_typed_arguments.py inherited throughGordoAR5dfdcf15; this direct declaration retains the credited origin omitted from the new base formal list."
+  }
 ]

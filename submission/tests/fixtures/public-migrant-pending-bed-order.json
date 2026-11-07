@@ -1,0 +1,1396 @@
+{
+  "day": 1,
+  "tick": 829300,
+  "days_left": 59,
+  "game_over": false,
+  "hands_off_in_days": 38,
+  "observation": {
+    "administrators": {
+      "BOOKKEEPER": "VACANT",
+      "BROKER": "VACANT",
+      "CHIEF_MEDICAL_DWARF": "VACANT",
+      "citizens": 43,
+      "EXPEDITION_LEADER": "Tobul Zasnomal, expedition leader",
+      "EXPEDITION_LEADER_id": 93,
+      "MANAGER": "Ber Umstizlogem, manager",
+      "manager_active_for_orders": true,
+      "MANAGER_id": 87,
+      "manager_office": {
+        "chair": true,
+        "zone_id": 6
+      },
+      "manager_required_office": 1
+    },
+    "burrows": {
+      "civilian_alert": false,
+      "list": [
+        {
+          "bbox": {
+            "x1": 102,
+            "x2": 108,
+            "y1": 101,
+            "y2": 103,
+            "z1": 111,
+            "z2": 111
+          },
+          "citizens_inside": 0,
+          "civ_alert_burrow": true,
+          "id": 0,
+          "name": "Shelter",
+          "tiles": 21
+        }
+      ]
+    },
+    "date": {
+      "abs_tick": 829300,
+      "day_of_year": 20,
+      "season": "spring",
+      "year": 2
+    },
+    "dig_designations_pending": 4,
+    "dig_pending_by_z": {
+      "108": 1,
+      "109": 1,
+      "110": 1,
+      "111": 1
+    },
+    "doors": {
+      "door_items_free": 0,
+      "hatch_cover_items_free": 0,
+      "list": []
+    },
+    "dwarves": [
+      {
+        "adult": true,
+        "id": 87,
+        "job": "Dig",
+        "name": "Ber Umstizlogem, manager",
+        "organizer_skill": 0,
+        "positions": [
+          "MANAGER"
+        ],
+        "profession": "manager",
+        "stress": 4,
+        "x": 100,
+        "y": 101,
+        "z": 111
+      },
+      {
+        "adult": true,
+        "id": 88,
+        "job": "PrepareRawFish",
+        "name": "Likot Utalkonos, Planter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Planter",
+        "stress": 3,
+        "x": 108,
+        "y": 100,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 89,
+        "job": "idle",
+        "name": "Vucar Ilraldum, Woodworker",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Woodworker",
+        "squad_id": 1,
+        "stress": 4,
+        "x": 96,
+        "y": 98,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 90,
+        "job": "idle",
+        "name": "\u00f9shrir Idetur, Metalcrafter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Metalcrafter",
+        "stress": 4,
+        "x": 94,
+        "y": 95,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 91,
+        "job": "Fish",
+        "name": "Datan Likotlektad, Fisherdwarf",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Fisherdwarf",
+        "squad_id": 1,
+        "stress": 4,
+        "x": 119,
+        "y": 110,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 92,
+        "job": "idle",
+        "name": "Urist Zaneglim\u00e2r, Mason",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Mason",
+        "stress": 4,
+        "x": 96,
+        "y": 95,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 93,
+        "job": "idle",
+        "name": "Tobul Zasnomal, expedition leader",
+        "organizer_skill": 2,
+        "positions": [
+          "EXPEDITION_LEADER"
+        ],
+        "profession": "expedition leader",
+        "stress": 3,
+        "x": 96,
+        "y": 95,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 120,
+        "job": "idle",
+        "name": "Zasit Zal\u00ecsth\u00eekut, Jeweler",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Jeweler",
+        "stress": 3,
+        "x": 93,
+        "y": 99,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 121,
+        "job": "idle",
+        "name": "Eral Dumatlorbam, Strand Extractor",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Strand Extractor",
+        "stress": 4,
+        "x": 95,
+        "y": 96,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 122,
+        "job": "idle",
+        "name": "Kol Th\u00eekutdaros, Blacksmith",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Blacksmith",
+        "stress": 4,
+        "x": 93,
+        "y": 93,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 124,
+        "job": "idle",
+        "name": "Udil Konoslektad, militia commander",
+        "organizer_skill": 0,
+        "positions": [
+          "MILITIA_COMMANDER"
+        ],
+        "profession": "militia commander",
+        "squad_id": 1,
+        "stress": 4,
+        "x": 98,
+        "y": 99,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 125,
+        "job": "idle",
+        "name": "Asob Rovod\u00fbthir, Woodcutter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Woodcutter",
+        "stress": 3,
+        "x": 94,
+        "y": 97,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 128,
+        "job": "idle",
+        "name": "Inod Besmarrovod, Mason",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Mason",
+        "stress": 4,
+        "x": 96,
+        "y": 96,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 130,
+        "job": "idle",
+        "name": "\u00eeton Gitnukzasit, Mason",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Mason",
+        "stress": 3,
+        "x": 96,
+        "y": 97,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 131,
+        "job": "idle",
+        "name": "\u00eeton Tiristisos, Gem Setter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Gem Setter",
+        "stress": 3,
+        "x": 93,
+        "y": 96,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 132,
+        "job": "idle",
+        "name": "R\u00eesen Idr\u00e4thuzol, Gem Setter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Gem Setter",
+        "stress": 5,
+        "x": 95,
+        "y": 96,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 133,
+        "job": "idle",
+        "name": "Olon Rig\u00f2thdeg\u00ebl, Armorer",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Armorer",
+        "squad_id": 1,
+        "stress": 2,
+        "x": 95,
+        "y": 95,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 135,
+        "job": "idle",
+        "name": "Zan Monomkol, Glassmaker",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Glassmaker",
+        "stress": 4,
+        "x": 95,
+        "y": 101,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 158,
+        "job": "idle",
+        "name": "Astesh St\u00e2kudtosid, Gem Setter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Gem Setter",
+        "stress": 3,
+        "x": 95,
+        "y": 95,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 159,
+        "job": "idle",
+        "name": "Kol \u00e5bleltishis, Hunter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Hunter",
+        "stress": 3,
+        "x": 92,
+        "y": 98,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 160,
+        "job": "idle",
+        "name": "Vutok Sazirlek, Furnace Operator",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Furnace Operator",
+        "stress": 3,
+        "x": 83,
+        "y": 91,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 161,
+        "job": "idle",
+        "name": "\u00f2nul Al\u00e5thtathtat, Armorer",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Armorer",
+        "stress": 3,
+        "x": 76,
+        "y": 84,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 162,
+        "job": "idle",
+        "name": "Udib Oddomnish, Weaponsmith",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Weaponsmith",
+        "stress": 3,
+        "x": 68,
+        "y": 77,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 163,
+        "job": "idle",
+        "name": "Rith Cerol\u00eem\u00e4z, Armorer",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Armorer",
+        "stress": 3,
+        "x": 59,
+        "y": 70,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 166,
+        "job": "idle",
+        "name": "Erush Nicatkilrud, Woodcutter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Woodcutter",
+        "stress": 3,
+        "x": 34,
+        "y": 50,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 167,
+        "job": "idle",
+        "name": "Id Vab\u00f4ksolon, Craftsdwarf",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Craftsdwarf",
+        "stress": 3,
+        "x": 27,
+        "y": 41,
+        "z": 111
+      },
+      {
+        "adult": true,
+        "id": 168,
+        "job": "idle",
+        "name": "Obok \u00e5kumurdim, Stonecrafter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Stonecrafter",
+        "stress": 3,
+        "x": 18,
+        "y": 34,
+        "z": 111
+      },
+      {
+        "adult": true,
+        "id": 169,
+        "job": "idle",
+        "name": "Tobul Ed\u00ebmdesor, Trader",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Trader",
+        "stress": 3,
+        "x": 10,
+        "y": 26,
+        "z": 111
+      },
+      {
+        "adult": true,
+        "id": 171,
+        "job": "idle",
+        "name": "Rig\u00f2th Lektadmeng, Glassmaker",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Glassmaker",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 172,
+        "job": "idle",
+        "name": "Tekkud D\u00f9stikducim, Weaponsmith",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Weaponsmith",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 173,
+        "job": "idle",
+        "name": "M\u00f6rul Rulushlorbam, Gem Setter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Gem Setter",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 174,
+        "job": "idle",
+        "name": "Sigun Emaluzol, Clothier",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Clothier",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 175,
+        "job": "idle",
+        "name": "Kol Eribbubnus, Blacksmith",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Blacksmith",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 178,
+        "job": "idle",
+        "name": "Onget Tatzaneg, Metalcrafter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Metalcrafter",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 179,
+        "job": "idle",
+        "name": "Lorbam Thukkansolon, Stone Carver",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Stone Carver",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 182,
+        "job": "idle",
+        "name": "Id Nikuzm\u00f6rul, Bowyer",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Bowyer",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 183,
+        "job": "idle",
+        "name": "Kel Mist\u00eamn\u00f4nub, Cook",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Cook",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 184,
+        "job": "idle",
+        "name": "Tekkud Evudzaneg, Miner",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Miner",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 185,
+        "job": "idle",
+        "name": "Domas Nogleshducim, Peasant",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Peasant",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 186,
+        "job": "idle",
+        "name": "Sazir Udibfikuk, Miner",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Miner",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 187,
+        "job": "idle",
+        "name": "\u00eeton Ed\u00ebm\u00e5m, Gem Cutter",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Gem Cutter",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 188,
+        "job": "idle",
+        "name": "Udil Akamdod\u00f3k, Beekeeper",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Beekeeper",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      },
+      {
+        "adult": true,
+        "id": 190,
+        "job": "idle",
+        "name": "Ingish Edt\u00fbldeduk, Jeweler",
+        "organizer_skill": 0,
+        "positions": [],
+        "profession": "Jeweler",
+        "stress": 3,
+        "x": 0,
+        "y": 18,
+        "z": 112
+      }
+    ],
+    "farm_plots": [
+      {
+        "built": true,
+        "crops": {
+          "autumn": "none",
+          "spring": "MUSHROOM_HELMET_PLUMP",
+          "summer": "none",
+          "winter": "none"
+        },
+        "crop_this_season": "MUSHROOM_HELMET_PLUMP",
+        "h": 3,
+        "id": 4,
+        "seeds_or_crops_in_plot": 9,
+        "subterranean": true,
+        "w": 3,
+        "x": 103,
+        "y": 101,
+        "z": 111
+      },
+      {
+        "built": true,
+        "crops": {
+          "autumn": "none",
+          "spring": "POD_SWEET",
+          "summer": "none",
+          "winter": "none"
+        },
+        "crop_this_season": "POD_SWEET",
+        "h": 3,
+        "id": 5,
+        "seeds_or_crops_in_plot": 9,
+        "subterranean": true,
+        "w": 3,
+        "x": 106,
+        "y": 101,
+        "z": 111
+      }
+    ],
+    "furniture": [
+      {
+        "built": true,
+        "id": 7,
+        "kind": "chair",
+        "x": 102,
+        "y": 101,
+        "z": 111,
+        "zone_ids": [
+          6
+        ]
+      }
+    ],
+    "furniture_total": 1,
+    "furniture_unzoned": {},
+    "map": {
+      "size": [
+        12,
+        12,
+        132
+      ],
+      "size_tiles": [
+        192,
+        192,
+        132
+      ],
+      "surface_z": 112,
+      "wagon": {
+        "present": true,
+        "x": 95,
+        "y": 97,
+        "z": 112
+      },
+      "sites": [
+        {
+          "id": "W3",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 99,
+          "y": 95,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W4",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 98,
+          "y": 104,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W5",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 102,
+          "y": 94,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W6",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 87,
+          "y": 89,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W7",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 85,
+          "y": 103,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W8",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 95,
+          "y": 87,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W9",
+          "w": 3,
+          "h": 3,
+          "soil": false,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 95,
+          "y": 107,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "W11",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "anchor": "centre",
+          "subterranean": false,
+          "x": 100,
+          "y": 100,
+          "z": 112,
+          "kind": "W",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G1",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 98,
+          "y": 103,
+          "z": 112,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G2",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 86,
+          "y": 88,
+          "z": 112,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G3",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 104,
+          "y": 88,
+          "z": 112,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "G4",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "subterranean": false,
+          "x": 104,
+          "y": 91,
+          "z": 112,
+          "kind": "G",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "E1",
+          "w": 1,
+          "h": 1,
+          "soil": null,
+          "building": false,
+          "kind": "E",
+          "x": 102,
+          "y": 102,
+          "z": 112,
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "A2",
+          "w": 10,
+          "h": 3,
+          "soil": null,
+          "open_tiles": 26,
+          "subterranean": true,
+          "x": 99,
+          "y": 101,
+          "z": 111,
+          "kind": "A",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S1",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 92,
+          "y": 96,
+          "z": 112,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S2",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 92,
+          "y": 98,
+          "z": 112,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S3",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 92,
+          "y": 100,
+          "z": 112,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "S4",
+          "w": 1,
+          "h": 1,
+          "soil": true,
+          "x": 96,
+          "y": 94,
+          "z": 112,
+          "kind": "S",
+          "designated": null,
+          "dug": null,
+          "free": true
+        },
+        {
+          "id": "R1",
+          "w": 3,
+          "h": 3,
+          "soil": true,
+          "stair": {
+            "x": 102,
+            "y": 102
+          },
+          "subterranean": true,
+          "x": 99,
+          "y": 101,
+          "z": 111,
+          "kind": "R",
+          "designated": true,
+          "dug": false,
+          "tiles": {
+            "designated": 0,
+            "floor": 5,
+            "hidden": 0,
+            "soil_floor": 5,
+            "tiles": 9
+          },
+          "free": true
+        }
+      ]
+    },
+    "military": {
+      "squads": [
+        {
+          "armed": 1,
+          "id": 1,
+          "members": [
+            {
+              "id": 124,
+              "leader": true,
+              "name": "Udil Konoslektad, militia commander",
+              "weapon_assigned": false,
+              "x": 98,
+              "y": 99,
+              "z": 112
+            },
+            {
+              "id": 91,
+              "name": "Datan Likotlektad, Fisherdwarf",
+              "weapon_assigned": false,
+              "x": 119,
+              "y": 110,
+              "z": 112
+            },
+            {
+              "id": 133,
+              "name": "Olon Rig\u00f2thdeg\u00ebl, Armorer",
+              "weapon_assigned": false,
+              "x": 95,
+              "y": 95,
+              "z": 112
+            },
+            {
+              "id": 89,
+              "name": "Vucar Ilraldum, Woodworker",
+              "weapon": "(copper battle axe)",
+              "weapon_assigned": false,
+              "x": 96,
+              "y": 98,
+              "z": 112
+            }
+          ],
+          "name": "Guard",
+          "on_duty": false,
+          "orders": [],
+          "uniform": "none"
+        }
+      ],
+      "weapons_free": 4
+    },
+    "orders": [
+      {
+        "active": false,
+        "id": 0,
+        "job": "MakeBarrel",
+        "jobs_in_progress": 0,
+        "left": 4,
+        "material_category": [
+          "wood"
+        ],
+        "total": 4,
+        "validated": false,
+        "recipe": "make_barrel",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 1,
+        "job": "PrepareMeal",
+        "jobs_in_progress": 0,
+        "left": 5,
+        "meal_kind": -1,
+        "total": 5,
+        "validated": false,
+        "recipe": "cook_meal",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 2,
+        "job": "CustomReaction",
+        "jobs_in_progress": 0,
+        "left": 3,
+        "reaction": "BREW_DRINK_FROM_PLANT",
+        "repeat": "daily",
+        "total": 3,
+        "validated": false,
+        "when": [
+          {
+            "item_type": "DRINK",
+            "test": "LessThan",
+            "value": 300,
+            "flags": [],
+            "stock": "drink"
+          },
+          {
+            "flags": [
+              "unrotten"
+            ],
+            "item_type": "PLANT",
+            "reaction_product": "DRINK_MAT",
+            "test": "AtLeast",
+            "value": 2,
+            "stock": "plants_brewable"
+          },
+          {
+            "flags": [
+              "empty"
+            ],
+            "item_type": "BARREL",
+            "test": "AtLeast",
+            "value": 1,
+            "stock": "barrels_empty"
+          }
+        ],
+        "recipe": "brew_drink",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 3,
+        "job": "MakeBarrel",
+        "jobs_in_progress": 0,
+        "left": 2,
+        "material_category": [
+          "wood"
+        ],
+        "repeat": "daily",
+        "total": 2,
+        "validated": false,
+        "when": [
+          {
+            "flags": [
+              "empty"
+            ],
+            "item_type": "BARREL",
+            "test": "LessThan",
+            "value": 4,
+            "stock": "barrels_empty"
+          },
+          {
+            "item_type": "WOOD",
+            "test": "AtLeast",
+            "value": 2,
+            "flags": [],
+            "stock": "logs"
+          }
+        ],
+        "recipe": "make_barrel",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 4,
+        "job": "PrepareMeal",
+        "jobs_in_progress": 0,
+        "left": 2,
+        "meal_kind": -1,
+        "repeat": "daily",
+        "total": 2,
+        "validated": false,
+        "when": [
+          {
+            "item_type": "FOOD",
+            "test": "LessThan",
+            "value": 200,
+            "flags": [],
+            "stock": "prepared_meals"
+          },
+          {
+            "flags": [
+              "unrotten"
+            ],
+            "item_type": "PLANT",
+            "test": "AtLeast",
+            "value": 10,
+            "stock": "plants_total"
+          }
+        ],
+        "recipe": "cook_meal",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 5,
+        "job": "ConstructBed",
+        "jobs_in_progress": 0,
+        "left": 8,
+        "material_category": [
+          "wood"
+        ],
+        "total": 8,
+        "validated": false,
+        "recipe": "make_bed",
+        "created_tick": 828100
+      },
+      {
+        "active": false,
+        "id": 6,
+        "job": "CustomReaction",
+        "jobs_in_progress": 0,
+        "left": 10,
+        "reaction": "BREW_DRINK_FROM_PLANT",
+        "total": 10,
+        "validated": false,
+        "recipe": "brew_drink",
+        "created_tick": 828100
+      }
+    ],
+    "recent_cancellations": [],
+    "recent_events": [
+      "The weather has cleared.",
+      "Some migrants have arrived."
+    ],
+    "schema": 8,
+    "stocks": {
+      "barrels_empty": 3,
+      "barrels_total": 93,
+      "beds": 19,
+      "bins": 0,
+      "boulders": 0,
+      "boulders_usable": 0,
+      "chairs": 12,
+      "charcoal": 0,
+      "drink": 571,
+      "food_any_good": 168,
+      "food_edible": 57,
+      "furniture_free": {
+        "bed": 19,
+        "chair": 11,
+        "container": 0,
+        "door": 0,
+        "table": 12
+      },
+      "logs_unusable": 8,
+      "logs_usable": 235,
+      "plants_brewable": 7,
+      "plants_by_kind": {
+        "plump helmet": {
+          "brewable": true,
+          "cookable": true,
+          "n": 7
+        }
+      },
+      "plants_rotten": 0,
+      "plants_total": 7,
+      "prepared_meals": 0,
+      "seeds": 95,
+      "seeds_by_kind": {
+        "cave wheat": {
+          "n": 8,
+          "seasons": [
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "dimple cup": {
+          "n": 4,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ],
+          "underground": true
+        },
+        "pig tail": {
+          "n": 4,
+          "seasons": [
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "plump helmet": {
+          "n": 67,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn",
+            "winter"
+          ],
+          "underground": true
+        },
+        "quarry bush": {
+          "n": 4,
+          "seasons": [
+            "spring",
+            "summer",
+            "autumn"
+          ],
+          "underground": true
+        },
+        "sweet pod": {
+          "n": 8,
+          "seasons": [
+            "spring",
+            "summer"
+          ],
+          "underground": true
+        }
+      },
+      "tables": 12
+    },
+    "stressed_citizens": 0,
+    "threats": {
+      "by_race": {},
+      "dead_citizens_total": 0,
+      "hostiles": [],
+      "invaders_dead": 0,
+      "visible_hostiles": 0
+    },
+    "wealth": {
+      "architecture": 32,
+      "crafted": 471,
+      "created": 3410,
+      "furniture": 430,
+      "other": 2939,
+      "raw_logs_value": 729,
+      "total": 3410
+    },
+    "workshops": [
+      {
+        "built": true,
+        "id": 1,
+        "job_details": [],
+        "jobs": [],
+        "type": "Carpenters",
+        "x": 90,
+        "y": 90,
+        "z": 112
+      },
+      {
+        "built": true,
+        "id": 2,
+        "job_details": [],
+        "jobs": [],
+        "type": "Still",
+        "x": 90,
+        "y": 96,
+        "z": 112
+      },
+      {
+        "built": true,
+        "id": 3,
+        "job_details": [],
+        "jobs": [],
+        "type": "Kitchen",
+        "x": 94,
+        "y": 90,
+        "z": 112
+      },
+      {
+        "built": true,
+        "id": 8,
+        "job_details": [
+          {
+            "job": "PrepareRawFish",
+            "worker_id": 88
+          }
+        ],
+        "jobs": [
+          "PrepareRawFish"
+        ],
+        "type": "Fishery",
+        "x": 93,
+        "y": 93,
+        "z": 112
+      },
+      {
+        "built": true,
+        "id": 9,
+        "job_details": [],
+        "jobs": [],
+        "type": "Carpenters",
+        "x": 95,
+        "y": 101,
+        "z": 112
+      }
+    ],
+    "zones": [
+      {
+        "building_ids": [
+          7
+        ],
+        "furniture": {
+          "chair": 1
+        },
+        "h": 3,
+        "id": 6,
+        "owner": 87,
+        "type": "Office",
+        "w": 7,
+        "x": 102,
+        "y": 101,
+        "z": 111
+      }
+    ],
+    "zones_total": 1,
+    "plugins": {
+      "autochop": "on",
+      "autofarm": "on",
+      "seedwatch": "on",
+      "autolabor": "off",
+      "autoclothing": "off"
+    }
+  }
+}
