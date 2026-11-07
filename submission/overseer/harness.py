@@ -16,6 +16,12 @@ MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
 MEAL_CAP = 200
+# cut 8: the final stretch the outcome score's supply part measures (bench/outcomes.py): the last
+# clip(round(H/4), 7, 28) days on tasks without a hands-off window (MY1, OP1)
+FINAL_LEAD = 3              # start this many days before the stretch, so a raised brew cap is in place at its start
+DRINK_PER_DWARF_DAY = 20 / 336   # docs/SUCCESS.md section 1.2: about 20 drinks a dwarf a year
+SUSTAIN_DAYS = 336          # the score's T*: days of supply past the horizon that count as sustained
+FINAL_SLAUGHTERS = 3        # at most this many animals for the food step-up in one stretch
 MOOD_WORKSHOP = {
     "WOODCRAFT": "Craftsdwarfs", "STONECRAFT": "Craftsdwarfs", "BONECARVE": "Craftsdwarfs", "CARPENTRY": "Carpenters",
     "MASONRY": "Masons", "WOOD_BURNING": "WoodFurnace", "GLASSMAKER": "GlassFurnace", "TANNER": "Leatherworks",
@@ -51,6 +57,10 @@ class Overseer:
         self.brew_orders = set()
         self.now = 0
         self.alert_since = None
+        self.day = self.days_left = self.hands_off = None
+        self.fhist = []          # cut 8: (day, drink, food) once per game day from just before the final stretch
+        self.final_brew = False
+        self.final_slaughters = 0
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -80,6 +90,8 @@ class Overseer:
         self.st, self.map = d(self.o.get("stocks")), d(self.o.get("map"))
         self.adm = d(self.o.get("administrators"))
         self.now = d(self.o.get("date")).get("abs_tick") or resp.get("tick") or 0
+        self.day, self.days_left = resp.get("day"), resp.get("days_left")
+        self.hands_off = resp.get("hands_off_in_days")
         self.people = [x for x in lst(self.o.get("dwarves")) if isinstance(x, dict)]
         self.cit = self.adm.get("citizens") or len(self.people)
         self.sites = [s for s in lst(self.map.get("sites")) if isinstance(s, dict)]
@@ -128,6 +140,7 @@ class Overseer:
         self.digging()
         self.farms()
         self.supply()
+        self.final_stretch()
         self.furnish()
 
     def management(self):
@@ -253,6 +266,81 @@ class Overseer:
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
             if have < want and not self.pending(recipe) and self.logs():
                 self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+
+    # ---- cut 8: the final stretch
+    FINAL_STEP = 3          # inside the stretch, advances of at most this many days (one pass per step)
+
+    @staticmethod
+    def final_cap(day, days_left, hands_off):
+        """The most days an advance may cover so the daily pass sees the final stretch: it lands FINAL_LEAD days
+        before the stretch, then moves at most FINAL_STEP days at a time. None: no limit (hands-off tasks, early)."""
+        if hands_off is not None or not isinstance(day, int) or not isinstance(days_left, int) or days_left <= 0:
+            return None
+        stretch = max(7, min(28, round((day + days_left) / 4)))
+        lead = days_left - (stretch + FINAL_LEAD)
+        if lead > 0:
+            return lead
+        return Overseer.FINAL_STEP
+
+    @staticmethod
+    def slope(points):
+        """Least-squares slope of [(day, value)] (0.0 for fewer than two days), as the score fits it."""
+        if len(points) < 2:
+            return 0.0
+        mx = sum(p[0] for p in points) / len(points)
+        my = sum(p[1] for p in points) / len(points)
+        vx = sum((p[0] - mx) ** 2 for p in points)
+        return sum((p[0] - mx) * (p[1] - my) for p in points) / vx if vx else 0.0
+
+    def final_stretch(self):
+        """The supply score is judged on the last L days only: stock above zero every day and a least-squares trend
+        that leaves at least a year of stock at the horizon. From FINAL_LEAD days before that stretch (tasks without a
+        hands-off window), keep both stocks from falling: a second daily brew order with a cap above today's drink
+        plus the stretch's consumption (one job a day: 5 drinks, above what the fort drinks, without brewing the food
+        stock away), so drink climbs instead of saw-toothing at DRINK_CAP; and, while the food
+        trend over the stretch so far would not last a year, slaughter one spare tame animal (not a pet) every few
+        days for its meat, up to FINAL_SLAUGHTERS."""
+        if self.hands_off is not None or not isinstance(self.day, int) or not isinstance(self.days_left, int):
+            return
+        horizon = self.day + self.days_left
+        stretch = max(7, min(28, round(horizon / 4)))
+        if self.days_left > stretch + FINAL_LEAD or self.days_left <= 0:
+            return
+        drink, food = self.st.get("drink") or 0, self.st.get("food_edible") or 0
+        if not self.fhist or self.fhist[-1][0] != self.day:
+            self.fhist.append((self.day, drink, food))
+        if not self.final_brew and "Still" in {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}:
+            need = self.cit * DRINK_PER_DWARF_DAY * (self.days_left + 1)
+            cap = int(min(100000, max(DRINK_CAP, drink) + need + 5 * self.cit))
+            r = self.act("o_brew_final", "add_order", {"recipe": "brew_drink", "amount": 1, "repeat": "daily", "when": [
+                {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": 2},
+                {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=3)
+            if r and r.get("ok"):
+                self.final_brew = True
+        start = horizon - stretch
+        pts = [(day, f) for day, _, f in self.fhist if day >= start - 1]
+        fall = -self.slope(pts)
+        short = food <= 0 or (fall > 0 and food / fall < SUSTAIN_DAYS)
+        if len(pts) >= 3 and short and self.final_slaughters < FINAL_SLAUGHTERS and self.days_left >= 4:
+            if self.final_slaughter():
+                self.final_slaughters += 1
+
+    def final_slaughter(self):
+        """Mark one spare tame adult animal (no pet owner, not already marked) for slaughter; a Butchers first."""
+        have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+        if "Butchers" not in have:
+            self.build("Butchers")
+            return False
+        if not self.may("final_slaughter", 4, FINAL_SLAUGHTERS * 2):
+            return False
+        q = self.game.query("units", kind="animals")
+        for a in lst(d(q.get("result")).get("units") or d(q.get("result")).get("animals")):
+            a = d(a)
+            if a.get("tame") and a.get("adult", True) and a.get("pet_owner_id") in (None, -1) \
+                    and not a.get("marked_for_slaughter"):
+                r = self.act("final_slaughter", "slaughter", {"unit_id": a.get("id")}, retry=4, limit=FINAL_SLAUGHTERS * 2)
+                return bool(r and r.get("ok"))
+        return False
 
     def room_for(self, role):
         """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""
