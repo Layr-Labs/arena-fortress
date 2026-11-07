@@ -70,6 +70,7 @@ class Overseer:
         self.hands_off = None
         self.days_left = None
         self.day = None
+        self.full_sites = set()  # sites that answered no_space: open_tiles can count floor under farm plots
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
@@ -454,14 +455,24 @@ class Overseer:
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
         if not result.get("ok"):
+            if result.get("error_code") == "no_space":
+                self.full_sites.add(room["id"])
             return []
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
             points = [points]
         return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
 
+    def with_space(self, room):
+        """The room, or if it answered no_space another dug level, levels without farm plots first."""
+        if room and room["id"] not in self.full_sites:
+            return room
+        farm_z = {x.get("z") for x in lst(self.o.get("farm_plots")) if isinstance(x, dict)}
+        spare = [s for s in self.kind("A") if s["id"] not in self.full_sites and s.get("open_tiles", 0) >= 6]
+        return next((s for s in spare if s.get("z") not in farm_z), spare[0] if spare else None)
+
     def furnish(self):
-        dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
+        dorm, dine = self.with_space(self.room_for("dorm")), self.with_space(self.room_for("dine") or self.room_for("dorm"))
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
@@ -473,9 +484,11 @@ class Overseer:
             placed = []
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
-                if n > 0:
+                dine = self.with_space(dine)
+                if n > 0 and dine:
                     placed += self.place("f_" + kind, kind, dine, n)
-            if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
+            dine = self.with_space(dine)
+            if dine and self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
 
     def mood(self):
