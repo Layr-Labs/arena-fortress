@@ -2,10 +2,10 @@
 
 system prompt = MANUAL (the role, the rules of the run, what it is scored on)
               + ORDERS (add_manager_order, when the server offers it)
-              + OBSERVATION (how this harness sends the state, and its own guard)
+              + OBSERVATION (how this harness sends the state: the STATUS digest, then the observation; its guard)
               + the game API's own reference for the observation and the sites (GET /task `manual`, sections 4 and
                 6: facts about the wire format, no advice).
-The observation itself is sent as the API returns it: compact JSON, no summary, no interpretation.
+The observation is sent as the API returns it (compact JSON), after the STATUS digest that digest.py builds (cut 7).
 
 This prompt deliberately carries no Dwarf Fortress strategy: nothing on what to build first, how to keep drink and
 food flowing, what the manager needs, moods or defence. The model plays from what it already knows about DF.
@@ -43,11 +43,19 @@ workshop a strange mood asks for. Don't repeat that work. Use your turns for wha
 stuck, shortages, threats, and advancing time."""
 
 OBSERVATION = """
-THE OBSERVATION. Each turn you get the game's observation as JSON ("OBSERVATION {...}"), as the game API returns it,
-plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older observations in the conversation
-are omitted: the latest one is the current state. A cancelled order that you add again waits for the manager's
-validation again; this harness refuses cancelling an order it added under 2 days ago, and re-adding an order identical
-to one it cancelled in the last 3 days (error_code order_churn)."""
+THE OBSERVATION. Each turn you get a STATUS digest, then the game's observation as JSON ("OBSERVATION {...}"), as
+the game API returns it, plus `days_left_in_run`, `hands_off_in_days` (if any), `goal` and `scenario`. Older
+observations in the conversation are omitted: the latest one is the current state. A cancelled order that you add
+again waits for the manager's validation again; this harness refuses cancelling an order it added under 2 days ago,
+and re-adding an order identical to one it cancelled in the last 3 days (error_code order_churn).
+
+THE STATUS DIGEST is computed by this harness from the observation and the free read-only queries: supply per dwarf
+and the days it lasts at the current rate, the manager and office, built and planned workshops, each order with
+why it isn't moving (stuck:), farms and plugins, housing, threats, moods, free sites by kind, the labors nobody has,
+your recent FAILED actions with their error codes (don't repeat them unchanged), your recent actions, what the
+deterministic layer did, and a NEXT list: the gaps found, leaving out the work the deterministic layer does. The
+digest is derived information: the observation is the ground truth where they disagree. The raw observation omits
+the per-item furniture list (the digest counts it)."""
 
 API_SECTIONS = ("4", "6")   # of the served manual: "## 4. Sites", "## 6. The observation"
 
