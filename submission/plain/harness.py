@@ -113,6 +113,7 @@ class Plain:
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
+        self.guard.set_task(info)
         days = info.get("days") or self.task.days
         self.extra = {}
         if info.get("goal"):
@@ -183,7 +184,7 @@ class Plain:
                     self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
                         {"ok": False, "error_code": "one_tool_per_turn", "error": "not run: one tool call per turn"})})
                 idle = 0 if moved else idle + 1
-            if idle >= STALL_AFTER:
+            if idle >= (1 if self.guard.beds_first else STALL_AFTER):
                 idle = 0
                 self.stats["stall_advances"] += 1
                 if not self.advance(1, "stall_guard"):
@@ -223,8 +224,9 @@ class Plain:
             self.stats["churn_refused"] += 1
         else:
             if name == "advance_days":
+                max_days = 2 if self.guard.beds_first and (self.guard.placed.get("bed") or 0) < self.guard.cit else MAX_DAYS
                 try:
-                    args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
+                    args = {**args, "days": max(1, min(max_days, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
             try:
