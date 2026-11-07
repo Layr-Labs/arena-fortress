@@ -169,8 +169,12 @@ def deterministic_signals(contexts, overlaps, deps, declaration_hidden=False):
     cap = (lambda lvl: "medium" if lvl == "high" else lvl) if declaration_hidden else (lambda lvl: lvl)
     for c in contexts:
         if c["produced_base"] and not c["declared"] and not c.get("own"):
-            out.append({"kind": "base_producer_undeclared", "level": cap("high"), "file": "dependencies.json", "line": None,
-                        "quote": f"context {c['id']} produced the base this submission starts from; "
+            # how much of the base producer's own code survives (evidence.mark_base_retention; unknown -> high)
+            n, f = c.get("base_retained_lines"), c.get("base_retained_fraction")
+            lvl = "high" if n is None or f >= 0.5 or (n >= 30 and f >= 0.3) else "medium"
+            kept = "" if n is None else f" (it keeps {n} of the base producer's added lines, {f:.0%})"
+            out.append({"kind": "base_producer_undeclared", "level": cap(lvl), "file": "dependencies.json", "line": None,
+                        "quote": f"context {c['id']} produced the base this submission starts from{kept}; "
                                  + ("the formal declaration is hidden until publication: check the note"
                                     if declaration_hidden else "not declared")})
     for o in overlaps:

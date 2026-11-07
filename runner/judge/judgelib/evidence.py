@@ -362,6 +362,51 @@ def load_context(ctx_dir, declared_ids, base_producers, submitter=None):
     return subs
 
 
+# A base producer counts as used only if the submission keeps a share of the base producer's own added lines.
+# Yukon commits every submission on top of main as it was at submit time, so in git terms everyone "starts from" the
+# incumbent of that moment, even a submission that replaces the whole harness. Below the floor (fewer than 8 kept lines
+# and under 30% of the producer's lines, or under 5% however many) the base is treated as replaced: the producer
+# becomes an ordinary context submission, and the overlap signal still catches copied parts. Measured on launch day:
+# real base use kept 30-99% of the producer's lines; replaced bases kept 0-2% (shared generic lines).
+BASE_RETAINED_FLOOR_LINES, BASE_RETAINED_FLOOR_FRACTION, BASE_RETAINED_MIN_FRACTION = 8, 0.3, 0.05
+
+
+def head_tree_lines(repo, head):
+    """Normalised lines of every text file in the head's submission/ tree (bounded like the diff's blobs)."""
+    out = set()
+    listing = _git(repo, "ls-tree", "-r", "-z", "--full-tree", head, "--", SUB, binary=True)
+    for ent in listing.split(b"\0"):
+        if not ent:
+            continue
+        meta, _, path = ent.partition(b"\t")
+        parts = meta.decode("utf-8", "replace").split()
+        if len(parts) < 3 or parts[1] != "blob":
+            continue
+        data = _blob(repo, parts[2])
+        if data is None or is_binary(data):
+            continue
+        out |= {x for x in (_norm(t) for t in data.decode("utf-8", "replace").split("\n")) if x}
+    return out
+
+
+def mark_base_retention(repo, head, contexts):
+    """For each base-producer context, how many of its own added lines survive in the head's submission/ tree.
+    Below the floor the base was replaced: produced_base becomes False and why "base_replaced". A producer whose diff
+    is unavailable (no added lines) is left as it is: the judge can't tell."""
+    tree = None
+    for c in contexts:
+        if not c.get("produced_base") or not c.get("added_norm"):
+            continue
+        if tree is None:
+            tree = head_tree_lines(repo, head)
+        n = len(c["added_norm"] & tree)
+        f = round(n / len(c["added_norm"]), 3)
+        c["base_retained_lines"], c["base_retained_fraction"] = n, f
+        if (n < BASE_RETAINED_FLOOR_LINES and f < BASE_RETAINED_FLOOR_FRACTION) or f < BASE_RETAINED_MIN_FRACTION:
+            c["produced_base"], c["why"] = False, "base_replaced"
+    return contexts
+
+
 def overlap(sub_scan_lines, contexts):
     head = {}
     for path, ln, t in sub_scan_lines:

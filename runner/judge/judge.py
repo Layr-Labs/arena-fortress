@@ -43,7 +43,7 @@ def gather(a):
     declared = {d["submissionId"] for d in deps}
     producers = {x.strip().lower() for x in (a.base_producers or "").split(",") if x.strip()}
     sub = E.collect_submission(a.repo_dir, a.base, a.head)
-    ctx = E.load_context(a.context_dir, declared, producers, a.submitter)
+    ctx = E.mark_base_retention(a.repo_dir, sub["head"], E.load_context(a.context_dir, declared, producers, a.submitter))
     ov = E.overlap(sub["scan_lines"], ctx)
     score, score_h = E.load_score(a.score_json)
     sig, total = signals.scan(sub["scan_lines"], note)
@@ -59,7 +59,9 @@ def gather(a):
     hashes = {"note_sha256": note_h, "dependencies_sha256": deps_h, "score_json_sha256": score_h,
               "diff_sha256": sub["diff_sha256"],
               "context": [{"id": c["id"], "dir": c["dir"], "diff_sha256": c["diff_sha256"],
-                           "truncated": c["truncated"], "why": c["why"], "own": c["own"]} for c in ctx],
+                           "truncated": c["truncated"], "why": c["why"], "own": c["own"],
+                           "base_retained_lines": c.get("base_retained_lines"),
+                           "base_retained_fraction": c.get("base_retained_fraction")} for c in ctx],
               "context_status": E.load_context_status(a.context_dir)}
     return ev, hashes
 

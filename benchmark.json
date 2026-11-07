@@ -29,7 +29,7 @@
       "runner": {
         "provider": "github-actions",
         "workflow": "score.yml",
-        "maxConcurrentWorkflows": 2,
+        "maxConcurrentWorkflows": 4,
         "scoreArtifactName": "dfbench-score"
       }
     }

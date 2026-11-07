@@ -16,7 +16,12 @@ distinctive idea; `no` if not; `unclear` if you can't tell. Say concretely what 
 
 - A used, undeclared context submission is a `fatal` attribution finding, citing the matching lines on both sides.
 - A context submission that produced the base and isn't declared is a `fatal` finding: starting from the promoted
-  `main` counts as using it (unless the diff demonstrably replaces the whole base, which you must show).
+  `main` counts as using it (unless the diff demonstrably replaces the whole base, which you must show). The index
+  gives `base_retained_lines` / `base_retained_fraction`: how many of the base producer's own added lines survive in
+  this submission's tree (judge-computed). Yukon commits every submission on top of the `main` of its submit time, so
+  a submission written elsewhere still has that base in git; when almost nothing of the producer's code survives the
+  judge marks it `why: base_replaced`, `produced_base: false`. Treat such a context like any other: it's used only if
+  the diff materially uses its code, prompts, knowledge or a distinctive idea.
 - **When `attribution_metadata.declaration` is `hidden`,** the formal dependency list exists but Yukon doesn't show
   it to anyone but the author until the submission is published (it is verified after publication). Then
   "undeclared" means "not known": judge attribution from the NOTE and the code. A note that clearly credits the

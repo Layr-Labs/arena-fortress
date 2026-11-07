@@ -29,7 +29,7 @@ Everything here is public (Yukon's public API and the public benchmark repo). Pr
 Env: DFBENCH_YUKON_API, YUKON_API_KEY (optional). Errors on individual entries are recorded in meta.json and
 don't stop the run (the judge sees what was missing).
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, re, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -142,13 +142,32 @@ def scan(sub, rows, exclude, repo, base, head, max_scan=500, top=4, cap=200_000,
     return found[:top], st
 
 
+PROMOTION_SUBJECT = re.compile(r"^Validate submission ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b")
+
+
+def base_producer_from_git(repo, base):
+    """The submission whose harness is in submission/ at this submission's own base: the last commit on the base's
+    history that touched submission/. A promotion fast-forwards main to Yukon's "Validate submission <id>" commit;
+    an organiser export or reset is any other subject (the baseline: no producer). None if git can't tell.
+    Yukon creates a submission's branch at submit time, so the incumbent at judging time can be a later promotion
+    the submitter never saw (seen 2026-11-07): the base, not the incumbent, says what it started from."""
+    if not base:
+        return None
+    r = git(repo, "log", "-1", "--format=%s", base, "--", "submission/")
+    if r.returncode != 0:
+        return None
+    m = PROMOTION_SUBJECT.match(r.stdout.strip())
+    return [m.group(1)] if m else []
+
+
 def build(sub, out, api, headers, repo=".", last=5, cap=200_000, http=http_json, fallback_producers=(),
           scan_opts=None):
     """Writes out/NN-<id>/ (the judge's context format, runner/judge/README.md) and out/base_producers.txt.
     Order (the judge reads at most 12, by directory name): base producer(s), declared dependencies, overlap-scan
     hits (only with scan_opts: base, head, and scan()'s limits), recent accepted.
-    The base producer is Yukon's incumbent (promotionStatus "promoted"): in scalar mode, the submission whose harness
-    is in main's submission/. If Yukon's list can't be read, fallback_producers (the leader file's) are used."""
+    The base producer is the submission whose harness is in submission/ at this submission's own base
+    (base_producer_from_git, with scan_opts' base). Only if git can't tell: Yukon's incumbent (promotionStatus
+    "promoted"), and if Yukon's list can't be read either, fallback_producers (the leader file's)."""
     os.makedirs(out, exist_ok=True)
     errors = []
     try:
@@ -157,6 +176,7 @@ def build(sub, out, api, headers, repo=".", last=5, cap=200_000, http=http_json,
         rows = None
         errors.append(f"recent accepted: {e}")
     listed = rows is not None
+    from_git = base_producer_from_git(repo, (scan_opts or {}).get("base"))
     if rows is None:
         rows, base_producers = [], [x for x in fallback_producers if x]
     else:
@@ -164,6 +184,8 @@ def build(sub, out, api, headers, repo=".", last=5, cap=200_000, http=http_json,
         prom = sorted((r for r in rows if r.get("promotionStatus") == "promoted"),
                       key=lambda r: r.get("promotionFinishedAt") or "", reverse=True)
         base_producers = [prom[0]["id"]] if prom else []
+    if from_git is not None:
+        base_producers = [x for x in from_git if x != sub["submission"]]
     entries = {}
     for sid in base_producers:
         entries[sid] = {"why": "base_producer"}

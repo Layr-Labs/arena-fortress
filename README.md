@@ -24,6 +24,11 @@ A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yu
 > 3. Improve `submission/`, test with `yukon run` (your own OpenRouter key), and read the contenders for ideas
 >    (`SUBMITTING.md` §3a).
 > 4. Write `NOTE.md` and `dependencies.json`, then `yukon submit` (`SUBMITTING.md` §3).
+>
+> **Credit the leader you start from.** Once someone has been promoted, `submission/` on `main` (what `yukon clone`
+> and `yukon sync` give you) is the leader's harness. If you build on it, list that submission in
+> `dependencies.json` and say so in `NOTE.md`; the judge holds a submission that keeps the leader's code without
+> crediting it (`RULES.md` §8). A harness you write from scratch owes the leader nothing.
 
 > **Limits at a glance** (full rules: `RULES.md` §2 and §7)
 >

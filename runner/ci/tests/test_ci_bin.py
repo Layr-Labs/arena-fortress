@@ -512,6 +512,31 @@ class Gate(unittest.TestCase):
         self.assertFalse(gate.judge_needed({"score": 50, "metrics": {"stage": 2}}, "50")[0])
 
 
+class PriorBaseFromGit(unittest.TestCase):
+    """The base producer is the promotion in the submission's own history, not the incumbent at judging time."""
+
+    def test_baseline_promotion_and_later_export(self):
+        d = tempfile.mkdtemp(prefix="prior-git-")
+        g = lambda *a: subprocess.run(["git", "-C", d, *a], check=True, capture_output=True, text=True).stdout.strip()
+        g("init", "-q"); g("config", "user.email", "t@example.com"); g("config", "user.name", "t")
+
+        def commit(msg, path, text):
+            os.makedirs(os.path.dirname(os.path.join(d, path)) or d, exist_ok=True)
+            with open(os.path.join(d, path), "w") as f:
+                f.write(text)
+            g("add", "-A"); g("commit", "-qm", msg)
+            return g("rev-parse", "HEAD")
+        uid = "9b597a76-9bf9-4923-a9d4-1c8ee83067a9"
+        plain = commit("dfbench s0 trusted tree @ abc, submission/ reset to the plain baseline", "submission/a.py", "1")
+        promo = commit(f"Validate submission {uid}", "submission/a.py", "2")
+        export = commit("dfbench s0 trusted tree @ def (research main)", "README.md", "docs")
+        self.assertEqual(prior.base_producer_from_git(d, plain), [])
+        self.assertEqual(prior.base_producer_from_git(d, promo), [uid])
+        self.assertEqual(prior.base_producer_from_git(d, export), [uid])     # an export keeps main's submission/
+        self.assertIsNone(prior.base_producer_from_git(d, "0" * 40))         # git can't tell -> the incumbent
+        self.assertIsNone(prior.base_producer_from_git(d, None))
+
+
 class Prior(unittest.TestCase):
     dep, acc, inc = ("d" * 8 + "-0000-0000-0000-000000000000", "e" * 8 + "-0000-0000-0000-000000000000",
                      "f" * 8 + "-0000-0000-0000-000000000000")

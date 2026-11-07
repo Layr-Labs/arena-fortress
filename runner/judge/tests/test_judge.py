@@ -238,6 +238,27 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(d["verdict"], "hold")
         self.assertIn("base_producer_undeclared", [s["kind"] for s in d["signals"]])
 
+    def test_replaced_base_isnt_a_base_producer(self):
+        """Yukon commits every submission on the main of its submit time: a harness written from scratch still has
+        the incumbent as its git base. Keeping none of its lines, it owes the base producer nothing."""
+        head = {"submission/agent.py": "", "submission/fresh.py": (
+            "import json, os, urllib.request\n\n"
+            "def fresh_planner_loop(observation_payload):\n"
+            "    return {'tool': 'advance_days', 'days': 3, 'why': 'a fresh harness from scratch'}\n")}
+        f = self.fx(head, deps=[], note="A new harness written from scratch: a three-day planner loop. Nothing reused.")
+        d, _ = f.run()
+        self.assertNotIn("base_producer_undeclared", [s["kind"] for s in d["signals"]])
+        rec = [c for c in d["inputs"]["context"] if c["id"] == BASE_PRODUCER][0]
+        self.assertEqual(rec.get("why"), "base_replaced", rec)
+        self.assertLessEqual(rec.get("base_retained_lines"), 1)      # the shared import line
+
+    def test_kept_base_still_needs_credit(self):
+        f = self.fx(GOOD_HEAD, deps=[])
+        d, _ = f.run()
+        bp = [s for s in d["signals"] if s["kind"] == "base_producer_undeclared"]
+        self.assertEqual([s["level"] for s in bp], ["high"])
+        self.assertIn("keeps", bp[0]["quote"])
+
     # ---- the formal declaration is hidden during scoring (Yukon shows it only to the author until publication) ----
 
     HIDDEN = {"declaration": "unavailable", "dependencies": []}
