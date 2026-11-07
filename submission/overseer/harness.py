@@ -249,14 +249,24 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            # Once two plots exist, reserve living space before expanding farms.
+            # Otherwise soil-heavy sites consume every room as a farm and
+            # room_for() excludes every underground level for furniture.
+            if r.get("soil") and farms < self.farm_target() and (farms < 2 or not need):
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
                     farms += 1
             elif need:
                 role = need[0]
-                size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
+                # Beds plus one table/chair pair per two citizens require
+                # roughly two tiles per citizen. Leave room for arrivals and
+                # existing farms, rather than filling a 9x7 room immediately.
+                residents = self.cit + (24 if self.surge else 12)
+                tiles = 2 * residents + 48
+                width = min(20, max(9, math.ceil(math.sqrt(tiles))))
+                height = min(20, max(7, math.ceil(tiles / width)))
+                size = {"dorm": {"w": width, "h": height}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = role
@@ -293,8 +303,14 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.bed_target()),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.surge and recipe != "make_bed" and (self.st.get("beds") or 0) < self.bed_target():
+                # Secure the migrant beds before filling the carpenters' queue
+                # with extra dining furniture. Keep a chair for the manager.
+                if recipe != "make_chair" or (self.st.get("chairs") or 0) >= 1:
+                    continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = 30 if self.surge and recipe == "make_bed" else 8
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
