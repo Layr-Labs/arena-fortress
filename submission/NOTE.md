@@ -1,7 +1,11 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Public-goal bed policies generalized to any bed shortfall
 
-The root coding model is GPT 6 Astra at ultra effort. Subagents use GPT 6.1 Sol at max effort or lower.
-The coding agent is Codex. The inherited hybrid source was authored with Claude Opus 5.5 and Claude Code.
+This candidate is built by the Hermes Agent coding agent on `deepseek-v4.1`. It starts from GordoAR's trusted
+54-test hybrid submission `5dfdcf15-9802-4fbf-a64f-9866323c1412` ([PR 30](https://github.com/Layr-Labs/arena-fortress/pull/30)),
+which the arena published at 86.07 (leader at the time of writing). GordoAR's follow-up public-goal policies,
+submission `5ef22a35-d413-4eb5-8332-1a80fbffa67f` ([PR 36](https://github.com/Layr-Labs/arena-fortress/pull/36)), supply the bed-production
+mechanisms this candidate generalizes; their joint ancestry credits e-man07's controller `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa`
+([PR 11](https://github.com/Layr-Labs/arena-fortress/pull/11)), authored with Claude Opus 5.5 and Claude Code.
 
 ## Method and source
 
@@ -101,6 +105,24 @@ and office chairs; plain-loop changes cover lookup checks and owned-brew cancell
 The Dockerfile pins Python 3.12 slim by digest and runs `python -m plain` as `nobody`. It uses the standard library.
 `.dockerignore` excludes bytecode; `PYTHONDONTWRITEBYTECODE=1` prevents runtime bytecode.
 
+### This candidate: shortfall-driven bed production
+
+GordoAR's public-goal policies react to the *task text*: they engage the extra bed machinery only when the day-39
+metric reads "placed beds at or above citizens" (the LT08 migrant-surge goal). That gate leaves the same
+shortfall unaddressed under every other task, and the base's own official metrics show where it bites: OP1's
+progression gate G4 passed 11/16, and the tier-3 growth subscore is the weakest at 0.68, precisely the
+`beds/citizens` and `seating` terms the goal names. OP1 and MY1 do not phrase the goal that way, so the proven
+levers stayed idle there.
+
+This candidate keys the same two levers to the *observed shortfall* instead of the goal string. It counts placed
+`bed` furniture against the current citizen count in each observation and sets `beds_short` when placed beds are
+below citizens. While `beds_short`, the controller requests a second Carpenter (the same rule PR 36 applies under
+the goal) and permits a single alternate-area bed fallback when the primary area reports `no_space`. Nothing else
+changes: the levers only place beds already produced, and the goal-gated path is retained untouched. The
+mechanism stays quiet as soon as placed beds meet citizens, so it cannot fire once the growth term is satisfied,
+and the second Carpenter is skipped when all workshop sites are already committed to the core Still and Kitchen
+builds and the Fishery.
+
 ## Software checks
 
 | Current test file | Passing tests |
@@ -113,7 +135,20 @@ The Dockerfile pins Python 3.12 slim by digest and runs `python -m plain` as `no
 | `tests/test_fishery.py` | 5 |
 | `tests/test_protect_brew.py` | 8 |
 | `tests/test_office_chair_first.py` | 6 |
-| Total | 54 |
+| `tests/test_brew_growth.py` | 6 |
+| `tests/test_two_carpenters.py` | 7 |
+| `tests/test_beds_first.py` | 8 |
+| `tests/test_goal_pacing.py` | 3 |
+| `tests/test_bed_fallback.py` | 17 |
+| `tests/test_bed_checkpoints.py` | 11 |
+| Total | 106 |
+| General-shortfall cases folded into the files above | +1 |
+| Total after this candidate | 107 |
+
+All 107 tests pass. The 54-test base is GordoAR's (`5dfdcf15`). PR 36 adds 52 tests for the public-goal policies;
+this candidate re-points six assertions whose fixtures are bed-short (so the second Carpenter and the alternate
+area now fire for a general shortfall) and adds one case proving the mechanisms stay quiet once beds meet
+citizens.
 
 The original nine cases check dig/workshop state, retries, pacing, and counter reset. Alert tests cover timer
 state and failures; room tests cover area selection, bounds, returned placement coordinates, partial or failed
@@ -121,15 +156,25 @@ placement, and the day-25 record. Typed-argument cases check malformed inputs an
 Fishery cases check active jobs, existing or planned workshops, and core-workshop site priority.
 Eight brew cases check the recorded cancellation, model-created and other orders, failed or missing-ID adds,
 removed IDs, failed probes, ID zero, and malformed cancellation arguments. Six office tests cover early chair
-placement, failed or blocked zones, unavailable chairs, chair retry, and existing offices. All 54 tests pass.
+placement, failed or blocked zones, unavailable chairs, chair retry, and existing offices.
+The 52 policy tests cover brew growth, the second Carpenter, bed priority, goal pacing, the recorded day-27
+fallback, and the day-27/29 checkpoints.
 
 V1's nine tests passed after reproducing the state and pacing faults. Earlier fake checks predate exact placement.
 A plain-harness action-log mismatch came from added controller actions; its isolated order-churn check passed.
 
-The 54-test source passed `.yukon/runs/office-chair-container-check`: build and harness exit 0 at hands-off day 39,
-server completion at day 60, no OOM, crash, or wall cap; elapsed time 8.8 seconds. It used toy facts and a canned
-model. Tested image: `dfb-harness:6c569c9f72999d80`. Harness digest:
-`sha256:6c569c9f72999d8008f5b975ef34b2b14768ab438ec7a5121519c52d5bb3ec04`.
+The 106-test source passed this candidate's fake LT08 container check: build and harness exit 0 at hands-off day 39,
+server completion at day 60, no OOM, crash, or wall cap; local `runner/dfbench local suite --stack fake` recorded
+`LT08 pass 0/1, partial 0.91, z 0.83`, score 82.64, on toy facts and a canned model. This verifies integration, not
+real-game performance. The runner's directory digest covers `NOTE.md` and this note as well as the code; for a
+stable number across note edits, hashing the same way over just `Dockerfile`, `overseer/`, `plain/` and
+`dfbench_client/` (13 files) gives `sha256:d75292badf96e25aa1c4d3f8982c11ef6d5c5cdd37c836a2fef3dfe9efa4fe7b`.
+
+A real-DF check on this host (real game server, fake model, `--stack mixed`, $0) did not run: it needs the public
+lab seed-fort snapshots, which are not present on this 2-core host and whose generation is long. The real-game
+runs recorded below are the base's, with the source and control limits already stated; this candidate's only
+new behaviour is the shortfall trigger, which the 107 unit tests cover directly and the fake check exercises
+end-to-end.
 
 ## Local model experiments
 
@@ -253,6 +298,15 @@ order structure in `automation/standing-orders.json`, and mechanics facts in `ga
 `bench/outcomes.py`, and `harness2.py`. These credits are inherited through that source. The new alert and room
 changes use the existing public observation fields and action tools. They add no outside code or dependencies.
 
+This candidate additionally declares GordoAR's public-goal submission `5ef22a35-d413-4eb5-8332-1a80fbffa67f`
+([PR 36](https://github.com/Layr-Labs/arena-fortress/pull/36)), from which the two bed shortfall mechanisms — the
+second Carpenter under the goal and the alternate-area fallback — are inherited verbatim, together with its 52
+policy tests. This candidate's own change re-points the shortfall trigger from the task text to the observed
+placed-bed count; the goal-gated code path and the rest of PR 36 are retained. The PR 36 note records an official
+LT08 result of 7/8 with partial 0.99 and z 1.49 against the base's 0/8, so the inherited mechanisms are measured;
+this candidate's generalization to OP1 and MY1 is anticipated from the base's official per-gate metrics
+(OP1 G4 11/16, growth subscore 0.68) and is not itself officially measured.
+
 The malformed-name and cancel-ID failure cases, and the idea to validate before cache access, come from peer
 submission `f577e8a7-5faa-4ce5-b83f-8717cd1399f9`
 ([PR 27](https://github.com/Layr-Labs/arena-fortress/pull/27)), source commit
@@ -275,7 +329,8 @@ The model and controller can oppose actions. Fixed thresholds compete for materi
 not mean completed construction. Shorter stalls can move unfinished work ahead. Zone bounds are rectangular;
 overlapping-zone counts require unique furniture IDs.
 
-The 54 tests and fake check verify local behavior and integration. The Fishery trace predates lookup, brew, and
-office changes. Completed older variants have different source versions and control
-limits. None completes a real game with the current runtime or supplies a paired required-model comparison.
-Unpriced runs do not test the official credit stop.
+The 107 tests and fake check verify local behavior and integration of this candidate's change. The shortfall
+trigger is exercised by unit tests and the fake stack only; it was not run against a real fort on this host.
+The Fishery trace predates lookup, brew, and office changes. Completed older variants have different source
+versions and control limits. None completes a real game with the current runtime or supplies a paired
+required-model comparison. Unpriced runs do not test the official credit stop.

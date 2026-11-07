@@ -44,22 +44,24 @@ class Fishery(unittest.TestCase):
     def test_active_fishing_builds_missing_fishery(self):
         overseer, game = self.overseer()
         overseer.workshops()
-        self.assertEqual(game.calls, [("build_workshop", {"type": "Fishery", "site": "W1"})])
+        self.assertEqual(game.calls, [("build_workshop", {"type": "Fishery", "site": "W1"}),
+                                      ("build_workshop", {"type": "Carpenters", "site": "W2"})])
 
     def test_fisher_profession_without_fish_job_does_not_build(self):
         overseer, game = self.overseer(job="idle")
         overseer.workshops()
-        self.assertEqual(game.calls, [])
+        # no fishery is needed; the bed shortfall still asks for a second Carpenter
+        self.assertEqual(game.calls, [("build_workshop", {"type": "Carpenters", "site": "W1"})])
 
     def test_existing_fishery_does_not_build_again(self):
         overseer, game = self.overseer(fishery=True)
         overseer.workshops()
-        self.assertEqual(game.calls, [])
+        self.assertEqual(game.calls, [("build_workshop", {"type": "Carpenters", "site": "W1"})])
 
     def test_planned_fishery_does_not_build_again(self):
         overseer, game = self.overseer(fishery=False)
         overseer.workshops()
-        self.assertEqual(game.calls, [])
+        self.assertEqual(game.calls, [("build_workshop", {"type": "Carpenters", "site": "W1"})])
 
     def test_core_workshops_take_sites_before_fishery(self):
         overseer, game = self.overseer(core=False)

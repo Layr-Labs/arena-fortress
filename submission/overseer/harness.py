@@ -49,8 +49,19 @@ class Overseer:
         self.tries, self.last = {}, {}
         self.roles = {}          # room id -> farm | dorm | dine | office
         self.brew_orders = set()
+        self.drink_growth = False
+        self.beds_first = False
+        self.beds_short = False
         self.now = 0
         self.alert_since = None
+
+    def set_task(self, task):
+        """Select fresh-start policies from the public task."""
+        task = d(task)
+        self.drink_growth = bool(task.get("hands_off")) and (
+            "drink must not end lower" in str(task.get("goal") or "").casefold())
+        self.beds_first = bool(task.get("hands_off")) and (
+            "every dwarf must have a placed bed" in str(task.get("goal") or "").casefold())
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -92,6 +103,10 @@ class Overseer:
         for f in lst(self.o.get("furniture")):
             if isinstance(f, dict):
                 self.placed[f.get("kind")] = self.placed.get(f.get("kind"), 0) + 1
+        # Bed production follows the observed shortfall, not only the public task text: G4 needs placed beds >=
+        # citizens on every long horizon, so request a second Carpenter and allow one alternate area whenever the
+        # facts show too few beds, for any task (this only drives placement of already-made beds).
+        self.beds_short = (self.placed.get("bed") or 0) < self.cit
         self.surface = self.map.get("surface_z")
 
     def kind(self, k):
@@ -188,6 +203,9 @@ class Overseer:
                 self.build(t)
         if "Fishery" not in have and any(p.get("job") == "Fish" for p in self.people):
             self.build("Fishery")
+        if (self.beds_first or self.beds_short) and sum(w.get("type") == "Carpenters" for w in lst(self.o.get("workshops"))
+                                   if isinstance(w, dict)) < 2:
+            self.build("Carpenters")
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -233,10 +251,12 @@ class Overseer:
 
     def supply(self):
         """Standing orders that keep working in a hands-off window, then one-shot furniture sized to the population."""
-        if not self.standing("brew_drink"):
-            self.act("o_brew", "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": [
-                {"stock": "drink", "below": DRINK_CAP}, {"stock": "plants_brewable", "at_least": 2},
-                {"stock": "barrels_empty", "at_least": 1}]}, retry=3)
+        if not (self.brew_orders if self.drink_growth else self.standing("brew_drink")):
+            when = [{"stock": "plants_brewable", "at_least": 2}, {"stock": "barrels_empty", "at_least": 1}]
+            if not self.drink_growth:
+                when.insert(0, {"stock": "drink", "below": DRINK_CAP})
+            self.act("o_brew", "add_order", {"recipe": "brew_drink", "amount": 3,
+                     "repeat": "daily", "when": when}, retry=3)
         if not self.standing("make_barrel"):
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
@@ -251,6 +271,8 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.cit + 3),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.beds_first and recipe in ("make_table", "make_chair"):
+                continue
             if have < want and not self.pending(recipe) and self.logs():
                 self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
 
@@ -278,27 +300,38 @@ class Overseer:
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
         if not result.get("ok"):
-            return []
+            return [], result.get("error_code")
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
             points = [points]
-        return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
+        return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points], None
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
-            placed = self.place("beds", "bed", dorm, n) if n > 0 else []
-            if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
-                self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
+            placed, error = self.place("beds", "bed", dorm, n) if n > 0 else ([], None)
+            bed_rooms = [(dorm, placed, "z_dorm")]
+            if (self.beds_first or self.beds_short) and error == "no_space":
+                areas = sorted((s for s in self.kind("A") if s["id"] != dorm["id"]
+                                and s.get("open_tiles", 0) >= 6),
+                               key=lambda s: (-s.get("open_tiles", 0), s["id"]))
+                if areas:
+                    alternate = areas[0]
+                    placed, _ = self.place("beds_" + alternate["id"], "bed", alternate, n)
+                    bed_rooms.append((alternate, placed, "z_dorm_" + alternate["id"]))
+            for room, placed, key in bed_rooms:
+                if self.needs_zone(room, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
+                    self.act(key, "make_zone", {"kind": "dormitory", "site": room["id"]}, retry=3)
         if dine:
             want = math.ceil(self.cit / 2) + 1
             placed = []
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
-                if n > 0:
-                    placed += self.place("f_" + kind, kind, dine, n)
+                if n > 0 and not self.beds_first:
+                    points, _ = self.place("f_" + kind, kind, dine, n)
+                    placed += points
             if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
 
@@ -417,6 +450,7 @@ def main():
     game = GameClient(task.game_url)
     log("start", task=repr(task))
     ov = Overseer(game)
+    ov.set_task(task.task)
     while True:
         try:
             reason = ov.run()

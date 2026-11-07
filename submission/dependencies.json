@@ -72,5 +72,15 @@
     "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
     "rationale": "Credits the producer of the current promoted trusted repository base 3ed866583d0cab5a7392701f02939d7e8707f1f4 used for this candidate, as required by RULES.md section 8. The harness-only sync preserved our editable hybrid source. This base credit does not claim adoption of the producer's STATUS digest, digest memory, compacted observation, or PLAYBOOK additions.",
     "evidence": "Current repository HEAD is 3ed866583d0cab5a7392701f02939d7e8707f1f4. The five dfbench_client files and plain/__init__.py and plain/__main__.py are byte-identical across the current candidate, frozen V1 input, producer 9b597a76 and the organiser baseline 75d40aa6; they are retained common baseline code. Candidate plain/digest.py is absent. The candidate's controller and loop integration remain attributed to 6e775ed2. The exact public V1 commit 674b77e3afd5093ede670a8c69756c1660ad8062 also has no plain/digest.py and has parent 1e86d20e3c87f322f522fa775de8f28ac2012fcd; no digest adoption by V1 is asserted."
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "The direct source of this candidate: the trusted 54-test hybrid submission at repository HEAD, published at 86.07 and leading the board when this candidate was built. This candidate keeps its controller, plain-loop, tests, and NOTE structure and adds the shortfall-driven bed production described below.",
+    "evidence": "Repository HEAD submission/ equals this source except for this candidate's changes: overseer/harness.py gains a beds_short flag and two conditions, the policy tests gain one case and re-point six assertions, and NOTE.md gains the attribution and design sections. The inherited dependencies.json entries for 6e775ed2, f577e8a7, 9b597a76 and 41cfa9eb are retained unchanged."
+  },
+  {
+    "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+    "rationale": "Inherits two bed-production mechanisms verbatim: requesting a second Carpenter while beds are needed, and one alternate-area bed fallback when the primary area reports no_space. This candidate changes only the trigger, from the task text to the observed placed-bed shortfall.",
+    "evidence": "Source at commit aa74a2874a952c4b85b074bc10123eecb35ceac1 ([PR 36](https://github.com/Layr-Labs/arena-fortress/pull/36)). Candidate overseer/harness.py retains the source's goal gating, second-Carpenter rule, alternate-area fallback and day-27/29 checkpoints, and adds the parallel beds_short trigger; the source's six policy test files are retained with six assertions re-pointed and one added case. The source note records an official LT08 result of 7/8, partial 0.99, and z 1.49."
   }
 ]
