@@ -293,8 +293,10 @@ class Plain:
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
                 left = (self.game.last or {}).get("hands_off_in_days")
-                if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
-                    args["days"] = 1
+                if type(left) is int and left > 0:
+                    o = getattr(self.guard, "o", {})
+                    cap = 1 if left <= 4 or o.get("dig_designations_pending") else 2
+                    args["days"] = min(args["days"], cap)
             try:
                 resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass

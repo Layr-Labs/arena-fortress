@@ -1,72 +1,252 @@
 [
- {
-  "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
- },
- {
-  "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
- },
- {
-  "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
- },
- {
-  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
- },
- {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
- },
- {
-  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
- },
- {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
- },
- {
-  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
- },
- {
-  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
- },
- {
-  "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
- },
- {
-  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
- },
- {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
- },
- {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
- },
- {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
- }
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "i34-9 is the actual promoted producer and starting code base for this candidate, at commit2f3abb30f6291e05a8d37a8c40c34a29732000b4. Its daily layer, STATUS/PLAYBOOK model loop, closer, progression, ownership guard, fallback, surge bed reserve and Docker pin are retained.",
+    "evidence": "Normal yukon sync selected this submission at91.32 before edits; the candidate is a managed-housing/office/placement/cadence repair port onto its full submission tree.",
+    "citations": [
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 320,
+        "endLine": 337
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 406,
+        "endLine": 423
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 414,
+        "endLine": 431
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 505,
+        "endLine": 522
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 308,
+        "endLine": 318
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 394,
+        "endLine": 404
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "23611b7e5aec6fb95d021924f79211519776d0035ef8088124cf94f6772f5f4a",
+        "path": "submission/plain/harness.py",
+        "startLine": 144,
+        "endLine": 163
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "7c6706d49b04fd9681a30df1f6e10186c5c5897e89a685e61743d95ee9068f97",
+        "path": "submission/plain/harness.py",
+        "startLine": 144,
+        "endLine": 163
+      }
+    ]
+  },
+  {
+    "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+    "rationale": "mpjunior92 (this solver) is the direct source of the managed office, housing/farm reservation,30-job bed batch and seat priority, bounded placement/zone helpers, manager handoff and managed advance cap. The managed-window brewing parameters are also adapted from this source. The open-run known-built-chair branch generalizes its bounded office repair, with an additional public-native functional test.",
+    "evidence": "Published commit09860b16dbb785f0186a4c0800031f4a03f46a50. Its33 files were byte-checked against the frozen measured archive. It was held before games for a static attribution finding about the subsequently promoted fa9c13cc context, despite dismissal by the model reviewer; no fixed-GLM performance result is claimed for it. Its earlier self-authored code intermediate0662d244-d665-45d0-a7e6-d49b9806de2d remains canceled with no platform-published commit (public Git3ddf9d8c5f4a134cb5abdee329a9cda9e89875aa). The formal link to that intermediate remains deferred under the CLI unpublished-predecessor workflow; credit is retained through the published direct source and this evidence.",
+    "citations": [
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 200,
+        "endLine": 242
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 244,
+        "endLine": 286
+      },
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 267,
+        "endLine": 295
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 312,
+        "endLine": 340
+      },
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 375,
+        "endLine": 382
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 544,
+        "endLine": 551
+      },
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 312,
+        "endLine": 353
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 357,
+        "endLine": 383
+      },
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "921650d45bbaff86d21d536648f17752dd52b41da854e1ffc1872243b9de6fd3",
+        "path": "submission/plain/harness.py",
+        "startLine": 215,
+        "endLine": 255
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "7c6706d49b04fd9681a30df1f6e10186c5c5897e89a685e61743d95ee9068f97",
+        "path": "submission/plain/harness.py",
+        "startLine": 272,
+        "endLine": 310
+      },
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 312,
+        "endLine": 353
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 425,
+        "endLine": 441
+      }
+    ]
+  },
+  {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "i34-9: STATUS integration with the deterministic layer, layer-aware digest, closer, layer-only fallback and owned-order/alert guard, retained through fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "GordoAR: the prior promoted daily-controller and model-loop repairs, typed checks, alerts, Fishery, office chairs, zone coverage, Docker pin and tests retained through fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
+  },
+  {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "rationale": "GordoAR: success-only room/site bookkeeping and stall/idle repairs retained through5dfdcf15 and fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "kshitij-hash: STATUS digest, recent action/failure memory, compact observation and PLAYBOOK lineage retained through7662723d and fa9c13cc.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "kshitij-hash: the PLAYBOOK prompt inherited through cut2 and the new promoted base.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/prompt.py PLAYBOOK, against d74e941b."
+  },
+  {
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+    "rationale": "kshitij-hash: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
+  },
+  {
+    "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
+    "rationale": "kshitij-hash: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "e-man07: the founding deterministic Overseer and daily hybrid architecture; its regular policy steps remain beneath the port.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "e-man07: dining seat counting/re-zoning, extra migrant carpenter, window pacing and continued layer play retained through the promoted base.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
+  },
+  {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "rationale": "e-man07: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py: seats and rezone share lines with 44352f28."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "mpjunior92 (this solver): earlier published late-game brewing-target idea acknowledged by the inherited closer; no broad old Caretaker is copied into this candidate.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
+  },
+  {
+    "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
+    "rationale": "ryan48: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
+  },
+  {
+    "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
+    "rationale": "ryan48: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
+  },
+  {
+    "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
+    "rationale": "akhilc08: retained the promoted base's declared shared-ancestry/overlap credit; no newly copied independent policy is claimed. akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
+    "evidence": "Retained throughfa9c13cc and its published dependency declaration. submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
+  },
+  {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "rationale": "0xplemonade: malformed tool-name/cancel-id failure cases and validate-before-cache lesson behind the inherited typed checks and tests; its recursive schema validator is not copied.",
+    "evidence": "Typed checks in plain/harness.py and test_typed_arguments.py inherited throughGordoAR5dfdcf15; this direct declaration retains the credited origin omitted from the new base formal list."
+  },
+  {
+    "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+    "rationale": "newjordan: public optional bounded zone-dimension idea already credited in my fifth source; adapted to the public site resolver and accepted40-tile furniture/20-tile zone limits. No provider wrapper or inspect-tool code is copied.",
+    "evidence": "prepare_tools at published commit3e3b3782f08780a3af39be1742a6c781c39ffb70 exposes optional zone w/h1..20. Own bounded office/area helpers keep site origin and min(actual bound, API limit); native proof and real resolver checks accompany the port.",
+    "citations": [
+      {
+        "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+        "fileSha256": "dc2488eddf6dec5049b45277bb52e3e99f9cb5342f49266d91fbc97ecb9dc248",
+        "path": "submission/plain/harness.py",
+        "startLine": 49,
+        "endLine": 74
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 554,
+        "endLine": 559
+      }
+    ]
+  }
 ]
