@@ -1,5 +1,20 @@
 [
  {
+  "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+  "rationale": "i34-9 promoted leader on main: the complete harness including GordoAR repairs, compact STATUS digest loop, closer steps, Hamlet progression push, and Dockerfile.",
+  "evidence": "Entire base repository at commit 2f3abb3: submission/overseer/harness.py, plain/digest.py, plain/prompt.py, plain/harness.py, Dockerfile, and existing test suite."
+ },
+ {
+  "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+  "rationale": "pepedesigner contender: goal policy architecture for LT08 (beds-first carpenting priority, second Carpenters workshop early, alternate area no_space fallback and zoning, advance_days pacing clamp) and LT01 (ceiling-less brewing under drink goal).",
+  "evidence": "submission/overseer/harness.py (set_task, supply wants[:1] bed prioritization, furnish no_space alternate area fallback and zoning, workshops second Carpenters, bed_target), submission/plain/harness.py (set_task call, quiet_days and advance_days beds_unmet pacing clamps), and tests/test_goal_policies.py."
+ },
+ {
+  "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+  "rationale": "GordoAR candidate: original creator of the task-specific goal policies for LT08 and LT01 from which pepedesigner adapted.",
+  "evidence": "Goal policy definitions, thresholds and logic in submission/overseer/harness.py and test_goal_policies.py."
+ },
+ {
   "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
   "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
   "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
