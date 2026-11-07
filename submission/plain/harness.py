@@ -11,11 +11,8 @@ One turn:
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
-Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATUS digest before the observation
-(digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
-farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
-and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
-workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
+There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
+reads the raw facts. README.md lists the obvious places to improve.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -28,13 +25,15 @@ import time
 from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAPIError, GameClient, GameOver,
                             HandsOff, ModelClient, ModelError, load_task)
 
-from . import digest, prompt
+from overseer.harness import Overseer
+
+from . import prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
@@ -43,7 +42,6 @@ ORDER_TOOLS = ("add_order", "add_manager_order")
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
-UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
 
 
 def log(kind, **kw):
@@ -86,8 +84,7 @@ def window(messages):
     out = []
     for i, x in enumerate(m):
         c = x.get("content")
-        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and (
-                c.startswith("OBSERVATION {") or c.startswith("STATUS")):
+        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and c.startswith("OBSERVATION {"):
             x = {**x, "content": "OBSERVATION (older, omitted)"}
         elif x["role"] == "tool" and i != last_tool and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
             x = {**x, "content": c[:TOOL_RESULT_OLD] + " ...(trimmed)"}
@@ -107,9 +104,8 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
-        self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
-        self.units = None     # the last `units` query result (citizens), for the digest's labor check
-        self.units_day = None
+        self.guard = Overseer(game)
+        self.guard_day = None
 
     def setup(self):
         t = self.game.task()
@@ -137,12 +133,21 @@ class Plain:
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 break
+            if resp.get("day") != self.guard_day:   # the deterministic layer runs once per game day and costs no credits
+                self.guard_day = resp.get("day")
+                try:
+                    if self.guard.step(resp):
+                        resp = self.game.observe()
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
                 self.stop_reason = "budget"
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
-            self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
+            self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
+                obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
             try:
                 msg = self.chat()
@@ -160,6 +165,7 @@ class Plain:
                     break
                 if not self.advance(1, "model_error"):
                     break
+                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
@@ -185,30 +191,6 @@ class Plain:
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
 
-    def user_message(self, resp, obs):
-        """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
-        observation as JSON. Any failure in the digest falls back to the raw observation alone."""
-        raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
-        try:
-            env = {k: resp.get(k) for k in ENVELOPE if k in resp}
-            day = env.get("day")
-            if isinstance(day, int) and (self.units_day is None or day - self.units_day >= UNITS_EVERY):
-                try:
-                    q = self.game.query("units", kind="citizens")
-                    self.units = q.get("result", q)
-                    self.units_day = day
-                except GameAPIError as e:
-                    log("query_error", query="units", error=str(e)[:200])
-                    self.units_day = day   # don't retry every turn
-            status = digest.digest(obs, env, self.memory, units=self.units)
-            self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
-            compact = digest.compact_observation(obs)
-            return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
-        except Exception as e:   # never let the digest cost a turn
-            self.stats["digest_errors"] = self.stats.get("digest_errors", 0) + 1
-            log("digest_error", error=repr(e)[:300])
-            return raw
-
     def chat(self):
         params = {**CHAT, "seed": self.seed}
         try:
@@ -232,7 +214,7 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
-        if name not in self.tool_names:
+        if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
             resp = {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
@@ -259,6 +241,10 @@ class Plain:
 
     def refuse(self, name, args, tick):
         """The order-churn guard: a local refusal (no API call), or None."""
+        order_id = args.get("order_id")
+        if name == "cancel_order" and type(order_id) is int and order_id in self.guard.brew_orders:
+            return {"ok": False, "error_code": "order_churn", "error": (
+                f"not run: order {order_id} is the controller's daily brew order and stays in place.")}
         if not isinstance(tick, int):
             return None
         if name in ORDER_TOOLS:
@@ -268,7 +254,7 @@ class Plain:
                     return {"ok": False, "error_code": "order_churn", "error": (
                         f"not run: you cancelled an identical order (id {oid}) {(tick - t) / DAY:.1f} days ago; "
                         "adding it again restarts the manager's validation.")}
-        if name == "cancel_order":
+        if name == "cancel_order" and not isinstance(args.get("order_id"), (list, dict)):
             sig, t = self.added.get(args.get("order_id"), (None, None))
             if t is not None and tick - t < FRESH_DAYS * DAY:
                 return {"ok": False, "error_code": "order_churn", "error": (
@@ -293,10 +279,6 @@ class Plain:
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
-        try:
-            self.memory.record((self.game.last or {}).get("day"), name, args, resp)
-        except Exception as e:
-            log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
