@@ -1,12 +1,32 @@
 [
-  {
-    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. This submission keeps the whole harness and the PLAYBOOK, removes cut 1's overlapping KNOWLEDGE block, and adds the STATUS digest, the failed-action memory and the compacted observation on top.",
-    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text; submission/plain/harness.py: the loop, guards and client are cut 1's (unchanged from the baseline), with user_message(), the Memory hook in result() and the STATUS stub in window() added; submission/plain/digest.py is new."
-  },
-  {
-    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-    "rationale": "The first attempt of this same submission (same account), which failed admission on a stale base before it ran. This submission is that submission/ tree unchanged, resubmitted on the re-exported trusted tree.",
-    "evidence": "submission/plain/ (digest.py, harness.py, prompt.py and the rest) is identical to the archive of 514f4ac8; submission/dependencies.json differs only by this entry; the base commit outside submission/ differs."
-  }
+ {
+  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+  "rationale": "kshitij-hash's cut 2, the leader this submission starts from (main's submission/): the plain model loop with the PLAYBOOK operating manual, the STATUS digest (plain/digest.py), the failed-action memory and the compacted observation. All of it is kept; the digest gains a LAYER section and a [layer] tag on the layer's orders, and the loop gains the deterministic layer, a layer-only fallback and an ownership guard.",
+  "evidence": "submission/plain/digest.py, prompt.py (MANUAL, PLAYBOOK, ORDERS, the STATUS paragraph) and harness.py (user_message, the Memory hook, the STATUS stub in window), against the same files in 9b597a76."
+ },
+ {
+  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+  "rationale": "kshitij-hash's cut 1: the PLAYBOOK section of the system prompt and the loop that cut 2 inherited; the base of main's submission/.",
+  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
+ },
+ {
+  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+  "rationale": "e-man07's deterministic layer (the overseer package: manager and office, plugins, workshops, digging, farms, standing orders, furniture, zones, moods, defence), run once per game day in front of the model loop, and the prompt paragraph telling the model what is handled. Every regular step of that layer is used unchanged; this submission adds closer steps, a report, an ownership guard and a layer-only fallback around it.",
+  "evidence": "submission/overseer/harness.py (the Overseer class and every regular step) and the Overseer.step call in submission/plain/harness.py, against the same files in 6e775ed2."
+ },
+ {
+  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+  "rationale": "e-man07's revision of the same layer: four pieces are taken, the seat count inside dining zones, the re-zoning of loose built furniture, a dining zone over a level whose tables and chairs sit in no dining zone, and a second Carpenters for a migrant wave (here only before a lab task's hands-off window); plus the one-day advance into a window and the budget-mode loop. Its other changes (housing levels, farm-plot cap by seeds, the 200/1000 brew split, cooking on any food, the office rewrite, the 3-day advance cap) are not taken.",
+  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of window_supply; submission/plain/harness.py: quiet_days and the one-day advance into a window, against the same in efac22bf."
+ },
+ {
+  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+  "rationale": "mpjunior92's public note: raising the brewing target during the final stretch of a game without a hands-off window, because drink declined through the scored interval after production paused. The endgame supply mode here is a reimplementation of that idea (no code taken).",
+  "evidence": "submission/overseer/harness.py, endgame_supply (the o_brew_end order with a cap that rises with the population), against that note's 'Changes since the previous archive' section."
+ },
+ {
+  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+  "rationale": "The first attempt of this same submission (same account), which failed admission on a stale base before it ran. This submission is that submission/ tree unchanged, resubmitted on the re-exported trusted tree.",
+  "evidence": "submission/plain/ (digest.py, harness.py, prompt.py and the rest) is identical to the archive of 514f4ac8; submission/dependencies.json differs only by this entry; the base commit outside submission/ differs."
+ }
 ]

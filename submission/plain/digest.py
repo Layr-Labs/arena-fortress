@@ -155,16 +155,18 @@ def fmt_days(x):
     return "%.0f" % x
 
 
-def digest(obs, env, memory=None, units=None, animals=None):
+def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     """The digest text. obs: the observation dict (the model's version is fine). env: the response envelope (day,
-    tick, days_left, hands_off_in_days). units/animals: the `units` query results (citizens / animals), or None."""
+    tick, days_left, hands_off_in_days). units/animals: the `units` query results (citizens / animals), or None.
+    layer: {"report": [...], "owned": set()} from the deterministic layer (its recent actions and its order ids)."""
     mem = memory or Memory()
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
     sections = (_clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
-                _sites, _labors, _memory)
+                _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
+           "layer": _d(layer),
            "next": [], "citizens": len(_l(obs.get("dwarves"))) or _n(_d(obs.get("administrators")).get("citizens"), 0)}
     for fn in sections:
         try:
@@ -176,7 +178,8 @@ def digest(obs, env, memory=None, units=None, animals=None):
     try:
         if ctx["next"]:
             nxt = list(dict.fromkeys(ctx["next"]))   # deduplicated, order kept
-            lines.append("NEXT (gaps found, in playbook order; skip what the observation shows is already under way): "
+            lines.append("NEXT (gaps found, in playbook order; skip what the observation shows is already under way"
+                         + (", and what the LAYER line shows it is doing" if ctx.get("layer") else "") + "): "
                          + "; ".join(nxt[:6]))
     except Exception:
         pass
@@ -317,6 +320,8 @@ def _orders(c):
             have.add(rec)
         ws = workshop_for(o)
         name = rec or (str(o.get("job")) + (f"/{o['reaction']}" if o.get("reaction") else ""))
+        if o.get("id") in (c.get("layer") or {}).get("owned", ()):
+            name += "[layer]"
         why = []
         left, jip = _n(o.get("left")), _n(o.get("jobs_in_progress"))
         if not o.get("validated"):
@@ -546,6 +551,26 @@ def _memory(c):
     if mem.stops:
         out.append("recent advance stops: " + " | ".join(f"d{d} {r} {det}" for d, r, det in mem.stops))
     return out or None
+
+
+def _layer(c):
+    """The deterministic layer's recent actions: what it did today and what the API refused (that is the model's
+    work), so the model neither repeats nor fights it. Orders marked [layer] above are its standing orders."""
+    lay = c.get("layer") or {}
+    rep = _l(lay.get("report"))
+    if not rep:
+        return None
+    today = [r for r in rep if _d(r).get("day") == c["day"]] or rep[-6:]
+    parts = []
+    for r in today[-10:]:
+        r = _d(r)
+        a = Memory.short_args(r.get("args"))
+        parts.append(f"d{r.get('day')} {r.get('tool')} {a} -> " + ("ok" if r.get("ok") else
+                     f"FAILED {r.get('error_code')}: {str(r.get('error') or '')[:50]}"))
+    failed = sum(1 for r in today if not _d(r).get("ok"))
+    return ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
+            "orders, beds/seats, zones, shelter, mood workshop; don't redo or cancel its work): " + " | ".join(parts)
+            + (f" -- {failed} refused: those are yours to solve" if failed else "")]
 
 
 def compact_observation(obs):
