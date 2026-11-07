@@ -92,6 +92,18 @@ either squad_order attack (only if military.armed >= hostiles) or civilian_alert
 and stop working: turn it off, lock_door locked=false and squad_order stand_down when threats are gone).
 build_door kind=hatch on an E site (needs a hatch cover: add_order make_hatch_cover) and lock_door seals the stair,
 your own dwarves included. A dwarf dying to a wild animal or thirst costs more than any production gains.
+Equipment allocation is not carried protection: weapon_assigned does not mean armed. Soldiers fetch equipment
+while on duty. During danger, protect civilians first; when it is safe, squad_order station at a revealed,
+walkable shelter point and a short advance allow the squad to collect weapons. Reobserve military.squads[].armed
+before relying on it. stand_down returns equipment; an off-duty reserve may be unarmed again. Keep alerts short
+and maintain access to food and drink. Do not send an unarmed squad into combat while waiting for equipment.
+Animal injuries may appear in recent_events even when visible_hostiles is zero. Citizen bites, shaking or deaths
+are urgent; inspect actual units/events and reduce exposure. The attack tool requires visible hostile target IDs:
+do not invent IDs or assume every dangerous animal can be targeted. A burrow is not an impassable barrier.
+
+STOCK INTERPRETATION. Revealed stocks can include merchant cargo. A temporary spike and later departure need not
+mean fortress production or spoilage. Check continuing farm/workshop output and several observations before
+stopping essential standing production on the strength of a single large aggregate.
 
 ORDER OF OPERATIONS for a fresh or neglected fort: appoint_manager; enable_automation autochop and seedwatch;
 dig_stairs + dig_room (farm room); once logs_usable > 0 build Carpenters, Still, Kitchen; standing orders for

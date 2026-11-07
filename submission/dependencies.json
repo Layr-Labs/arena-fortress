@@ -1,12 +1,32 @@
 [
   {
     "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-    "rationale": "Cut 1 (same account): the organiser's plain baseline plus the PLAYBOOK operating manual in the system prompt. This submission keeps the whole harness and the PLAYBOOK, removes cut 1's overlapping KNOWLEDGE block, and adds the STATUS digest, the failed-action memory and the compacted observation on top.",
-    "evidence": "submission/plain/prompt.py: MANUAL, PLAYBOOK, ORDERS and the API sections are cut 1's text; submission/plain/harness.py: the loop, guards and client are cut 1's (unchanged from the baseline), with user_message(), the Memory hook in result() and the STATUS stub in window() added; submission/plain/digest.py is new."
+    "rationale": "The promoted frontier inherits the PLAYBOOK and operating-manual prompt from d74e941b. We retain that prompt through 9b597a76; d74e941b is work by the frontier author, not by our account.",
+    "evidence": "plain/prompt.py retains MANUAL, PLAYBOOK, ORDERS and API guidance from this ancestor through the promoted frontier. The new helpers do not replace that prompt."
   },
   {
     "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-    "rationale": "The first attempt of this same submission (same account), which failed admission on a stale base before it ran. This submission is that submission/ tree unchanged, resubmitted on the re-exported trusted tree.",
-    "evidence": "submission/plain/ (digest.py, harness.py, prompt.py and the rest) is identical to the archive of 514f4ac8; submission/dependencies.json differs only by this entry; the base commit outside submission/ differs."
+    "rationale": "The promoted 9b597a76 note identifies 514f4ac8 as its earlier identical harness archive, submitted by the frontier author and stopped by stale trusted-path admission. We retain its status-harness design through 9b597a76.",
+    "evidence": "plain/digest.py and the inherited Memory, compaction and user_message/result integration arrive through promoted source 3ed866583d0cab5a7392701f02939d7e8707f1f4. This declaration preserves that published ancestry without claiming its authorship."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "Promoted 81.3 frontier is the complete base: status digest, Memory, PLAYBOOK, compact observation, model loop and clients are retained.",
+    "evidence": "Starting tree 3ed866583d0cab5a7392701f02939d7e8707f1f4 obtained with normal yukon sync; changes add the maintenance hook and two small helper modules around its existing user_message/result path."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "Our published caretaker supplies the managed-window economic, construction and furnishing logic, extended by our locally tested bed-batch and pacing fixes.",
+    "evidence": "New plain/labcare.py derives from our caretaker file. It is gated to positive-supply managed forts with at least25 visible citizens. Squad control and Fishery construction are removed; long games remain model-directed apart from the ordinary meeting-area helper. The separate action journal from that predecessor is not imported."
+  },
+  {
+    "submissionId": "d8164ec2-7202-4383-8dcf-caa164ef70fd",
+    "rationale": "Its public underground-fortress and happiness discussion informed our indoor social-space experiments. This cut adds only the supported meeting_area zone; API semantics come from the common manual.",
+    "evidence": "New plain/upkeep.py MeetingArea uses revealed A sites and the ordinary make_zone tool. No candidate code from d816 was copied. The separate bounded stock-history experiment inspired by the same note is not included in this promoted-frontier branch."
+  },
+  {
+    "submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a",
+    "rationale": "Our first published caretaker is the original implementation ancestor of the selected economic and furnishing helper, retained and extended through our 0bc9b753 archive. It failed trusted-path admission before gameplay and provides no scored evidence.",
+    "evidence": "plain/labcare.py retains its public-tool prerequisite, workshop/farm, bounded-room and furniture routines. The old separate action journal and automatic military policy are not selected into this branch."
   }
 ]

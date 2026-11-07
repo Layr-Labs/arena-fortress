@@ -15,7 +15,7 @@ Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATU
 (digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
 farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
 and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
-workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
+workshop job_details are summarised by the digest instead). The inherited cut-2 loop is extended here by bounded automatic maintenance: large managed forts receive economic and furnishing help, with a model turn after at most twelve helper actions. A separate supported indoor meeting-area helper is opportunistic.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -29,6 +29,8 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from . import digest, prompt
+from .labcare import Caretaker
+from .upkeep import MeetingArea
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
@@ -110,6 +112,14 @@ class Plain:
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.labcare = Caretaker()
+        self.meeting = MeetingArea()
+        self.maintenance_active = False
+        self.pending_maintenance = []
+        self.large_managed_fort = False
+        self.stats['maintenance_actions'] = 0
+        self.stats['maintenance_errors'] = 0
+        self.maintenance_disabled_until = 0
 
     def setup(self):
         t = self.game.task()
@@ -131,7 +141,7 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
-        idle = streak = 0
+        idle = streak = maintenance_streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
             if resp.get("game_over"):
@@ -142,6 +152,53 @@ class Plain:
                 break
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
+            hands = resp.get('hands_off_in_days')
+            self.large_managed_fort = (isinstance(hands, (int, float)) and hands > 0
+                                       and len(obs.get('dwarves') or []) >= 25)
+            if idle >= STALL_AFTER:
+                idle = maintenance_streak = 0
+                self.stats['stall_advances'] += 1
+                if not self.advance(1, 'maintenance_stall'):
+                    break
+                continue
+            action = None
+            stocks = obs.get('stocks') or {}
+            healthy_supply = all(type(stocks.get(k)) in (int, float) and stocks[k] > 0
+                                 for k in ('drink', 'food_edible'))
+            if (maintenance_streak < 12 and healthy_supply
+                    and (resp.get('tick') or 0) >= self.maintenance_disabled_until):
+                try:
+                    if self.large_managed_fort:
+                        action = self.labcare.step(obs, resp.get('tick'))
+                    if not action and not (self.labcare.combat_until > (resp.get('tick') or 0)):
+                        action = self.meeting.step(obs, resp.get('tick'))
+                except Exception as e:
+                    self.stats['maintenance_errors'] += 1
+                    self.maintenance_disabled_until = (resp.get('tick') or 0) + DAY
+                    log('maintenance_error', error=repr(e)[:250])
+                    action = None
+            if action:
+                name, args = action
+                call = {'id': 'maintenance-' + str(self.stats['turns']), 'type': 'function',
+                        'function': {'name': name, 'arguments': json.dumps(args)}}
+                self.maintenance_active = True
+                self.maintenance_ok = False
+                try:
+                    moved = self.run_call(call)
+                except (HandsOff, GameOver) as e:
+                    self.stop_reason = type(e).__name__
+                    break
+                finally:
+                    self.maintenance_active = False
+                self.stats['maintenance_actions'] += 1
+                maintenance_streak += 1
+                idle = 0 if moved or self.maintenance_ok else idle + 1
+                continue
+            maintenance_streak = 0
+            if self.pending_maintenance:
+                obs['harness_maintenance'] = {'source': 'automatic public-tool actions between model turns',
+                                              'actions': self.pending_maintenance}
+                self.pending_maintenance = []
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
             try:
@@ -242,7 +299,11 @@ class Plain:
         else:
             if name == "advance_days":
                 try:
-                    args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
+                    days = max(1, min(MAX_DAYS, int(args.get("days") or 1)))
+                    hands = (self.game.last or {}).get('hands_off_in_days')
+                    if self.large_managed_fort and isinstance(hands, (int, float)) and 0 < hands <= 14:
+                        days = min(days, 2, max(1, int(hands) - 1))
+                    args = {**args, "days": days}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
             try:
@@ -292,7 +353,12 @@ class Plain:
         self.stats["actions"] += 1
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
-        self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
+        if self.maintenance_active:
+            self.maintenance_ok = ok
+            self.pending_maintenance = (self.pending_maintenance + [
+                {'tool': name, 'args': args, 'ok': ok, 'error_code': resp.get('error_code')}])[-6:]
+        else:
+            self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
         try:
             self.memory.record((self.game.last or {}).get("day"), name, args, resp)
         except Exception as e:
