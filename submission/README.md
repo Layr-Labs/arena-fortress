@@ -1,51 +1,53 @@
-# Hybrid repairs, brew protection, and early office chairs
+# The plain baseline harness (season 0)
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+This is where `submission/` starts: a language model playing the fort from the raw game API, one tool call per turn.
+It is deliberately plain. It does what the contract needs and some basic hygiene, and nothing that interprets the
+fort for the model.
 
-## Operation
+| file (in `submission/`) | what |
+|---|---|
+| `plain/harness.py` | the loop and its guards (~300 lines) |
+| `plain/prompt.py` | the system prompt: the role, the run's rules and what it is scored on, plus sections 4 and 6 of the game API's own manual. No DF strategy |
+| `plain/__main__.py` | the entrypoint (`python -m plain`) |
+| `dfbench_client/` | a small stdlib client for the game API and the model gateway (retries, the credit stop) |
+| `Dockerfile` | the image: `dfbench_client/` and `plain/`, stdlib only |
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+(`baseline/plain/` holds the same package with its files at the top level, next to `baseline/dfbench_client/`.)
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+## What it does each turn
 
-## Repairs
+1. `GET /observe`. The observation goes to the model **as the API returns it** (compact JSON), with
+   `days_left_in_run`, `hands_off_in_days`, the task's `goal` and `scenario`.
+2. History: the system prompt and the last 12 messages. Older observations become a one-line stub, and older tool
+   results are cut to 300 characters.
+3. One chat call through the gateway: `tool_choice` required, temperature 0, `max_tokens` 4000, reasoning effort low.
+4. The first tool call runs (`POST /act`); its result goes back as JSON. Extra calls in the same reply are answered
+   `one_tool_per_turn`.
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
+Guards:
+- **Time keeps moving:** after 10 actions in a row without an advance, or when the day's 40 actions are used up,
+  the harness advances one day itself. `advance_days` is capped at 14 days.
+- **Order churn**, refused locally with `order_churn`: cancelling an order the harness added under 2 days ago, and
+  re-adding an order identical to one it cancelled in the last 3 days. Cancelling and re-adding restarts the
+  manager's validation, and a model can loop on it until the credits are gone.
+- **Credits:** it stops calling the model at 92% of the game's credits and exits; the server then runs the fort on
+  unmanaged to the horizon. A hung provider call (`504 upstream_timeout`) is retried by `dfbench_client`.
+- **A failing model:** after 5 failed model turns in a row it exits.
 
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+## What it doesn't do
 
-## Checks
+Everything else is yours. The obvious directions, none of them done here:
+- **Make the state legible.** The raw observation is long and flat. What matters this turn (drink running low, an
+  order that isn't moving, a mood waiting for a workshop) is in there, but the model has to find it every turn.
+- **Explain failures.** A rejected action comes back as the API's error code and text. Why an order isn't
+  progressing (no manager, no workshop, no input, still waiting for validation) is for the harness to work out.
+- **Remember.** The model sees only the last 12 messages, so it forgets what it tried and what failed.
+- **Use the read-only queries** (`GET /query/...`: stocks, units, jobs, orders, buildings, zones, map). They're free:
+  no actions, no game time.
+- **Plan and pace.** When to call the model, how far to advance, several actions between advances, sub-calls,
+  where to spend the credits.
+- **Know DF.** The prompt says nothing about how DF works: what the manager does, what a workshop needs, how to
+  keep drink and food coming, farming, moods, defence. The model plays from whatever it already knows.
 
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+The organiser's reference harness (score published at launch) gets above this baseline by working on these. How is
+up to you.

@@ -26,7 +26,7 @@ SCORE (open play). In this order, each part counting only once the parts before 
 wellbeing; beds and dining space for everyone; and on full-year runs the fort's progression.
 
 RULES. Up to 40 actions per game day; then only advance_days is accepted until the day changes. Nothing happens in
-the game unless you call advance_days (this harness caps it at 14 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
+the game unless you call advance_days (this harness caps it at 3 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
 are paid from this game's credits; when they run out, the run continues to the end without you.
 """
 
@@ -60,8 +60,8 @@ def api_sections(api_manual, numbers=API_SECTIONS):
     return "\n\n".join(keep)
 
 
-def system_prompt(api_manual=None, tool_names=None):
-    s = MANUAL
+def system_prompt(api_manual=None, tool_names=None, max_days=3):
+    s = MANUAL.replace("caps it at 3 days", f"caps it at {max_days} days")
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + AUTOMATIC + "\n" + OBSERVATION

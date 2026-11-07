@@ -26,14 +26,18 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
                             HandsOff, ModelClient, ModelError, load_task)
 
 from overseer.harness import Overseer
+from overseer.year import Overseer as YearOverseer
 
 from . import prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
-MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
+MAX_DAYS = 3                # advance_days cap (the API allows 28); short, so the daily layer keeps up
+STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
+YEAR_DAYS = 300             # runs at least this long use overseer.year and the pacing below
+YEAR_MAX_DAYS = 14
+YEAR_STALL_AFTER = 4
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
@@ -48,15 +52,15 @@ def log(kind, **kw):
     print(json.dumps({"t": round(time.time(), 2), "kind": kind, **kw}, default=str), flush=True)
 
 
-def prepare_tools(tools):
-    """The API's tool schemas, with advance_days capped at MAX_DAYS."""
+def prepare_tools(tools, max_days=MAX_DAYS):
+    """The API's tool schemas, with advance_days capped at max_days."""
     out = copy.deepcopy(tools or [])
     for t in out:
         f = t.get("function") or {}
         if f.get("name") == "advance_days":
             days = ((f.get("parameters") or {}).get("properties") or {}).get("days")
             if isinstance(days, dict):
-                days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
+                days["maximum"] = min(days.get("maximum", max_days), max_days)
     return out
 
 
@@ -104,14 +108,19 @@ class Plain:
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
-        self.guard = Overseer(game)
+        horizon = (task.task or {}).get("days") or task.days
+        if isinstance(horizon, (int, float)) and horizon >= YEAR_DAYS:
+            self.guard, self.max_days, self.stall_after = YearOverseer(game), YEAR_MAX_DAYS, YEAR_STALL_AFTER
+        else:
+            self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=horizon)
+            self.max_days, self.stall_after = MAX_DAYS, STALL_AFTER
         self.guard_day = None
 
     def setup(self):
         t = self.game.task()
-        self.tools = prepare_tools(t.get("tools") or [])
+        self.tools = prepare_tools(t.get("tools") or [], self.max_days)
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
-        self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
+        self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names, self.max_days)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
         self.extra = {}
@@ -121,6 +130,13 @@ class Plain:
             self.extra["scenario"] = info["brief"]
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
             system_chars=len(self.messages[0]["content"]))
+
+    def quiet_days(self, resp):
+        obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
+        left = resp.get("hands_off_in_days")
+        if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
+            return 1
+        return 2
 
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
@@ -142,8 +158,9 @@ class Plain:
                     self.stop_reason = type(e).__name__
                     break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
-                self.stop_reason = "budget"
-                break
+                if not self.advance(self.quiet_days(resp), "budget"):   # no model left; the layer still runs
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
@@ -183,7 +200,7 @@ class Plain:
                     self.messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": json.dumps(
                         {"ok": False, "error_code": "one_tool_per_turn", "error": "not run: one tool call per turn"})})
                 idle = 0 if moved else idle + 1
-            if idle >= STALL_AFTER:
+            if idle >= self.stall_after:
                 idle = 0
                 self.stats["stall_advances"] += 1
                 if not self.advance(1, "stall_guard"):
@@ -224,7 +241,10 @@ class Plain:
         else:
             if name == "advance_days":
                 try:
-                    args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
+                    args = {**args, "days": max(1, min(self.max_days, int(args.get("days") or 1)))}
+                    left = (self.game.last or {}).get("hands_off_in_days")
+                    if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
+                        args["days"] = 1
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
             try:
@@ -241,10 +261,6 @@ class Plain:
 
     def refuse(self, name, args, tick):
         """The order-churn guard: a local refusal (no API call), or None."""
-        order_id = args.get("order_id")
-        if name == "cancel_order" and type(order_id) is int and order_id in self.guard.brew_orders:
-            return {"ok": False, "error_code": "order_churn", "error": (
-                f"not run: order {order_id} is the controller's daily brew order and stays in place.")}
         if not isinstance(tick, int):
             return None
         if name in ORDER_TOOLS:
@@ -254,6 +270,9 @@ class Plain:
                     return {"ok": False, "error_code": "order_churn", "error": (
                         f"not run: you cancelled an identical order (id {oid}) {(tick - t) / DAY:.1f} days ago; "
                         "adding it again restarts the manager's validation.")}
+        if name == "cancel_order" and type(args.get("order_id")) is int and args["order_id"] in getattr(self.guard, "brew_orders", ()):
+            return {"ok": False, "error_code": "order_churn", "error": (
+                f"not run: order {args['order_id']} is the controller's daily brew order and stays in place.")}
         if name == "cancel_order" and not isinstance(args.get("order_id"), (list, dict)):
             sig, t = self.added.get(args.get("order_id"), (None, None))
             if t is not None and tick - t < FRESH_DAYS * DAY:
