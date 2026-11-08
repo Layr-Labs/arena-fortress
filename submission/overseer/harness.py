@@ -23,6 +23,11 @@ MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
 MEAL_CAP = 200
+# OP1-only supply guards (days >= 336): cooking never returns seeds, so letting the cook standings eat the
+# brewable plants down to the bottom kills the seed lineage — the measured OP1 failures sat at
+# plants_brewable=0 for the final 112+ days with the brew order permanently inert (runs/w2-op1-s0,
+# w2b-op1-s0, w2e-op1-s0-r5; the paired runs w2c/w2d show the reserve restoring supply to 1.00).
+COOK_PLANTS_RESERVE = 6   # cook standings' plants_brewable floor on full-year runs; 0 toggles it off
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
@@ -232,6 +237,11 @@ class Overseer:
         return self.cit + (12 if self.surge else 3)
 
     def farm_target(self):
+        # full-year runs only: plots are the root of both supply legs, and the measured OP1 failures ran
+        # plants_brewable to 0 with 4-5 plots at pop 18-23 (runs/w2*-op1-* 2026-11-08). Lab and MY1 tasks
+        # keep the leader's sizing unchanged — this variant's stage-1 behaviour is byte-identical to the leader's.
+        if self.days >= 336:
+            return max(6, min(12, math.ceil(self.cit / 3)))
         return max(4, min(10, math.ceil(self.cit / 5)))
 
     def digging(self):
@@ -283,8 +293,10 @@ class Overseer:
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
         if not self.standing("cook_meal"):
-            self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-                {"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]}, retry=3)
+            cook_when = [{"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]
+            if self.days >= 336 and COOK_PLANTS_RESERVE > 0:   # full-year runs: keep the brewable stock for brewing
+                cook_when.append({"stock": "plants_brewable", "at_least": COOK_PLANTS_RESERVE})
+            self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": cook_when}, retry=3)
         plants = d(self.st.get("plants_by_kind"))
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
@@ -330,9 +342,15 @@ class Overseer:
             {"stock": "barrels_empty", "at_least": 1}]}, retry=3, limit=4)
         self.act("o_barrel_end", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 8}, {"stock": "logs", "at_least": 4}]}, retry=3, limit=4)
-        self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-            {"stock": "prepared_meals", "below": max(300, 10 * self.cit)},
-            {"stock": "food_edible", "at_least": max(30, 4 * self.cit)}]}, retry=3, limit=4)
+        # full-year runs: the food gate drops to one per citizen (a plenty gate pauses cooking while the stock
+        # sags and steepens the final-month decline it is meant to prevent — OP1 s1 2026-11-08, food -1.08/day,
+        # supply 1.00 -> 0.62), and the cook keeps its hands off the brewable plants.
+        food_gate = max(30, self.cit) if self.days >= 336 else max(30, 4 * self.cit)
+        cook_when = [{"stock": "prepared_meals", "below": max(300, 10 * self.cit)},
+                     {"stock": "food_edible", "at_least": food_gate}]
+        if self.days >= 336 and COOK_PLANTS_RESERVE > 0:
+            cook_when.append({"stock": "plants_brewable", "at_least": COOK_PLANTS_RESERVE})
+        self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": cook_when}, retry=3, limit=4)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
             self.butcher()
 
