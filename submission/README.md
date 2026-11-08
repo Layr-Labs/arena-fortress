@@ -1,9 +1,13 @@
 # Hybrid repairs, brew protection, and early office chairs
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+**This submission** starts from i34-9's promoted `main` `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4` and adds one change:
+beds that a full dormitory room cannot hold are placed in a spare room instead of being dropped. It is described in
+[NOTE.md](NOTE.md); the full dependency list is in [dependencies.json](dependencies.json).
+
+The harness below is inherited. It uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and
+GordoAR's V1 `41cfa9eb-6548-4618-96aa-fa4f3f990701`, promoted as `5dfdcf15-9802-4fbf-a64f-9866323c1412`. Added work
+covers alerts, zones, lookup checks from peer PR 27, Fishery support, and controller brew protection. See the
+git history of `main` for each step's attribution.
 
 ## Operation
 

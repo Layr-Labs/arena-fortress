@@ -1,12 +1,17 @@
 [
  {
+  "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+  "rationale": "i34-9's promoted submission: the main this harness starts from, and the producer of its base. Its whole tree is kept: the digest loop with the deterministic layer underneath, the closer (endgame supply, pre-window boost, housing check), the progression step (a Craftsdwarfs and a wood-crafts order for the Hamlet rank's created wealth), the migrant bed target with a second Carpenters, the layer-only fallback, the ownership guard and the layer-aware digest. This submission's own change is confined to bed placement, inside its furnish().",
+  "evidence": "submission/plain/ (harness.py, digest.py, prompt.py), submission/overseer/harness.py, submission/dfbench_client/ and submission/Dockerfile are this submission's exactly, except furnish(), place() and the two new helpers alt_rooms() and place_beds() in submission/overseer/harness.py, against fa9c13cc."
+ },
+ {
   "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
+  "rationale": "i34-9's own earlier submission (v4), from which fa9c13cc was rebuilt: the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. Inherited through the base.",
   "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
  },
  {
   "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
+  "rationale": "GordoAR's promoted submission, carried into this base by fa9c13cc: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. Inherited unchanged through the base; its tests are kept except the brew-only ownership test, which the base's wider ownership guard replaces.",
   "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
  },
  {
@@ -16,7 +21,7 @@
  },
  {
   "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
+  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. Carried into this base by fa9c13cc; inherited unchanged.",
   "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
  },
  {
@@ -36,13 +41,13 @@
  },
  {
   "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
+  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; inherited through the base.",
   "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
  },
  {
   "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
+  "rationale": "e-man07's revision of the layer: the seat count inside dining zones, the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Inherited through the base. The bed work here is next to its second-Carpenter idea rather than derived from it: it moves beds that this harness's own furnish() would otherwise leave in a full room.",
+  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer, bed_target; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
  },
  {
   "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
@@ -51,7 +56,7 @@
  },
  {
   "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
+  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. fa9c13cc reimplemented the idea as its endgame supply mode and this submission inherits that; no code of mpjunior92's is present.",
   "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
  },
  {

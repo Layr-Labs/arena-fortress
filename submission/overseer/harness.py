@@ -454,27 +454,60 @@ class Overseer:
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
         if not result.get("ok"):
-            return []
+            return [], result.get("error_code"), True
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
             points = [points]
-        return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
+        # The score reads placed (installed) furniture; a count the box could not hold is a shortfall, not a failure.
+        placed = len(points)
+        short = placed < count
+        return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points], None, short
+
+    def alt_rooms(self, room, need):
+        """Levels that could also hold a batch of furniture: a dug room (its level) or an open area with tiles to
+        spare. The score reads placed beds wherever they stand, but only puts them in a zone if one covers them."""
+        out = []
+        for s in list(self.kind("A")) + list(self.dug_rooms()):
+            if s.get("id") == room.get("id") or s.get("z") == room.get("z"):
+                continue
+            if (s.get("open_tiles") or 0) >= need:
+                out.append(s)
+        return sorted(out, key=lambda s: -(s.get("open_tiles") or 0))
+
+    def place_beds(self, room, need):
+        """Place up to `need` free beds, covering every room that received one. When a room can't take the whole
+        batch (no space, or fewer tiles than asked), try the next room rather than giving the shortfall up: the
+        horizon reads beds where they are placed, not beds where they were meant to go. The intended room is always
+        returned (with an empty batch if nothing was placed), so its zone is still reconciled against the furniture
+        already standing there."""
+        rooms = [(room, "beds")] + [(a, "beds_a%d" % i) for i, a in enumerate(self.alt_rooms(room, 6))]
+        spots, rest, more, first = [], max(0, min(self.free.get("bed") or 0, need, 30)), True, True
+        for r, k in rooms:
+            if not first and (rest <= 0 or not more):
+                break
+            lead, first, placed = first, False, []
+            if rest > 0:
+                placed, _err, more = self.place(k, "bed", r, rest)
+            if lead or placed:
+                spots.append((r, k, placed))
+            rest -= len(placed)
+        return spots
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
-            n = min(self.free.get("bed") or 0, short, 30)
-            placed = self.place("beds", "bed", dorm, n) if n > 0 else []
-            if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
-                self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
+            for r, k, placed in self.place_beds(dorm, short) if short > 0 else []:
+                if self.needs_zone(r, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
+                    self.act(k.replace("beds", "z_dorm"), "make_zone", {"kind": "dormitory", "site": r["id"]}, retry=3)
         if dine:
             want = math.ceil(self.cit / 2) + 1
             placed = []
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
                 if n > 0:
-                    placed += self.place("f_" + kind, kind, dine, n)
+                    points, _err, _more = self.place("f_" + kind, kind, dine, n)
+                    placed += points
             if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
 
