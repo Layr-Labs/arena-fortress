@@ -292,6 +292,10 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                # The migrant wave needs repeated controller passes before hands-off.
+                # Adapted from the pacing policy described by a9f894e / 5ef22a35.
+                if self.guard.surge and getattr(self.guard, "cit", 0) > self.guard.placed.get("bed", 0):
+                    args["days"] = min(args["days"], 2)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
