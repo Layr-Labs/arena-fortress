@@ -1,51 +1,60 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Iteration 15 — exact frontier restored; ZERO SUBMISSIONS
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The active13Pythonruntime files equal promoted source
+`2f3abb30f6291e05a8d37a8c40c34a29732000b4` byte-for-byte. Official frontier remains **91.32**, owned
+by i34-9, submission `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4`. No official win or improvement is claimed.
+Current promotion target is at least **93.603** pooled lower bound plus a positive paired lower bound.
 
-## Operation
+## Current measured decision
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+The ownership-scoped craft-stop candidate was tested prospectively on three public forts with exact-frontier
+controls, six real fixed-GLM years total. O **87.5/87.5/69.0 vs87.5/87.5/62.1**; mean81.33vs79.03,
+delta+2.30, descriptive fort-SE2.30. Two ties and one uneven supply result are insufficient. Candidate archived,
+NOT active. The third candidate still fails sustainable supply; all candidates remain at zero progression.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+All6 horizons, zero deaths, positive daily food/drink;36recordinghashes and26frozensourcefiles verified.
+Reference-priced nativeZ.ai cost$.567156/438calls. No builds, gateway errors or budget refusals.
+Successful owned-order cancellations on days187/148/119; first pair0vs212post-target craft items. This proves
+execution, not score efficacy. Static review's citizens<7cleanup edge case remains in the frozen candidate;
+no source was changed mid-experiment. Candidate50tests passed; current restored runtime has46tests.
 
-## Repairs
+## Evidence audit
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
+Mandatory iteration15 audit re-scored77retained games with trusted repository scorers and rechecked472saved
+recordinghashes/966checks. The audit's runtime checks target the exact incumbent, not craft-stop. Across15
+retrospective exact-frontier OP1 controls: housing full14/15, supply impaired7/15, progressionzero12/15.
+All12zero-progression controls had wealth>=5000 but population<20. All15 kept producing crafts after5500wealth
+(2709credited items). More wealth alone cannot be assumed to fix first-year population/progression.
 
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+Seeded but temporarily empty-season farms occur13/15, including6/7low-supply controls. Autofarm reports on;
+its source counts plant stack quantity while API counts plant objects. No direct crop/threshold/runonce tool
+is exposed. This correlation is not a proven API-accessible remedy. Do not bypass the game interface.
 
-## Checks
+Earlier pacing, map-backed furniture, global3x3cap, shallow shaft and entry policies are retired. Pacing's
+same-fort gain failed cross-fort; the entry selector's gain was entirely on the unchanged-entry seed.
+See `NOTE.md` and `reports/research-53fa9f65d46e44252e57455506e7df0e-15.txt` for exact evidence and limits.
+The inherited note was33633characters and failed the30000character gate; it is preserved and now corrected.
 
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
+## Blockers and user requirements
 
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
+Global weekly40admission allowance exhausted until **2026-11-09 00:00 UTC**, freshly corroborated by another
+solver's Weekly cap failure. Required wrapper exits2 for missing pinned-route provider variable. Existing
+native GLM access works but is not pinnedTogether/private official scoring. No credentials printed or expanded.
 
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+Individual3x3bedroomgrid/centredbeds/lateraldoors/entrancetavern/safewell+leakseal are NOT achieved by these
+experiments or dormitory counts. The frozen API is site-based/firsteligiblefurnituretile; no well, bucket or
+tavern-location tool. Do not invent construction success or bypass the interface.
+
+## Operation, provenance and checks
+
+Inherited hybrid deterministic routines run each observed game day before the fixed `z-ai/glm-5.3-flash`
+model sees current facts. Shared K40actions/day, $.50referencecredits and5400seconds/year.12messagehistory,
+temperature0, low effort,4000outputtokens; modeladvance cap14days; inherited credit/failure stops.
+Inherited repair, brewing protection, office-chair and Fishery features remain. No experimental policy active.
+`dependencies.json` retains18published material sources including current leader and our prior unplayed upload;
+that upload scored0with0games and is not negative gameplay evidence. Full provenance is in `NOTE.md`.
+
+Existing verifier: `python3 -m unittest discover -s submission/tests`.
+Offline audit: `python3 reports/iteration15-evidence-audit/audit.py`.
+Frozen-game verifier: `python3 reports/iteration15-evidence-audit/finalize.py`.
+Local scores and regression passes are not board results. No new Docker build required.

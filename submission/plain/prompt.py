@@ -107,6 +107,17 @@ ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and 
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
 and material_category, with the same repeat/when; it runs at whichever built workshop can do that job."""
 
+QUERIES = """QUERIES AND EVENTS. The query tool runs one of the game's read-only queries.
+It never moves time and never counts as an action, so use it to diagnose before acting. stocks (item groups by type, material and flags: rotten,
+forbidden, in_job), units (kind citizens|animals|others: labors, skills, needs, current job, stress), jobs (DF's job
+list: suspended, worker, building, order), orders (every manager order with every field), buildings (built, stage),
+zones (tiles, owner, buildings in them), map (tile shapes and materials around x,y,z; z2 a second level),
+manager_order_types (job types and reactions add_manager_order accepts), workshop_types (sizes and build inputs).
+args holds the query's params. Typical uses: an order that never runs (jobs + orders: suspended? no workshop?),
+idle labor (units), where to dig or build (map), what a workshop needs (workshop_types). STATUS opens with DF's
+events since your last turn (announcements in full, other reports counted by type).
+"""
+
 OBSERVATION = """
 ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before you: the manager and their office,
 autochop/seedwatch/autofarm, the Carpenters/Still/Kitchen workshops, standing brew/barrel/cook orders, digging rooms,
@@ -147,6 +158,8 @@ def system_prompt(api_manual=None, tool_names=None):
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + OBSERVATION
+    if tool_names is not None and "query" in tool_names:
+        s += "\n" + QUERIES
     ref = api_sections(api_manual)
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"
