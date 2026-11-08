@@ -68,5 +68,35 @@
   "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
   "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
   "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
+ },
+ {
+  "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+  "rationale": "i34-9's promoted submission, the main this starts from: the whole submission/ tree (digest loop, deterministic layer with GordoAR's repairs, closer, progression step, layer-only fallback, ownership guard, tests, pinned Dockerfile) is kept, and this submission's changes are edits to its overseer layer.",
+  "evidence": "Every file under submission/ except the edited parts of submission/overseer/harness.py (place, mark_full, is_full, free_tiles, house_rooms, bed_goal, seat_goal, tiles_needed, expand, furnish, supply's furniture orders, plant_reserve, endgame_supply's brew orders, office, cramped, office_room, move_office) and the new submission/tests/test_housing_capacity.py, against fa9c13cc (main at 2f3abb3)."
+ },
+ {
+  "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+  "rationale": "GordoAR's public-goal policies: the idea that on the migrant-surge goal the carpenters make beds before tables and chairs, and the idea of placing beds in another dug A area after a real no_space. Both ideas are used here in a reimplementation (beds-first is keyed on the inherited surge flag and a shortfall; the overflow walks every non-full area with free floor, tracked by a fullness record, instead of one alternate). No code was copied.",
+  "evidence": "submission/overseer/harness.py: supply() (wants[:1] when self.surge and beds are short) and furnish()/house_rooms() overflow, against 5ef22a35's beds-first and bed-fallback policies."
+ },
+ {
+  "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+  "rationale": "pepedesigner's adaptation of GordoAR's goal policies to the digest-layer family (beds-only queue, next-largest-area overflow on no_space). Read for the overflow and beds-first ideas credited to 5ef22a35; no code taken.",
+  "evidence": "submission/overseer/harness.py furnish() overflow and supply() beds-first, idea-level, against a9f894ea's furnish() and supply()."
+ },
+ {
+  "submissionId": "1812e717-6d93-4bad-8935-8e711e657218",
+  "rationale": "pepedesigner's goal policies on the promoted fa9c13cc base (same ideas as a9f894ea, measured at LT08 z 1.44). Read as prior art for the LT08 bed clause; no code taken.",
+  "evidence": "submission/overseer/harness.py furnish() and supply(), idea-level, against 1812e717."
+ },
+ {
+  "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+  "rationale": "mpjunior92's window_supply lowers the pre-window brew's plant reserve on large forts (a two-plant floor at 25+ citizens). The same observation (the flat half-plant-per-citizen reserve blocks brewing) motivates plant_reserve() here, which instead sizes the reserve from the food the rest of the run needs; no code taken.",
+  "evidence": "submission/overseer/harness.py plant_reserve() and window_supply(), against f42cefb1's window_supply()."
+ },
+ {
+  "submissionId": "7c3e587d-2593-4c34-9be4-6055174849e5",
+  "rationale": "ryan48's LT08 submission on the same fa9c13cc base (surge bed margin, adapted goal policies). Nothing was taken from it; declared because it edits the same overseer functions on the same base, so its lines overlap this tree's.",
+  "evidence": "submission/overseer/harness.py furnish(), supply() and bed placement share inherited lines with 7c3e587d."
  }
 ]
