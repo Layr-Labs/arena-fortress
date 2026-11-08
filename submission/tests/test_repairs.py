@@ -90,7 +90,9 @@ class Repairs(unittest.TestCase):
                 self.assertEqual(len(game.calls), 1)
                 self.assertEqual(overseer.tries["dig_R1"], 0)
                 if role == "dorm":
-                    self.assertEqual(game.calls[0][1], {"site": "R1", "w": 9, "h": 7})
+                    self.assertEqual(game.calls[0][1]["site"], "R1")
+                    self.assertGreaterEqual(game.calls[0][1]["w"], 9)
+                    self.assertGreaterEqual(game.calls[0][1]["h"], 7)
 
     def test_failed_dig_retains_existing_retry_limit(self):
         overseer, game = self.overseer([room(True)], failures=2)

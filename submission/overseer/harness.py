@@ -190,6 +190,15 @@ class Overseer:
             return
         mgr = self.adm.get("MANAGER_id")
         offices = self.zone("office")
+        # Appointments can change (for example when the manager becomes monarch).
+        # Reuse the furnished office instead of waiting for an empty office's
+        # chair order to be validated by a manager who has no usable office.
+        ready = next((z for z in offices if d(z.get("furniture")).get("chair")
+                      and z.get("owner") != mgr), None)
+        if ready and mgr is not None:
+            self.act("office_reassign_%s_%s" % (ready["id"], mgr), "assign_zone",
+                     {"zone_id": ready["id"], "dwarf_id": mgr}, retry=1)
+            return
         mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
         if not mine:
             spare = next((z for z in offices if z.get("owner") is None), None)
@@ -219,8 +228,24 @@ class Overseer:
         if result and result.get("ok"):
             self.sites.remove(sites[0])
 
+    def suspended_workshop(self, workshop):
+        """Only explicit suspended construction makes a plan unusable.
+
+        The API has no unsuspend action. A replacement at another site can
+        provide the missing workshop while the original plan remains suspended.
+        """
+        if workshop.get("built"):
+            return False
+        jobs = [d(job) for job in lst(workshop.get("job_details"))
+                if d(job).get("job") == "ConstructBuilding"]
+        return bool(jobs) and all(job.get("suspended") is True for job in jobs)
+
+    def available_workshop_types(self):
+        return {w.get("type") for w in lst(self.o.get("workshops"))
+                if isinstance(w, dict) and not self.suspended_workshop(w)}
+
     def workshops(self):
-        have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+        have = self.available_workshop_types()
         for t in ("Carpenters", "Still", "Kitchen"):
             if t not in have:
                 self.build(t)
@@ -249,14 +274,25 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            # Once two plots exist, reserve living space before expanding farms.
+            # Otherwise soil-heavy sites consume every room as a farm and
+            # room_for() excludes every underground level for furniture.
+            reserve_housing = self.surge or self.days >= 336
+            if r.get("soil") and farms < self.farm_target() and (not reserve_housing or farms < 2 or not need):
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
                     farms += 1
             elif need:
                 role = need[0]
-                size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
+                # Beds plus one table/chair pair per two citizens require
+                # roughly two tiles per citizen. Leave room for arrivals and
+                # existing farms, rather than filling a 9x7 room immediately.
+                residents = self.cit + (24 if self.surge else 12)
+                tiles = 2 * residents + 48
+                width = min(15, max(9, math.ceil(math.sqrt(tiles)))) if reserve_housing else 9
+                height = min(15, max(7, math.ceil(tiles / width))) if reserve_housing else 7
+                size = {"dorm": {"w": width, "h": height}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = role
@@ -275,16 +311,21 @@ class Overseer:
 
     def supply(self):
         """Standing orders that keep working in a hands-off window, then one-shot furniture sized to the population."""
+        # Full-year starts need ongoing seed-returning brewing and enough
+        # reserve for later arrivals. The available-food cooking idea follows
+        # newjordan's public submission 68c69f40, implemented only for this context.
         if not self.standing("brew_drink"):
             self.act("o_brew", "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": [
-                {"stock": "drink", "below": DRINK_CAP}, {"stock": "plants_brewable", "at_least": 2},
+                {"stock": "drink", "below": max(1000, 40 * self.cit) if self.days >= 336 else DRINK_CAP},
+                {"stock": "plants_brewable", "at_least": 2},
                 {"stock": "barrels_empty", "at_least": 1}]}, retry=3)
         if not self.standing("make_barrel"):
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
         if not self.standing("cook_meal"):
             self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-                {"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]}, retry=3)
+                {"stock": "prepared_meals", "below": MEAL_CAP},
+                {"stock": "food_edible" if self.days >= 336 else "plants_total", "at_least": 10}]}, retry=3)
         plants = d(self.st.get("plants_by_kind"))
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
@@ -293,8 +334,14 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.bed_target()),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.surge and recipe != "make_bed" and (self.st.get("beds") or 0) < self.bed_target():
+                # Secure the migrant beds before filling the carpenters' queue
+                # with extra dining furniture. Keep a chair for the manager.
+                if recipe != "make_chair" or (self.st.get("chairs") or 0) >= 1:
+                    continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = 30 if self.surge and recipe == "make_bed" else 8
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
@@ -313,7 +360,8 @@ class Overseer:
             self.window_supply()
             self.housing_check()
         if self.surge:
-            carp = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict) and w.get("type") == "Carpenters")
+            carp = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict)
+                       and w.get("type") == "Carpenters" and not self.suspended_workshop(w))
             if carp == 1 and self.cit >= 15 and self.logs() >= 5:
                 self.build("Carpenters", retry=3)   # one shop can't make a wave's beds before the window
 
@@ -323,7 +371,7 @@ class Overseer:
         cap well above the usual one keeps drink rising through the final stretch (while plants stay above a reserve
         that protects the food count, since plants are food too), and cooking keeps meals rising from surplus food.
         Meat is added when edible food is short of a few days per citizen."""
-        cap = max(600, 30 * self.cit)
+        cap = max(1000, 40 * self.cit) if self.days >= 336 else max(600, 30 * self.cit)
         reserve = max(12, self.cit)
         self.act("o_brew_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
             {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
@@ -342,8 +390,8 @@ class Overseer:
         LT01 wants a batch brewed inside it). Plants are food too, and food must also hold through the window, so
         half a plant per citizen stays unbrewed. Barrels are the usual limit: an extra barrel order runs alongside."""
         self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
-            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": max(3, self.cit // 2)},
-            {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
+            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": 2},
+            {"stock": "food_edible", "at_least": max(3, self.cit // 2)}]}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
@@ -421,7 +469,7 @@ class Overseer:
             return
         if (d(self.o.get("wealth")).get("created") or 0) >= WEALTH_TARGET:
             return
-        have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+        have = self.available_workshop_types()
         if "Craftsdwarfs" not in have:
             self.build("Craftsdwarfs", retry=5)
             return
@@ -485,7 +533,7 @@ class Overseer:
                 continue
             if not m.get("claimed_building_id"):
                 want = MOOD_WORKSHOP.get(str(m.get("skill")).upper(), "Craftsdwarfs")
-                have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+                have = self.available_workshop_types()
                 if want not in have:
                     self.build(want, retry=2)
             for need in lst(m.get("items_needed")):
@@ -493,7 +541,7 @@ class Overseer:
                     self.butcher()
 
     def butcher(self):
-        have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
+        have = self.available_workshop_types()
         if "Butchers" not in have:
             self.build("Butchers")
         if not self.may("slaughter", 5, 3):

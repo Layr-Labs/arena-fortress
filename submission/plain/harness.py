@@ -296,7 +296,9 @@ class Plain:
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
             try:
-                resp = self.game.act(name, args)
+                resp = (self.managed_advance(args) if name == "advance_days"
+                        and (self.guard.days >= 336 or self.guard.hands_off is not None)
+                        else self.game.act(name, args))
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
@@ -306,6 +308,41 @@ class Plain:
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved
         return moved
+
+    def managed_advance(self, args):
+        """Honor a model advance with routine controller visits between short intervals.
+
+        Stop immediately on the server's tripwire, error, hands-off or horizon.
+        The returned result explicitly aggregates the real advance requests.
+        """
+        remaining = args["days"]
+        ticks, chunks, visits = 0, 0, 0
+        while remaining > 0:
+            request = min(2, remaining)
+            resp = self.game.act("advance_days", {**args, "days": request})
+            chunks += 1
+            result = resp.get("result") or {}
+            ticks += result.get("advanced_ticks") or 0
+            if (not resp.get("ok") or resp.get("game_over") or result.get("stopped")
+                    or result.get("hands_off") or resp.get("hands_off_in_days") == 0):
+                break
+            progressed = result.get("advanced_days")
+            if not isinstance(progressed, (float, int)) or progressed < request:
+                break
+            remaining -= request
+            if remaining <= 0:
+                break
+            obs = self.game.observe()
+            if obs.get("game_over") or obs.get("hands_off_in_days") == 0:
+                break
+            if obs.get("day") != self.guard_day:
+                self.guard_day = obs.get("day")
+                self.guard.step(obs)
+                visits += 1
+        resp = {**resp, "result": {**(resp.get("result") or {}),
+                "advanced_ticks": ticks, "advanced_days": ticks / DAY,
+                "harness_substeps": chunks, "controller_visits": visits}}
+        return resp
 
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
