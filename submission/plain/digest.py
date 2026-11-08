@@ -3,7 +3,8 @@
 Everything here is computed from the observation (docs/GAME-API.md section 6, obs schema 8) and the free read-only
 queries (section 7). It never calls the model and never acts. It is interpretation, which the facts-only API leaves
 to the harness: stock per dwarf and the days it lasts, why an order isn't moving, what is missing from the chain
-(manager, office, workshop, input), housing per capita, the labors nobody has, the model's own recent failures.
+(manager, office, workshop, input), housing per capita, the labors nobody has, the model's own recent failures,
+created wealth against the progression rank, and how long a waiting strange mood has been waiting.
 
 Sources it adapts (RULES.md section 4 allows both; credited in NOTE.md):
   - harness2.diagnose() in the repo root: the per-order "stuck because" reasons, the office rule, the cancellation
@@ -21,6 +22,21 @@ DRINK_PER_DWARF_PER_DAY = 20 / 336     # about 5 drinks a season (docs/SUCCESS.m
 FOOD_PER_DWARF_PER_DAY = 8 / 336       # about 2 units a season
 CORE_WORKSHOPS = ("Carpenters", "Still", "Kitchen")
 OFFICE_FROM = 20                       # citizens from which the manager validates only from an office
+WEALTH_TARGET = 5500                   # the Hamlet rank's 5000 created wealth plus the deterministic layer's 10%
+                                       #   margin (overseer.WEALTH_TARGET); crafts from surplus logs raise created
+PROGRESS_FROM_DAY = 40                 # the day the layer starts its crafts orders on full-year games (same there)
+SEED_GUARD = True                      # OP1 run trio 2026-11-08 (cmp-base / w2 / w2b, game/harness-0.api.jsonl):
+                                       #   wave2 runs sat at plants_brewable 0 from ~day 222 to 336 with the standing
+                                       #   brew order validated but inactive (its plants_brewable >= 2 never held) and
+                                       #   the farm cycle dead (crop assignment without matching seeds); base kept a
+                                       #   plump-helmet trickle and ended drink 271 vs 174/138. Flag toggles the digest
+                                       #   hint that tells the model to protect the seed stock (cooking returns no
+                                       #   seeds, overseer.MEALS_FOR_WEALTH note) when the cycle is already dead.
+MOOD_WAIT_DANGER = 20                  # a strange mood unmet for ~40 days ends in insanity (the game's manual);
+                                       #   past half of that, treat the waiting dwarf as in danger
+VILLAGE_POP = 50                       # growth: the Village rank's population; a fort of 50 also elects a MAYOR
+                                       #   (docs/SUCCESS.md; migrants follow created wealth, so the layer's wealth
+                                       #   push is what brings them — this line only tells the model where it stands)
 
 # recipe -> (workshop, inputs); job/reaction -> recipe for orders the observation doesn't name
 RECIPES = {
@@ -141,6 +157,22 @@ class Memory:
             self.failed = (self.failed + [(day, tool, a, str(resp.get("error_code") or "failed"), err)])[-self.FAILED:]
 
 
+def failed_sites(memory, day, code="no_space", window=2):
+    """Site ids whose placement request answered `code` in the last `window` game days (from the model's own failure
+    memory): the advice names other floors first, since the same refusal waits on an unchanged floor."""
+    out = set()
+    for d_, tool, args, c, _err in (memory.failed if memory else []):
+        if c != code or not isinstance(day, int) or not isinstance(d_, int) or day - d_ > window:
+            continue
+        try:
+            site = (json.loads(args) if isinstance(args, str) else {}).get("site")
+        except ValueError:
+            site = None
+        if site:
+            out.add(str(site))
+    return out
+
+
 def days_of(stock, per_day):
     if per_day <= 0:
         return None
@@ -163,8 +195,8 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
-                _sites, _labors, _memory, _layer)
+    sections = (_clock, _population, _supply, _wealth, _manager, _workshops, _orders, _farms, _housing, _threats,
+                _moods, _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
            "next": [], "citizens": len(_l(obs.get("dwarves"))) or _n(_d(obs.get("administrators")).get("citizens"), 0)}
@@ -213,6 +245,9 @@ def _population(c):
         s += "; idle ids " + ",".join(str(d.get("id")) for d in idle)
     if n and stressed and stressed / n > 0.3:
         c["next"].append("wellbeing: many stressed dwarves: check drink, beds, dining")
+    if VILLAGE_POP > n > VILLAGE_POP - 5:
+        c["next"].append(f"growth: {VILLAGE_POP - n} more citizens to Village (a fort of {VILLAGE_POP} elects a "
+                         "mayor; migrant waves follow created wealth)")
     return s
 
 
@@ -242,8 +277,37 @@ def _supply(c):
     c["stocks"] = st
     if drink / n < 3 or (d_days is not None and d_days < 30):
         c["next"].append(f"DRINK LOW ({drink} for {n}): brew (needs Still + plants_brewable + barrels_empty); standing order brew_drink repeat=daily when drink below {8 * n}")
+    if SEED_GUARD and _n(st.get("plants_brewable")) == 0 and _n(st.get("plants_total")) == 0 and _n(st.get("seeds")) <= 5 \
+            and any(p.get("built") for p in _l(obs.get("farm_plots"))):
+        kinds = ", ".join(k for k, v in _d(st.get("seeds_by_kind")).items() if _n(v.get("n")))
+        c["next"].append(
+            f"farm cycle dead (plants 0, seeds {_n(st.get('seeds'))}{': ' + kinds if kinds else ''}): the standing brew "
+            "order stays inactive until plants_brewable >= 2, and cooking eats plants and seed stock without returning "
+            "seeds; raise the cook_meal when-floor (food_edible, not plants) so the remaining seeds go to the farm and "
+            "brewing resumes")
     if food / n < 2 or (f_days is not None and f_days < 30):
         c["next"].append(f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
+    return s
+
+
+def _wealth(c):
+    """Created wealth against the progression rank (the Hamlet: 5000 created wealth; the layer aims at 5500). The
+    observation carries `wealth` (the game API's manual, observation section; facts/lua/observe.lua); the layer's
+    copy is the fallback for observations that lack it. Without either, no line: nothing is invented."""
+    w = c["obs"].get("wealth")
+    w = w if isinstance(w, dict) else (c.get("layer") or {}).get("wealth")
+    w = w if isinstance(w, dict) else {}
+    created = _n(w.get("created"), None)
+    if created is None:
+        return None
+    gap = max(0, WEALTH_TARGET - created)
+    s = (f"wealth: created {created} / target {WEALTH_TARGET} (the Hamlet rank needs 5000 created wealth; "
+         f"{min(100, round(100 * created / WEALTH_TARGET))}% there, gap {gap}), crafted {_n(w.get('crafted'))}, "
+         f"raw logs value {_n(w.get('raw_logs_value'))}")
+    if created < WEALTH_TARGET and (c.get("day") or 0) >= PROGRESS_FROM_DAY and c["citizens"] >= 7:
+        c["next"].append("progression: created wealth is below the Hamlet target; crafts from surplus logs raise it "
+                         "(add_manager_order job=MakeCrafts amount=3 repeat=daily material_category=[wood]); "
+                         "the layer queues these itself on full-year runs")
     return s
 
 
@@ -437,15 +501,19 @@ def _housing(c):
         s += f" (furniture list cut at {len(furn)} of {obs['furniture_total']})"
     sites = _l(_d(obs.get("map")).get("sites"))
     rooms = [x.get("id") for x in sites if x.get("kind") == "A" or (x.get("kind") == "R" and x.get("dug") and not x.get("used_by"))]
+    ns = failed_sites(c.get("mem"), c.get("day"))
+    open_rooms = [r for r in rooms if r not in ns] or rooms   # floors that just answered no_space go last
     if beds_placed < n:
-        if _n(ff.get("bed")) > 0 and rooms:
-            c["next"].append(f"{_n(ff.get('bed'))} free beds: place_furniture bed count={min(30, _n(ff.get('bed')))} on {rooms[0]} (make_zone dormitory there)")
+        if _n(ff.get("bed")) > 0 and open_rooms:
+            warn = " (it answered no_space recently: dig or pick another room first)" if open_rooms[0] in ns else ""
+            c["next"].append(f"{_n(ff.get('bed'))} free beds: place_furniture bed count={min(30, _n(ff.get('bed')))} "
+                             f"on {open_rooms[0]} (make_zone dormitory there){warn}")
         elif _n(st.get("beds")) < n and "make_bed" not in (c.get("have_orders") or set()) and "Carpenters" in (c.get("built") or {}):
             c["next"].append(f"beds {_n(st.get('beds'))} < {n} citizens: add_order make_bed amount={min(30, n - _n(st.get('beds')))}")
-        elif not rooms:
+        elif not open_rooms:
             c["next"].append("no dug room for beds: dig_stairs + dig_room (a 5x5 or larger room via w,h)")
-    if seats < (n + 1) // 2 and rooms and (_n(ff.get("chair")) and _n(ff.get("table"))):
-        c["next"].append(f"dining: make_zone dining_hall on {rooms[-1]} and place_furniture table + chair there")
+    if seats < (n + 1) // 2 and open_rooms and (_n(ff.get("chair")) and _n(ff.get("table"))):
+        c["next"].append(f"dining: make_zone dining_hall on {open_rooms[-1]} and place_furniture table + chair there")
     return s
 
 
@@ -482,14 +550,23 @@ def _moods(c):
     moods = _l(obs.get("moods"))
     if not moods:
         return None
+    seen = _d(_d(c.get("layer")).get("mood_waiting"))   # the layer's mood unit id -> tick first seen waiting
     out = []
     for m in moods[:3]:
         skill = str(m.get("skill") or "")
         ws = MOOD_WORKSHOP.get(skill.upper().replace("_", ""), None)
         line = f"  dwarf {m.get('unit_id')} {m.get('mood')} ({skill}), job {m.get('job')}, claimed {m.get('claimed_workshop') or 'NO WORKSHOP'}"
         if m.get("waiting"):
+            uid = m.get("unit_id")
+            waited = max(0.0, (c["tick"] - _n(seen.get(uid))) / DAY) if uid in seen and c["tick"] is not None else None
             needs = _l(m.get("items_needed"))
             line += "; WAITING for: " + ", ".join(f"{x.get('demand') or x.get('item')} ({_n(x.get('collected'))} collected)" for x in needs[:4])
+            if waited is not None:
+                line += f" ({waited:.0f} d waiting)"
+            if waited is not None and waited >= MOOD_WAIT_DANGER:
+                c["next"].insert(0, f"MOOD DANGER: dwarf {uid} has waited {waited:.0f} d for its mood items "
+                                 "(a mood unmet for ~40 d ends in insanity, a lost dwarf): get what items_needed "
+                                 "lists today (logs: autochop + felling; bones: slaughter a tame animal)")
         out.append(line)
         if not m.get("claimed_workshop") and str(m.get("mood")) in ("Fey", "Secretive", "Possessed", "Macabre", "Fell"):
             if ws and ws not in (c.get("built") or {}):
@@ -585,5 +662,5 @@ def compact_observation(obs):
                           for w in o["workshops"]]
     if isinstance(o.get("zones"), list) and len(o["zones"]) > 40:
         o["zones"] = o["zones"][:40]
-    o.pop("wealth", None)
+    o.pop("wealth", None)   # the digest's wealth line carries the numbers (its derived reading); fewer tokens here
     return o

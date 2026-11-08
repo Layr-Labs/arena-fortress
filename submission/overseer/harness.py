@@ -8,8 +8,16 @@ Lineage: the layer and its regular steps are e-man07's submission 6e775ed2 as re
 Two housing-measurement steps (seats counted inside dining zones, re-zoning loose furniture) come from e-man07's
 efac22bf. This copy adds the "closer" steps (endgame supply mode for the scored final stretch, the pre-window boost on
 lab tasks, a housing check sized to the window), a progression step for full-year games (the Hamlet rank's created
-wealth, from wood crafts made only from surplus logs), a bed target sized for a migrant wave, an action report for the
-model loop, and the ownership record the model-loop guard reads (owned orders).
+wealth, from wood crafts made only from surplus logs), a bed stock sized to a migrant task's wave peak (SURGE_BEDS)
+with a second Carpentry while that stock is short, a no_space overflow floor that keeps beds installable once the
+primary dormitory is full, a dining-room version of the same overflow (a floor that answers no_space gets that
+day's tables and chairs together on another floor, since seats count as the pair's minimum), an action report for
+the model loop, and the ownership record the model-loop guard reads (owned orders). This tree also adds a window
+fallback standing order that brews from fruit/growths (brew_drink_from_fruit has no `when` stock of its own, so it
+is gated on the drink cap and an empty barrel only), a first-seen tracker for waiting strange moods that the
+model loop's digest reads to warn about a mood dwarf running out of time, and a staged progression push: past the
+Hamlet wealth target the push goes on to the Village rank (a wider log reserve for the crafts, a high-cap cook
+order for meal wealth) instead of stopping there.
 """
 import json
 import math
@@ -27,9 +35,28 @@ ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter o
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
 REPORT_KEEP = 24        # action report lines kept for the model loop
-WEALTH_TARGET = 5500    # progression: the Hamlet rank needs 20 citizens and 5000 created wealth (docs/SUCCESS.md)
+WEALTH_TARGET = 5500    # progression: stage 1, the Hamlet rank's 5000 created wealth plus a margin (docs/SUCCESS.md)
+WEALTH_TARGET2 = 25000  # progression: stage 2, the Village rank's 25000 created wealth (docs/SUCCESS.md); the push
+                        #   stops here, since the export route stays unreachable without a trade tool
 PROGRESS_FROM_DAY = 40  # progression: crafts start once the core setup has had its logs
 LOG_RESERVE = 25        # progression: crafts take logs only above this stock, so beds and barrels come first
+LOG_RESERVE2 = LOG_RESERVE + 15  # progression stage 2: crafts wait for a fuller log stock, so the beds, barrels and
+                        #   seats of the growing population keep their share before wealth crafts take any
+MEAL_CAP_STAGE2 = 1200  # progression stage 2: the wealth-push cook cap, far above MEAL_CAP; a cooked meal keeps its
+                        #   value as created wealth whether or not it is ever eaten
+MEALS_FOR_WEALTH = False  # progression stage 2 meal push, OFF by default: the push's cook order eats the brewable
+                          #   plants and cooking does not return seeds, so the drink trajectory sagged and the
+                          #   supply sub-score fell 1.00 -> 0.75 on the measured OP1 run (runs/w2-op1-s0, day 288+
+                          #   drink 223->174 against the base's 285->271) while wealth was already past the Hamlet
+                          #   target from the crafts alone. Flip on only if a run shows meals counted in wealth.
+# cooking never returns seeds: brewing the brewable plants down to the bottom kills the seed lineage (OP1 trio
+# 2026-11-08: runs/w2-op1-s0 & w2b-op1-s0 sat at plants_brewable=0 for the final 112+ days, so brew stayed inactive)
+COOK_PLANTS_RESERVE = 6   # cook standings' plants_brewable floor: brewing restarts on its own at 2 (o_brew's when),
+                          #   so 6 keeps a margin above that; 0 toggles the floor off (the bare pre-reserve cook when)
+SURGE_BEDS = 20         # bed_target: a migrant task's waves peak at 42-49 citizens (docs/SEED-FORTS.md), so the
+                        #   stock is sized to the peak, not to the census at the moment the orders run
+OVERFLOW_ERROR = "no_space"  # overflow: place_furniture's answer when a room's floor has no space left
+OVERFLOW_MIN_TILES = 6  # overflow: a diversion floor needs this much open space, like a dig room's own sites
 MOOD_WORKSHOP = {
     "WOODCRAFT": "Craftsdwarfs", "STONECRAFT": "Craftsdwarfs", "BONECARVE": "Craftsdwarfs", "CARPENTRY": "Carpenters",
     "MASONRY": "Masons", "WOOD_BURNING": "WoodFurnace", "GLASSMAKER": "GlassFurnace", "TANNER": "Leatherworks",
@@ -73,6 +100,12 @@ class Overseer:
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
+        self.overflow = set()    # site ids already tried as bed-overflow floors: each is considered once
+        self.last_place = {}     # raw result of the last place_furniture (the overflow divert reads its error)
+        self.mood_seen = {}      # mood unit id -> tick first seen waiting (the digest's mood-danger warning)
+        self.seat_block = {}     # (kind, site id) -> floor state of a dining floor that answered no_space: the same
+                                 #   refusal answers while the floor looks unchanged, so the place diverts instead
+        self.prog_reserve = 0    # log reserve of the last crafts standing this layer added (stage 1: 25, stage 2: 40)
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -229,10 +262,13 @@ class Overseer:
 
     def bed_target(self):
         """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock."""
-        return self.cit + (12 if self.surge else 3)
+        return self.cit + (SURGE_BEDS if self.surge else 3)
 
     def farm_target(self):
-        return max(4, min(10, math.ceil(self.cit / 5)))
+        # plots are the root of both supply legs: brewing and cooking eat plants faster once the fort passes ~15
+        # citizens, and the measured OP1 failures all show plants_brewable at 0 with farms under-planted
+        # (runs/w2*-op1-* 2026-11-08). ceil(cit/5) topped at the 4-plot minimum for most of a year.
+        return max(6, min(12, math.ceil(self.cit / 3)))
 
     def digging(self):
         rooms = self.kind("R")
@@ -271,7 +307,11 @@ class Overseer:
         if any(not d(v).get("underground") for v in seeds.values()):
             cands += self.kind("G")[:2]
         for s in cands[:target - len(plots)]:
-            self.act("farm_" + s["id"], "build_farm", {"site": s["id"]}, retry=4, limit=3)
+            if s.get("kind") == "R" and any(covers(s, p) for p in plots):
+                continue   # the room already holds a farm plot: build_farm there answers site_used
+            result = self.act("farm_" + s["id"], "build_farm", {"site": s["id"]}, retry=4, limit=3)
+            if result and not result.get("ok") and result.get("error_code") == "site_used":
+                self.done.add("farm_" + s["id"])   # the plot is there to stay: a retry only burns an action
 
     def supply(self):
         """Standing orders that keep working in a hands-off window, then one-shot furniture sized to the population."""
@@ -283,8 +323,12 @@ class Overseer:
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)
         if not self.standing("cook_meal"):
-            self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-                {"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]}, retry=3)
+            # cooking is gated on the plants too: it never returns seeds, so it must not brew the brewable stock away
+            cook_when = [{"stock": "prepared_meals", "below": MEAL_CAP}, {"stock": "plants_total", "at_least": 10}]
+            if COOK_PLANTS_RESERVE > 0:   # togglable: 0 restores the bare cook when
+                cook_when.append({"stock": "plants_brewable", "at_least": COOK_PLANTS_RESERVE})
+            self.act("o_cook", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily",
+                                             "when": cook_when}, retry=3)
         plants = d(self.st.get("plants_by_kind"))
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
@@ -314,14 +358,17 @@ class Overseer:
             self.housing_check()
         if self.surge:
             carp = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict) and w.get("type") == "Carpenters")
-            if carp == 1 and self.cit >= 15 and self.logs() >= 5:
+            beds = (self.placed.get("bed") or 0) + (self.st.get("beds") or 0)
+            short = beds < self.bed_target()   # the wave's peak outruns the bed stock: every builder counts
+            if carp == 1 and self.logs() >= 5 and (self.cit >= 15 or (short and self.cit >= 10)):
                 self.build("Carpenters", retry=3)   # one shop can't make a wave's beds before the window
 
     def endgame_supply(self):
         """The supply sub-score credits a stock by its projected days left: a draining stock is credited only as far
         as it lasts, and a flat or rising one in full. From ENDGAME_DAYS before the horizon, a second brew order with a
         cap well above the usual one keeps drink rising through the final stretch (while plants stay above a reserve
-        that protects the food count, since plants are food too), and cooking keeps meals rising from surplus food.
+        that protects the food count, since plants are food too), and cooking keeps meals rising from surplus food
+        without dipping below the brewable-plant reserve (COOK_PLANTS_RESERVE; cooking returns no seeds).
         Meat is added when edible food is short of a few days per citizen."""
         cap = max(600, 30 * self.cit)
         reserve = max(12, self.cit)
@@ -330,9 +377,16 @@ class Overseer:
             {"stock": "barrels_empty", "at_least": 1}]}, retry=3, limit=4)
         self.act("o_barrel_end", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 8}, {"stock": "logs", "at_least": 4}]}, retry=3, limit=4)
-        self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
-            {"stock": "prepared_meals", "below": max(300, 10 * self.cit)},
-            {"stock": "food_edible", "at_least": max(30, 4 * self.cit)}]}, retry=3, limit=4)
+        # the food gate is a low floor, not a plenty gate: cooking makes food out of plants, so pausing it while
+        # the stock sags steepens the final-month decline it is meant to prevent (OP1 s1 2026-11-08, runs/w2c-op1-s1:
+        # food drifted -1.08/day under the old 4-per-citizen gate, T_food 81 d, supply 1.00 -> 0.62; the drink side
+        # held because the cook reserve already protected the brewable plants)
+        cook_when = [{"stock": "prepared_meals", "below": max(300, 10 * self.cit)},
+                     {"stock": "food_edible", "at_least": max(30, self.cit)}]
+        if COOK_PLANTS_RESERVE > 0:   # togglable: 0 restores the bare cook when (same floor as the regular o_cook)
+            cook_when.append({"stock": "plants_brewable", "at_least": COOK_PLANTS_RESERVE})
+        self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily",
+                                             "when": cook_when}, retry=3, limit=4)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
             self.butcher()
 
@@ -346,6 +400,16 @@ class Overseer:
             {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
+        # fruit fallback (LT01): the window predicate wants >= 1 batch brewed inside it, but the brew path dies when
+        # the brewable-plant stock is gone. add_order's `when` has no fruit/growth stock name (gameapi/facts/
+        # tools.py ORDER_STOCKS; the manual's add_order table lists PLANT conditions only), so the safe side is a
+        # standing brew_drink_from_fruit gated only on the drink cap and an empty barrel: DF itself finds the
+        # fruit/growth, and with none in reach the job simply waits. Added once (the o_*_win done key and the
+        # standing check keep it idempotent), amount 3 like the regular brew order.
+        if not self.standing("brew_drink_from_fruit"):
+            self.act("o_brew_fruit_win", "add_order", {"recipe": "brew_drink_from_fruit", "amount": 3,
+                                                       "repeat": "daily", "when": [
+                {"stock": "drink", "below": 2000}, {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
             self.butcher()
 
@@ -412,23 +476,86 @@ class Overseer:
                     self.act("dx_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]}, retry=3, limit=2)
 
     def progress(self):
-        """Full-year games only. The growth gate on a 336-day horizon also needs a DF progression step, and the only
-        one in reach is the Hamlet rank: 20 citizens and 5000 created wealth. Citizens come with the year's migrant
-        waves; wealth is made. Wood crafts are the cheapest wealth per log (several crafts from one log), so from
-        PROGRESS_FROM_DAY a Craftsdwarfs is built and one standing order makes crafts whenever logs are above a
-        reserve that keeps beds, barrels and seats first. It stops once the wealth is there."""
+        """Full-year games only. The growth gate on a 336-day horizon also needs DF progression steps, and the ones
+        in reach are the settlement ranks: Hamlet at 20 citizens and 5000 created wealth, Village at 50 and 25000
+        (docs/SUCCESS.md; a trade-tool rank step is out of reach, so each bought step earns its half credit).
+        Citizens come with the year's migrant waves; wealth is made. Wood crafts are the cheapest wealth per log
+        (several crafts from one log), so from PROGRESS_FROM_DAY a Craftsdwarfs is built and one standing order makes
+        crafts whenever logs are above a reserve that keeps beds, barrels and seats first. Past the Hamlet target the
+        push moves to stage 2, Village: the crafts reserve widens (progress_crafts) and, while MEALS_FOR_WEALTH
+        stands, a second cook standing turns surplus food into wealth at a much higher meal cap (progress_meals).
+        The whole push stops once the Village wealth is there."""
         if self.days < 336 or (self.day or 0) < PROGRESS_FROM_DAY or self.cit < 7:
             return
-        if (d(self.o.get("wealth")).get("created") or 0) >= WEALTH_TARGET:
+        created = d(self.o.get("wealth")).get("created") or 0
+        stage2 = created >= WEALTH_TARGET
+        if created >= (WEALTH_TARGET2 if stage2 else WEALTH_TARGET):
             return
         have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
         if "Craftsdwarfs" not in have:
             self.build("Craftsdwarfs", retry=5)
             return
-        if not any(x.get("job") == "MakeCrafts" and x.get("repeat") for x in self.orders):
-            self.act("o_crafts_prog", "add_manager_order", {"job": "MakeCrafts", "amount": 3, "repeat": "daily",
-                     "material_category": ["wood"], "when": [{"item_type": "WOOD", "at_least": LOG_RESERVE}]},
-                     retry=4, limit=6)
+        self.progress_crafts(stage2)
+        if stage2 and MEALS_FOR_WEALTH:
+            self.progress_meals()
+
+    def progress_crafts(self, stage2):
+        """The standing MakeCrafts order. At stage 2 its log reserve rises to LOG_RESERVE2: the replacement is added
+        first and only an accepted replacement retires the old lower-reserve standing (owned ones only, never an
+        order the model added), so the push never pauses because of the swap and furniture never loses logs to it."""
+        reserve = LOG_RESERVE2 if stage2 else LOG_RESERVE
+
+        def at_least(x):
+            return self.condition_at_least(x, "WOOD", "logs")
+
+        standings = [x for x in self.orders if x.get("job") == "MakeCrafts" and x.get("repeat")]
+        if not any(at_least(x) >= reserve for x in standings) and self.prog_reserve < reserve:
+            r = self.act("o_crafts_prog2" if stage2 else "o_crafts_prog", "add_manager_order",
+                         {"job": "MakeCrafts", "amount": 3, "repeat": "daily", "material_category": ["wood"],
+                          "when": [{"item_type": "WOOD", "at_least": reserve}]}, retry=4, limit=6)
+            if r and r.get("ok"):
+                self.prog_reserve = reserve
+        if self.prog_reserve >= reserve:
+            for x in standings:
+                if x.get("id") in self.owned and 0 <= at_least(x) < reserve:
+                    self.act("drop_crafts_%s" % x.get("id"), "cancel_order", {"order_id": x.get("id")},
+                             retry=4, limit=3)   # an unreadable threshold stays: never cancel blind
+
+    def progress_meals(self):
+        """Stage-2 wealth from cooking: a second cook standing with a cap far above the regular MEAL_CAP, so meals
+        pile up while food lasts. Meals are food too (the supply tier reads them), so the standing holds back a
+        reserve in the endgame's style: plants left uncooked for brewing and future food, and edible food for days
+        per citizen. DF re-checks the conditions at each repeat, so cooking pauses by itself when they fail."""
+        for x in self.orders:
+            if x.get("recipe") == "cook_meal" and x.get("repeat") \
+                    and self.condition_below(x, "FOOD", "prepared_meals") >= MEAL_CAP_STAGE2:
+                return
+        self.act("o_cook_prog", "add_order", {"recipe": "cook_meal", "amount": 3, "repeat": "daily", "when": [
+            {"stock": "prepared_meals", "below": MEAL_CAP_STAGE2},
+            {"stock": "plants_total", "at_least": max(12, self.cit // 2)},
+            {"stock": "food_edible", "at_least": max(30, 4 * self.cit)}]}, retry=3, limit=4)
+
+    def when_pairs(self, order, item_type, stock):
+        """The stored copies of a standing order's condition for one input. add_order names stocks and
+        add_manager_order names item types; the observation may carry either shape (orders[].when, item_conditions)."""
+        out = []
+        for cond in lst(order.get("when")) + lst(order.get("item_conditions")):
+            cond = d(cond)
+            if str(cond.get("item_type") or "").upper() == str(item_type).upper() or cond.get("stock") == stock:
+                out.append(cond)
+        return out
+
+    def condition_at_least(self, order, item_type, stock):
+        """The order's standing at_least threshold for a condition (-1 when the observation shows none)."""
+        vals = [c.get("at_least") for c in self.when_pairs(order, item_type, stock)]
+        vals = [v for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        return max(vals, default=-1)
+
+    def condition_below(self, order, item_type, stock):
+        """The order's standing below threshold for a condition (-1 when the observation shows none)."""
+        vals = [c.get("below") for c in self.when_pairs(order, item_type, stock)]
+        vals = [v for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        return max(vals, default=-1)
 
     def room_for(self, role):
         """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""
@@ -453,12 +580,120 @@ class Overseer:
     def place(self, key, kind, room, count):
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
+        self.last_place = result   # the bed overflow divert reads the refusal reason of the dormitory's attempt
         if not result.get("ok"):
+            if kind in ("table", "chair") and self.floor_full():
+                self.seat_block[(kind, room["id"])] = self.floor_state(room)   # a full dining floor: wait or divert
             return []
+        self.seat_block.pop((kind, room["id"]), None)
         points = d(result.get("result")).get("at") or []
         if points and not isinstance(points[0], list):
             points = [points]
         return [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
+
+    def floor_full(self):
+        """Whether the last place_furniture was refused for lack of floor (the room is full, not busy or hidden)."""
+        return d(self.last_place).get("error_code") == OVERFLOW_ERROR \
+            or OVERFLOW_ERROR in str(self.last_place.get("error") or "")
+
+    def floor_state(self, site):
+        """A floor's openness signature: open tiles plus how much of the dig is finished. While neither changed, the
+        same place_furniture refusal waits on the same floor (one run knocked the same full floor 8 days running), so
+        the caller diverts or waits instead."""
+        return ((site.get("open_tiles") or 0), sum(1 for s in self.sites if s.get("dug")))
+
+    def seat_blocked(self, kind, room):
+        """Whether this dining kind already answered no_space on this floor and the floor looks unchanged since."""
+        st = self.seat_block.get((kind, room.get("id")))
+        if st is None:
+            return False
+        if st == self.floor_state(room):
+            return True
+        del self.seat_block[(kind, room.get("id"))]   # the floor changed: the attempt deserves another refusal
+        return False
+
+    def blocked_dining_floors(self):
+        """Site ids whose dining refusal still stands (the overflow picker skips them this pass)."""
+        return {sid for (kind, sid) in self.seat_block if kind in ("table", "chair")}
+
+    def overflow_site(self, anchor, tried=None, zoned=()):
+        """Where furniture goes when a room's floor answered no_space: the largest other dug area on the room's own
+        level (farm rooms and their levels stay out — a farm level can look wide open and still refuse every tile,
+        the OP1 bug), else the largest unused area site on another level. Floors already tried as overflow (the
+        caller's record, the beds' by default) are not considered again. `zoned` names zone types that disqualify a
+        floor: the game answers site_used to a second zone over the same site (the manual's site rules), so a floor
+        already zoned for the other purpose would take the furniture and never earn it a zone (seats outside a
+        dining zone seat nobody) — the beds' divert skips dining-zoned floors and the seats' divert skips floors
+        zoned dormitory/bedroom."""
+        tried = self.overflow if tried is None else tried
+        farm_z = {r.get("z") for r in self.kind("R") if self.roles.get(r["id"], "").startswith("farm")}
+        taken = [z for z in self.zones if any(w in str(z.get("type")).lower() for w in zoned)]
+
+        def free_floor(s, allow_rooms):
+            return (s.get("id") != anchor.get("id") and s.get("id") not in tried
+                    and s.get("z") not in farm_z and (s.get("open_tiles") or 0) >= OVERFLOW_MIN_TILES
+                    and not any(covers(z, s) for z in taken)
+                    and (s.get("kind") == "A" or (allow_rooms and s.get("dug"))))
+
+        same = [s for s in self.sites if s.get("z") == anchor.get("z") and free_floor(s, True)]
+        other = [s for s in self.kind("A") if s.get("z") != anchor.get("z") and free_floor(s, False)]
+        biggest = lambda pool: max(pool, key=lambda s: s.get("open_tiles") or 0, default=None)
+        return biggest(same) or biggest(other)
+
+    def overflow_beds(self, dorm, n):
+        """The primary dormitory's floor is full: put this day's free beds on the next floor instead and zone it (a
+        dormitory zone already there is reused). The act gate allows one attempt a day; a floor is marked as tried as
+        soon as it is attempted, so the next pass knocks somewhere else instead of on the same full one. Floors
+        already zoned dining are skipped: the game refuses a second zone on the same site (site_used), so the beds
+        would sit unzoned on it forever."""
+        alt = self.overflow_site(dorm, zoned=("dining",))
+        if not alt:
+            return
+        result = d(self.act("beds_ov", "place_furniture", {"kind": "bed", "site": alt["id"], "count": n},
+                            retry=1, limit=30))
+        if not result:
+            return
+        self.overflow.add(alt["id"])
+        points = d(result.get("result")).get("at") or []
+        if points and not isinstance(points[0], list):
+            points = [points]
+        placed = [{"kind": "bed", "x": x, "y": y, "z": z} for x, y, z in points]
+        if placed and self.needs_zone(alt, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
+            self.act("z_dorm_ov", "make_zone", {"kind": "dormitory", "site": alt["id"]}, retry=3)
+
+    def overflow_seats(self, dine, short):
+        """The dining room's floor answered no_space: carry the shortfall to the next floor and zone it (a dining
+        hall already there is reused). Tables and chairs always travel together — seats count as min(tables,
+        chairs) inside a dining zone, so diverting one kind alone would seat nobody and leave the other stranded
+        on the full floor — so a kind with no shortfall of its own is carried in a matching amount anyway. Works
+        on surge tasks and regular ones alike: a full floor is refused whatever the task is. Floors whose dining
+        refusal still stands (seat_block) are not picked again; if an overflow floor refuses too, it joins that
+        record, and a floor that later gains space can be asked anew. Floors zoned dormitory/bedroom are skipped
+        too (the game refuses a second zone on the same site: the pair would land there seatless forever) — which
+        keeps this divert out of the beds' overflow floors without spending the beds' tried record on it."""
+        alt = self.overflow_site(dine, self.blocked_dining_floors(), zoned=("dorm", "bedroom"))
+        if not alt:
+            return
+        match = min(short.values())   # the pair is sized to the shortfall both kinds can meet
+        placed = []
+        for kind in ("table", "chair"):
+            n = min(short.get(kind, match), self.free.get(kind) or 0, 15)
+            if n <= 0:
+                continue
+            result = d(self.act("seats_ov_" + kind, "place_furniture",
+                                {"kind": kind, "site": alt["id"], "count": n}, retry=1, limit=30))
+            if not result:
+                continue
+            if not result.get("ok"):
+                self.seat_block[(kind, alt["id"])] = self.floor_state(alt)   # the alt floor refuses this kind too
+                continue
+            self.seat_block.pop((kind, alt["id"]), None)
+            points = d(result.get("result")).get("at") or []
+            if points and not isinstance(points[0], list):
+                points = [points]
+            placed += [{"kind": kind, "x": x, "y": y, "z": z} for x, y, z in points]
+        if placed and self.needs_zone(alt, self.zone("dining"), ("table", "chair"), placed):
+            self.act("z_dine_ov", "make_zone", {"kind": "dining_hall", "site": alt["id"]}, retry=3)
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
@@ -466,19 +701,34 @@ class Overseer:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
+            if n > 0 and not placed and self.surge and self.floor_full():
+                self.overflow_beds(dorm, n)   # a migrant wave outruns the primary dormitory's floor
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
                 self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
         if dine:
             want = math.ceil(self.cit / 2) + 1
             placed = []
+            short = {}   # kinds whose placement the dining floor refused with no_space (or already refused while
+                         #   unchanged), and how many didn't fit
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
-                if n > 0:
-                    placed += self.place("f_" + kind, kind, dine, n)
+                if n <= 0:
+                    continue
+                if self.seat_blocked(kind, dine):
+                    short[kind] = n   # the floor answered no_space and has not changed: divert instead of knocking
+                    continue
+                got = self.place("f_" + kind, kind, dine, n)
+                placed += got
+                if not got and self.floor_full():
+                    self.seat_block[(kind, dine["id"])] = self.floor_state(dine)
+                    short[kind] = n   # read before the next placement overwrites last_place
+            if short:
+                self.overflow_seats(dine, short)   # the dining floor is full: the pair moves as one, surge or not
             if self.needs_zone(dine, self.zone("dining"), ("table", "chair"), placed):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
 
     def mood(self):
+        waiting_now = set()
         for m in lst(self.o.get("moods")):
             m = d(m)
             if m.get("mood") in ("Melancholy", "Raving", "Berserk", "Traumatized"):
@@ -488,9 +738,18 @@ class Overseer:
                 have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
                 if want not in have:
                     self.build(want, retry=2)
-            for need in lst(m.get("items_needed")):
-                if "bone" in str(d(need).get("item") or d(need).get("demand")).lower():
-                    self.butcher()
+            if m.get("waiting"):
+                uid = m.get("unit_id")
+                if uid is not None:
+                    waiting_now.add(uid)
+                    self.mood_seen.setdefault(uid, self.now)   # first-seen: the digest reads the waiting age
+            needs = " ".join(str(d(x).get("item") or d(x).get("demand")) for x in lst(m.get("items_needed"))).lower()
+            if "log" in needs and d(self.o.get("plugins")).get("autochop") != "on":
+                # a mood needing logs outranks every other use of wood: felling is the only way to get more
+                self.act("plug_autochop", "enable_automation", {"name": "autochop"}, retry=5)
+            if "bone" in needs:
+                self.butcher()
+        self.mood_seen = {u: t for u, t in self.mood_seen.items() if u in waiting_now}   # a mood that ended is done
 
     def butcher(self):
         have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
@@ -562,8 +821,17 @@ class Overseer:
             return 1
         return 2
 
+    def absorb_days(self, task_resp):
+        """The task length for a constructor that didn't get one (the standalone entry point builds Overseer(game)):
+        without it the progression step's full-year gate would never open on a 336-day game."""
+        if self.days:
+            return
+        days = d(d(task_resp).get("task")).get("days")
+        if isinstance(days, int) and not isinstance(days, bool) and days > 0:
+            self.days = days
+
     def run(self):
-        self.game.task()
+        self.absorb_days(self.game.task())
         while True:
             resp = self.game.observe()
             if resp.get("game_over"):

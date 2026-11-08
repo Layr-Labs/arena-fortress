@@ -1,72 +1,42 @@
 [
  {
-  "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
+  "submissionId": "582c1d8c-19ac-4054-9dfc-b895f6b7741c",
+  "rationale": "Our own first submission: this tree is its content plus the wave additions described in the note (batch-2 digest lines, the dining overflow, the rejection repairs, the staged growth push, the farm-cycle guards). Every mechanism the first submission carried — including its own hotfix removing the hostiles advance clamp — is inherited unchanged.",
+  "evidence": "the whole submission/ tree: git diff 582c1d8c..72c64a8 -- submission shows only the wave additions on top of it; submission/README.md and NOTE.md both state this tree starts from 582c1d8c"
  },
  {
-  "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
+  "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+  "rationale": "Base of this submission, carried through our own first submission (582c1d8c): the promoted leader harness. The deterministic layer, the digest model loop, the closers, the ownership guard, the supply thresholds, the digest section structure, the Dockerfile and the whole test layout are its code except where the note says otherwise. This submission's supply cluster and staged push extend its progress() Hamlet step; its compact_observation wealth deletion is what the new digest wealth line replaces.",
+  "evidence": "the whole submission/ tree against main (the leader's promoted submission); everything not touched by this submission's diff is its code; overseer/harness.py progress() and plain/digest.py compact_observation() keep its shape"
  },
  {
-  "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
+  "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+  "rationale": "Carried from our first submission and still in this tree: the bed-overflow idea (when place_furniture into the primary dormitory answers no_space, divert the beds to the next dug floor and zone it as a dormitory), which it first measured (LT08 pass 0/8 -> 2/8 in its official run). Its consumed-site bookkeeping pattern (full_sites) is also the shape this submission reuses for the new farm site_used permanent stop.",
+  "evidence": "submission/overseer/harness.py: overflow_site(), overflow_beds() and the divert call in furnish() (first submission); the site_used branch of farms() adding the key to done (this submission), the same consumed-site record shape"
  },
  {
-  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
+  "submissionId": "7c3e587d-2593-4c34-9be4-6055174849e5",
+  "rationale": "Carried from our first submission and still in this tree: sizing the bed stock to the wave's peak (SURGE_BEDS=20, beds 42-49 per docs/SEED-FORTS.md) instead of the census, and clamping the model loop's advance_days while the fort is short of beds (so the layer gets daily passes to build and place them).",
+  "evidence": "submission/overseer/harness.py: SURGE_BEDS and bed_target(), the beds-short branch of advance handling; submission/plain/harness.py: advance_cap()'s beds-short clause"
  },
  {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
+  "submissionId": "1812e717-6d93-4bad-8935-8e711e657218",
+  "rationale": "Carried from our first submission and still in this tree: the prompt paragraph telling the model what the deterministic layer already owns (the migrant-bed chain), so the model stops duplicating that work. This submission extends the same pattern to the settlement-rank wealth chain (leave MakeCrafts wealth orders to the layer).",
+  "evidence": "submission/plain/prompt.py, the layer-owns paragraph: the bed-chain sentences from the first submission and the new settlement-rank push sentences (this submission) follow its declared pattern"
  },
  {
-  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
+  "submissionId": "1e6cbe5e-e6e0-4821-977c-562cc7cf941e",
+  "rationale": "The dining-overflow idea this submission implements: a dining room whose floor answers place_furniture with no_space (its note documents the farm-level variant where wide-open tiles still refuse every placement) gets its furniture moved to another dug level, farm levels excluded, with the refused no_space sites remembered; applied here to tables and chairs as a paired diversion with a dining_hall zone on the alternate floor, on surge and regular tasks alike.",
+  "evidence": "submission/overseer/harness.py: overflow_site() generalised (anchor + tried-set parameters, farm-level exclusion), overflow_seats() moving the table+chair pair to the alternate floor and zoning it dining_hall, seat_block()/floor_state() remembering refused sites; the idea is described in 1e6cbe5's public note"
  },
  {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
- },
- {
-  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
+  "submissionId": "d8164ec2-7202-4383-8dcf-caa164ef70fd",
+  "rationale": "The failed-action memory this submission's rejection repairs follow: suppress only identical failures until the state changes, so a refused action is not retried into the same refusal. Its note keys the suppression on tool, arguments and observation fingerprint; this tree uses the coarsest version, the same (tool, args) plus the game day, on the three deterministically-refused tools, and feeds the same failure memory into the digest's advice ordering.",
+  "evidence": "submission/plain/harness.py: REPEAT_TOOLS, failed_today and refuse() (same-day local refusal of an identical failed call, freed the next day); submission/plain/digest.py: failed_sites() reordering housing advice away from recently-refused sites"
  },
  {
   "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
- },
- {
-  "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
- },
- {
-  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
- },
- {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
- },
- {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
- },
- {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
+  "rationale": "e-man07's housing-measurement repairs (seats counted inside dining zones, re-zoning loose furniture) are named in this tree's own layer docstring as prior art that shaped its caution around zones and floors (NOTE.md, line 155). This submission's dining-overflow work builds directly on that housing logic, so the debt is declared rather than implied.",
+  "evidence": "submission/overseer/harness.py docstring line 7-9 ('Two housing-measurement steps ... come from e-man07's efac22bf') and the zone/overflow logic in furnish()/overflow_site() that the docstring describes; NOTE.md line 155"
  }
 ]
