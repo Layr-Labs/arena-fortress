@@ -35,6 +35,7 @@ from . import digest, prompt
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
+SHORT_DAYS = 3              # advance cap while citizens outnumber placed beds
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
@@ -63,6 +64,21 @@ def prepare_tools(tools):
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
     return out
+
+
+def query_tool(queries):
+    """The /task's read-only queries as one model tool. Queries never move time and never count as actions."""
+    qs = [q for q in queries or [] if isinstance(q, dict) and q.get("name")]
+    if not qs:
+        return None
+    sig = "; ".join(f"{q['name']}({', '.join(q.get('params') or {})})" for q in qs)
+    return {"type": "function", "function": {
+        "name": "query",
+        "description": ("Run one of the game's read-only queries. Never moves time, never counts as an action. "
+                        "Queries and their args: " + sig),
+        "parameters": {"type": "object", "required": ["name"], "properties": {
+            "name": {"type": "string", "enum": [q["name"] for q in qs]},
+            "args": {"type": "object", "description": "the query's args, e.g. {\"kind\": \"citizens\"} for units"}}}}}
 
 
 def observation(resp, extra):
@@ -115,11 +131,21 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.queries = {}         # /task query name -> its schema
+        self.local_tools = set()  # tools the harness answers itself (query)
+        self.events_tick = 0      # /events is polled from here each turn
 
     def setup(self):
         t = self.game.task()
+        self.guard.configure_tools(t.get("tools") or [])
         self.tools = prepare_tools(t.get("tools") or [])
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
+        self.queries = {q["name"]: q for q in t.get("queries") or [] if isinstance(q, dict) and q.get("name")}
+        qt = query_tool(list(self.queries.values()))
+        if qt and "query" not in self.tool_names:
+            self.tools.append(qt)
+            self.tool_names.add("query")
+            self.local_tools.add("query")
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
@@ -183,6 +209,7 @@ class Plain:
                     break
                 continue
             self.stats["turns"] += 1
+            self.poll_events()
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
@@ -247,7 +274,8 @@ class Plain:
                     log("query_error", query="units", error=str(e)[:200])
                     self.units_day = day   # don't retry every turn
             status = digest.digest(obs, env, self.memory, units=self.units,
-                                   layer={"report": self.guard.report, "owned": self.guard.owned})
+                                   layer={"report": self.guard.report, "owned": self.guard.owned,
+                                          "findings": self.guard.findings})
             self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
             compact = digest.compact_observation(obs)
             return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
@@ -277,6 +305,14 @@ class Plain:
             args = json.loads(fn.get("arguments") or "{}")
         except ValueError:
             args = None
+        if isinstance(name, str) and name in self.local_tools:   # answered by the harness: no /act, no action spent, no time moved
+            resp = self.run_query(args)
+            self.stats["queries"] = self.stats.get("queries", 0) + 1
+            self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": json.dumps(
+                resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]})
+            log("query", name=(args or {}).get("name") if isinstance(args, dict) else None, ok=resp.get("ok"),
+                error_code=resp.get("error_code"))
+            return False
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
         if not isinstance(name, str) or name not in self.tool_names:
@@ -292,6 +328,8 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                if self.guard.housing_short():   # beds short: let the layer place them every few days (LT08 iter23:
+                    args["days"] = min(args["days"], SHORT_DAYS)   # one 14-day jump left 15 migrants bedless to the end)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
@@ -306,6 +344,39 @@ class Plain:
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved
         return moved
+
+    def run_query(self, args):
+        """The model's query tool: validated against the /task query list, then GET /query/<name>."""
+        if not isinstance(args, dict):
+            return {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
+        name, params = args.get("name"), args.get("args") if args.get("args") is not None else {}
+        if name not in self.queries:
+            return {"ok": False, "error_code": "unknown_query", "error": f"no query {name!r}; queries: {sorted(self.queries)}"}
+        if not isinstance(params, dict):
+            return {"ok": False, "error_code": "bad_arguments", "error": "args must be a JSON object"}
+        allowed = self.queries[name].get("params") or {}
+        dropped = sorted(k for k in params if k not in allowed)
+        params = {k: v for k, v in params.items() if k in allowed}
+        try:
+            r = self.game.query(name, **params)
+        except GameAPIError as e:
+            return {"ok": False, "error_code": "query_error", "error": str(e)[:300]}
+        out = {"ok": True, "query": name, "result": r.get("result", r) if isinstance(r, dict) else r}
+        if dropped:
+            out["ignored_args"] = dropped
+        return out
+
+    def poll_events(self):
+        """GET /events since the last event seen; the digest reports what is new. Never costs a turn."""
+        try:
+            r = self.game.events(since_tick=self.events_tick)
+            evs = [e for e in (r or {}).get("events") or [] if isinstance(e, dict)]
+            ticks = [e.get("tick") for e in evs if isinstance(e.get("tick"), int)]
+            if ticks:
+                self.events_tick = max(self.events_tick, max(ticks))
+            self.memory.note_events(evs, (self.game.last or {}).get("day"), (r or {}).get("dropped"))
+        except Exception as e:   # events are advisory: never let them cost a turn
+            log("events_error", error=repr(e)[:200])
 
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""

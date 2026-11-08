@@ -56,6 +56,9 @@ MOOD_WORKSHOP = {"CARPENTRY": "Carpenters", "MASONRY": "Masons", "BONECARVE": "C
                  "BUTCHER": "Butchers", "FISH": "Fishery", "PROCESSPLANTS": "Farmers"}
 
 
+WINDOW_WARN_DAYS = 20   # how far ahead of a hands-off window the drink check starts
+
+
 def _d(x):
     return x if isinstance(x, dict) else {}
 
@@ -119,6 +122,24 @@ class Memory:
         self.prev = None          # (tick, drink, food) of the previous digest, for the trend
         self.labors_missing = None    # from the last units query
         self.last_units_tick = None
+        self.event_ids = set()        # /events ids already reported
+        self.events_new = []          # events first seen at this turn's poll
+        self.events_dropped = 0
+        self.event_log = []           # (day, type, text) of the last announcements, kept across turns
+
+    def note_events(self, events, day=None, dropped=None):
+        new = []
+        for e in events or []:
+            i = e.get("id")
+            if i is not None and i in self.event_ids:
+                continue
+            if i is not None:
+                self.event_ids.add(i)
+            new.append(e)
+        self.events_new, self.events_dropped = new, _n(dropped)
+        for e in new:
+            if e.get("announcement"):
+                self.event_log = (self.event_log + [(day, e.get("type"), str(e.get("text") or "")[:140])])[-8:]
 
     @staticmethod
     def short_args(args):
@@ -163,7 +184,7 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
+    sections = (_clock, _events, _population, _wealth, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
                 _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
@@ -197,6 +218,34 @@ def _clock(c):
     return s
 
 
+def _events(c):
+    """DF's reports since the last turn: announcements in full (short), everything else counted by type."""
+    mem = c["mem"]
+    new = _l(getattr(mem, "events_new", []))
+    if not new and not getattr(mem, "events_dropped", 0):
+        return None
+    ann = [e for e in new if e.get("announcement")]
+    other = {}
+    for e in new:
+        if not e.get("announcement"):
+            other[str(e.get("type"))] = other.get(str(e.get("type")), 0) + 1
+    s = "events since your last turn: " + ("; ".join(f"{e.get('type')}: {str(e.get('text') or '')[:140]}"
+                                                      for e in ann[-6:]) or "no announcements")
+    if len(ann) > 6:
+        s += f" (+{len(ann) - 6} older announcements)"
+    if other:
+        s += "; other reports: " + ", ".join(f"{k} x{v}" for k, v in sorted(other.items(), key=lambda x: -x[1])[:6])
+    if mem.events_dropped:
+        s += f"; {mem.events_dropped} older reports dropped by /events"
+    return s
+
+
+def _wealth(c):
+    w = _d(c["obs"].get("wealth"))
+    nums = [(k, v) for k, v in w.items() if isinstance(v, (int, float))]
+    return ("wealth: " + ", ".join(f"{k} {v}" for k, v in nums[:8])) if nums else None
+
+
 def _population(c):
     obs = c["obs"]
     dw = _l(obs.get("dwarves"))
@@ -228,6 +277,7 @@ def _supply(c):
         dd = (tick - mem.prev[0]) / DAY
         if dd >= 1:
             trend = f"; trend over the last {dd:.0f} d: drink {(drink - mem.prev[1]) / dd:+.1f}/d, food {(food - mem.prev[2]) / dd:+.1f}/d"
+            c["drink_rate"] = (drink - mem.prev[1]) / dd
     if tick is not None:
         mem.prev = (tick, drink, food)
     s = (f"supply: drink {drink} ({drink / n:.1f} per dwarf, ~{fmt_days(d_days)} d at the usual rate); "
@@ -242,6 +292,14 @@ def _supply(c):
     c["stocks"] = st
     if drink / n < 3 or (d_days is not None and d_days < 30):
         c["next"].append(f"DRINK LOW ({drink} for {n}): brew (needs Still + plants_brewable + barrels_empty); standing order brew_drink repeat=daily when drink below {8 * n}")
+    ho = c["env"].get("hands_off_in_days")
+    rate, brewable = c.get("drink_rate"), _n(st.get("plants_brewable"))
+    if isinstance(ho, int) and 0 < ho <= WINDOW_WARN_DAYS and ((rate is not None and rate <= 0) or not brewable):
+        c["next"].append(
+            f"DRINK BEFORE HANDS-OFF (in {ho} d): drink {drink}" + (f", trend {rate:+.1f}/d" if rate is not None else "")
+            + f", plants_brewable {brewable}, barrels_empty {_n(st.get('barrels_empty'))}. Drink should end the window "
+            f"above where it starts: a repeating brew_drink order (when drink below {drink + 10 * n}, plants_brewable "
+            f"at_least 1), harvested brewable plants (underground plump helmets) and empty barrels must all exist by then")
     if food / n < 2 or (f_days is not None and f_days < 30):
         c["next"].append(f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
     return s
@@ -381,8 +439,19 @@ def _farms(c):
     off = [k for k, v in plugins.items() if v != "on"]
     s = f"farms: {len(plots)} plots" + (f" ({sum(1 for p in plots if p.get('built'))} built, {sum(1 for p in plots if p.get('subterranean'))} underground)" if plots else "")
     if plots:
-        crops = [str(p.get("crop_this_season") or "none") for p in plots[:4]]
-        s += "; crops now: " + ", ".join(crops)
+        counts = {}
+        for p in plots:
+            k = str(p.get("crop_this_season") or "none")
+            counts[k] = counts.get(k, 0) + 1
+        s += "; crops now: " + ", ".join(f"{k} x{v}" for k, v in sorted(counts.items()))
+        seeds = {k: _n(_d(v).get("n")) for k, v in _d(_d(obs.get("stocks")).get("seeds_by_kind")).items()
+                 if _d(v).get("underground") and _n(_d(v).get("n"))}
+        idle = [p for p in plots if p.get("built") and p.get("subterranean")
+                and str(p.get("crop_this_season") or "none") == "none"]
+        if idle and seeds:
+            c["next"].append(f"{len(idle)} built underground plots show no crop this season while underground seeds are "
+                             f"in stock ({', '.join(f'{k} {v}' for k, v in sorted(seeds.items(), key=lambda x: -x[1]))}): "
+                             f"autofarm picks crops and farmers plant them; plots with no crop yield no plants to eat or brew")
     s += f"; plugins on: {', '.join(on) or 'none'}; off: {', '.join(off) or 'none'}"
     pend = _n(obs.get("dig_designations_pending"))
     if pend:
@@ -558,8 +627,14 @@ def _layer(c):
     work), so the model neither repeats nor fights it. Orders marked [layer] above are its standing orders."""
     lay = c.get("layer") or {}
     rep = _l(lay.get("report"))
+    raw = lay.get("findings")
+    found = [f for f in (raw if isinstance(raw, (list, tuple)) else []) if isinstance(f, (list, tuple)) and len(f) == 2]
+    out = []
+    if found:
+        out.append("LAYER FOUND (its daily events check and read-only query sweep; diagnose with the query tool): "
+                   + " | ".join(f"d{dy} {t}" for dy, t in found[-6:]))
     if not rep:
-        return None
+        return out or None
     today = [r for r in rep if _d(r).get("day") == c["day"]] or rep[-6:]
     parts = []
     for r in today[-10:]:
@@ -568,7 +643,7 @@ def _layer(c):
         parts.append(f"d{r.get('day')} {r.get('tool')} {a} -> " + ("ok" if r.get("ok") else
                      f"FAILED {r.get('error_code')}: {str(r.get('error') or '')[:50]}"))
     failed = sum(1 for r in today if not _d(r).get("ok"))
-    return ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
+    return out + ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
             "orders, beds/seats, zones, shelter, mood workshop; don't redo or cancel its work): " + " | ".join(parts)
             + (f" -- {failed} refused: those are yours to solve" if failed else "")]
 
