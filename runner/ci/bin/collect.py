@@ -114,10 +114,15 @@ def finalize(score_json, stage1_point, out, env=os.environ):
     s["metrics"]["workflow_run"] = f"{env.get('GITHUB_RUN_ID', '')}/{env.get('GITHUB_RUN_ATTEMPT', '')}"
     if "DFBENCH_FULL_SUITE" in env:          # set by score.yml; Yukon's comment lists metrics in this order
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from gate import _num, stage2_note
+        from gate import _num, stage2_note, stage2_weight
         m = s["metrics"]
+        try:
+            w2 = stage2_weight(json.load(open(env["SCORE_SUITE"]))) if env.get("SCORE_SUITE") else 0.5
+        except (OSError, ValueError):
+            w2 = 0.5
         note = stage2_note(m.get("stage"), env.get("DFBENCH_FULL_SUITE"), env.get("DFBENCH_TIER", ""),
-                           env.get("DFBENCH_RUN_STAGE2"), env.get("DFBENCH_STAGE1_UB95"), env.get("DFBENCH_LEADER_S1"))
+                           env.get("DFBENCH_RUN_STAGE2"), env.get("DFBENCH_STAGE1_UB95"), env.get("DFBENCH_LEADER_S1"),
+                           env.get("DFBENCH_LEADER_SCORE"), w2)
         add = {"stage2": note, "leader_stage1_point": _num(env.get("DFBENCH_LEADER_S1"))}
         s["metrics"] = {**add, **m} if m.get("stage") != 2 else {**m, **add}
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)

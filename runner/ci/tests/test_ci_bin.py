@@ -467,6 +467,23 @@ class Gate(unittest.TestCase):
         self.assertFalse(gate.stage2(s1, "60.1")[0]); self.assertTrue(gate.stage2(s1, "70", force=True)[0])
         self.assertFalse(gate.stage2({"metrics": {}}, None)[0])
 
+    def test_stage2_best_case_rule(self):
+        """2026-11-09: a stage-1 ub95 just under the leader's (lucky) stage-1 point no longer skips OP1; only a
+        stage 1 so weak that even a perfect OP1 couldn't reach the leader's score does."""
+        s1 = {"metrics": {"ub95": 100.53}}
+        go, why = gate.stage2(s1, "100.6", leader_score="91.32", w2=0.5)
+        self.assertTrue(go, why)                                    # 0.5 x 100.53 + 50 = 100.27 >= 91.32
+        self.assertFalse(gate.stage2({"metrics": {"ub95": 80.0}}, "100.6", leader_score="91.32", w2=0.5)[0])  # 90 < 91.32
+        self.assertTrue(gate.stage2({"metrics": {"ub95": 82.64}}, None, leader_score="91.32", w2=0.5)[0])     # 91.32
+        self.assertFalse(gate.stage2(s1, "100.6")[0])                # no leader score: the old rule, unchanged
+        n = gate.stage2_note("1", "true", "established", "false", "80", "100.6", "91.32", 0.5)
+        self.assertIn("best case with a perfect OP1 90.00 < leader's score 91.32", n)
+        self.assertIn("played (best case", gate.stage2_note("2", "true", "established", "true", "100.53", "100.6", "91.32", 0.5))
+
+    def test_stage2_weight_from_suite(self):
+        suite = json.load(open(os.path.join(os.path.dirname(__file__), "..", "..", "suites", "season0.json")))
+        self.assertAlmostEqual(gate.stage2_weight(suite), 0.5)
+
     def test_stage2_note(self):
         n = gate.stage2_note
         # PR 23 on the dev repo (2026-11-02): full suite, stage-1 ub95 94.27 under the leader's 94.52

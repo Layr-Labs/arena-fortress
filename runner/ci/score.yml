@@ -560,12 +560,14 @@ jobs:
       - id: gate
         env:
           LEADER: ${{ needs.admit.outputs.leader }}     # the incumbent's stage-1 point, read by admit
+          LEADER_SCORE: ${{ needs.admit.outputs.leader_score }}   # the incumbent's score: the stage-2 bar
           FORCE: ${{ inputs.force_stage2 }}
         run: |
           set -euo pipefail
           python3 -I runner/dfbench score out/games --suite "$SCORE_SUITE" > s1.json
           # the leader comparison lives in gate.py only (a Pareto season replaces it with a frontier check)
           python3 -I runner/ci/bin/gate.py stage2 --stage1-score s1.json --leader-point "$LEADER" \
+            --leader-score "$LEADER_SCORE" --suite "$SCORE_SUITE" \
             $([ "$FORCE" = true ] && echo --force) >> "$GITHUB_OUTPUT"
 
   s2:
@@ -654,6 +656,7 @@ jobs:
           DFBENCH_RUN_STAGE2: ${{ needs.gate.outputs.run_stage2 }}
           DFBENCH_STAGE1_UB95: ${{ needs.gate.outputs.stage1_ub95 }}
           DFBENCH_LEADER_S1: ${{ needs.admit.outputs.leader }}
+          DFBENCH_LEADER_SCORE: ${{ needs.admit.outputs.leader_score }}
         run: |
           set -euo pipefail
           python3 -I runner/dfbench score out/games --suite "$SCORE_SUITE" > /dev/null
@@ -900,6 +903,7 @@ jobs:
           DFBENCH_RUN_STAGE2: ${{ needs.gate.outputs.run_stage2 }}
           DFBENCH_STAGE1_UB95: ${{ needs.gate.outputs.stage1_ub95 }}
           DFBENCH_LEADER_S1: ${{ needs.admit.outputs.leader }}
+          DFBENCH_LEADER_SCORE: ${{ needs.admit.outputs.leader_score }}
           DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
           YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
           GH_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}

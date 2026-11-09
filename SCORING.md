@@ -95,14 +95,16 @@ that in three ways rather than with very long runs or a very high bar:
 ## 4. Staging
 
 1. **Stage 1, every submission:** the four lab tasks and MY1.
-2. **Stage 2, OP1 (full year):** only if stage 1's upper bound reaches the current leader's stage-1 point
-   estimate, i.e. only if the submission could still lead.
+2. **Stage 2, OP1 (full year):** unless even a perfect OP1 couldn't make the submission lead: OP1 is played if
+   0.5 × the stage-1 upper bound + 0.5 × 100 reaches the current leader's score (OP1's weight is 0.5). In practice
+   every harness with a reasonable stage 1 plays OP1. (Until 9 November the bar was the leader's stage-1 point; with
+   stage 1 near its ceiling that skipped OP1 for harnesses that could have led on it.)
 
 A stage-1-only result is shown with its stage-1 numbers and marked **not promotable** (it is recorded as
 `score: 0, partial: true` with `metrics.stage = 1`, which Yukon treats as a non-improving result, not a failure).
 Yukon's PR comment then reads "Scored **0**"; the first rows of its table, `stage2` and `leader_stage1_point`,
-say why OP1 wasn't played (your tier plays stage 1 only, or your stage-1 upper bound was below the leader's stage-1
-point) and what the bar was.
+say why OP1 wasn't played (your tier plays stage 1 only, or even a perfect OP1 couldn't reach the leader's score)
+and what the bar was.
 
 ### 4.1 Confirmation (only for a submission that would be promoted)
 

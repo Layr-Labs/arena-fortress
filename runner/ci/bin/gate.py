@@ -7,10 +7,12 @@ leader: Yukon's incumbent, authoritative (GET {DFBENCH_YUKON_API}/api/benchmarks
         currentBestMetrics.stage1_point, which our score.json carries). If Yukon can't be read, the fallback values
         (the leader file in the ops store) are used when given, else it exits 3 (infra).
 
-  gate.py stage2 --stage1-score s1.json [--leader-point X] [--force]       prints run_stage2=true|false,
+  gate.py stage2 --stage1-score s1.json [--leader-point X] [--leader-score Y] [--suite S] [--force]
+                                                                           prints run_stage2=true|false,
                                                                            stage1_point=, stage1_ub95=
   gate.py judge  --score scored.json [--leader-score Y] [--min-gain 0]    prints judge=true|false and reason=...
-stage2: run OP1 iff the stage-1 ub95 >= the leader's stage-1 point (always if there's no leader, or --force).
+stage2: run OP1 unless even a perfect OP1 couldn't reach the leader's score: (1 - w2) x stage-1 ub95 + w2 x 100 <
+        leader score (w2 = the stage-2 weight from --suite; always if there's no leader, or --force).
 judge:  run the judge iff the run is complete (stage 2) and its score beats the leader's by more than --min-gain
         (always when there's no leader). Otherwise Yukon can't promote it, so the judge is not needed.
 
@@ -64,16 +66,37 @@ def manifest_bips(path=None):
     return 0
 
 
-def stage2(s1, leader_point=None, force=False):
+OUTCOME_MAX = 100.0     # a game's outcome O is at most 100 (bench/outcomes.py), so OP1's family value is too
+
+
+def stage2_weight(suite):
+    """The suite-score weight of the stage-2 families (season 0: OP1 0.5)."""
+    w = SU.weights(suite) if suite else {}
+    fams = {t.get("family", t["id"]) for t in (suite or {}).get("tasks", []) if int(t.get("stage", 1)) >= 2}
+    return sum(float(w.get(f, 0)) for f in fams) or 0.5
+
+
+def stage2(s1, leader_point=None, force=False, leader_score=None, w2=0.5):
+    """Play stage 2 unless even a perfect stage 2 couldn't reach the leader's score.
+
+    The suite score is (1 - w2) x the stage-1 value + w2 x the stage-2 families, so the best this harness can reach
+    is (1 - w2) x its stage-1 ub95 + w2 x 100. Until 2026-11-09 the rule compared the stage-1 ub95 with the leader's
+    stage-1 point instead: once stage 1 saturated (labs z-capped at 1.5, MY1 in the 90s), the leader's single high
+    stage-1 draw (100.6) cut harnesses whose OP1, half of the score and the only family that still separates them,
+    was never played (the pooled leader among them). Without the leader's score, the old comparison is the fallback."""
     m = s1.get("metrics") or {}
     ub = m.get("ub95")
     if force:
         return True, "forced"
     if ub is None:
         return False, "no stage-1 score"
+    ls = _num(leader_score)
+    if ls is not None:
+        best = (1 - w2) * float(ub) + w2 * OUTCOME_MAX
+        return best >= ls, f"best case {best:.2f} (stage-1 ub95 {ub}, perfect stage 2) vs leader score {ls:g}"
     if leader_point in (None, ""):
         return True, "no leader yet"
-    return ub >= float(leader_point), f"stage-1 ub95 {ub} vs leader {leader_point}"
+    return ub >= float(leader_point), f"stage-1 ub95 {ub} vs leader stage-1 point {leader_point} (no leader score)"
 
 
 def _num(x):
@@ -83,16 +106,25 @@ def _num(x):
         return None
 
 
-def stage2_note(stage, full_suite=True, tier="", run_stage2=None, stage1_ub95=None, leader_point=None):
+def stage2_note(stage, full_suite=True, tier="", run_stage2=None, stage1_ub95=None, leader_point=None,
+                leader_score=None, w2=0.5):
     """-> one line for the `stage2` metric: why OP1 was or wasn't played. Yukon's PR comment shows a stage-1-only
     result as "Scored 0" (it ignores `partial`), so this row is the submitter's only explanation."""
-    ub, lp = _num(stage1_ub95), _num(leader_point)
-    bar = (f"stage-1 upper bound {ub:g} {'>=' if ub is not None and lp is not None and ub >= lp else '<'} "
-           f"leader's stage-1 point {lp:g}") if ub is not None and lp is not None else None
-    if str(stage) == "2":
+    ub, lp, ls = _num(stage1_ub95), _num(leader_point), _num(leader_score)
+    if ub is not None and ls is not None:          # the rule since 2026-11-09 (stage2())
+        best = (1 - w2) * ub + w2 * OUTCOME_MAX
+        bar = (f"best case with a perfect OP1 {best:.2f} {'>=' if best >= ls else '<'} leader's score {ls:g}")
+        reached = best >= ls
+    else:
+        bar = (f"stage-1 upper bound {ub:g} {'>=' if ub is not None and lp is not None and ub >= lp else '<'} "
+               f"leader's stage-1 point {lp:g}") if ub is not None and lp is not None else None
+        reached = bool(bar) and ub >= lp
         if lp is None:
+            bar = None
+    if str(stage) == "2":
+        if lp is None and ls is None:
             return "played (no leader yet)"
-        return f"played ({bar})" if bar and ub >= lp else "played (forced by the organiser)"
+        return f"played ({bar})" if bar and reached else "played (forced by the organiser)"
     tail = "; not a failure: Yukon records a stage-1-only result as 0, not promotable (SCORING.md §4)"
     if str(full_suite).lower() not in ("true", "1"):
         return f"skipped: tier {tier or '?'} plays stage 1 only (RULES.md tiers){tail}"
@@ -193,6 +225,7 @@ def main():
     x = sp.add_parser("leader"); x.add_argument("--benchmark", required=True)
     x.add_argument("--fallback-point"); x.add_argument("--fallback-score")
     x = sp.add_parser("stage2"); x.add_argument("--stage1-score", required=True); x.add_argument("--leader-point")
+    x.add_argument("--leader-score"); x.add_argument("--suite", default="")
     x.add_argument("--force", action="store_true")
     x = sp.add_parser("judge"); x.add_argument("--score", required=True); x.add_argument("--leader-score")
     x.add_argument("--min-gain", type=float, default=0.0); x.add_argument("--bips", type=float, default=0)
@@ -224,7 +257,8 @@ def main():
         return
     if a.cmd == "stage2":
         s1 = json.load(open(a.stage1_score))
-        go, why = stage2(s1, a.leader_point, a.force)
+        suite = json.load(open(a.suite)) if a.suite else None
+        go, why = stage2(s1, a.leader_point, a.force, a.leader_score, stage2_weight(suite))
         m = s1.get("metrics") or {}
         print(f"run_stage2={'true' if go else 'false'}")
         print(f"stage1_point={'' if m.get('point') is None else m['point']}")

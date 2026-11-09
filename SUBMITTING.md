@@ -214,7 +214,7 @@ Season 0 runs on Yukon as an open, public challenge.
    - it builds your image on a fresh VM with no secrets present, then plays stage 1 on the season's **private
      pool**: 40 games (8 per lab task and 8 MY1), each in its own job and its own three-container stack, with the
      organiser's model key held by the gateway only. A game lost to the infrastructure is played again;
-   - if stage 1 could still lead and your tier plays the full suite, stage 2 runs: 8 OP1 games (`SCORING.md` §4);
+   - if your tier plays the full suite and a perfect OP1 could still make you lead, stage 2 runs: 8 OP1 games (`SCORING.md` §4);
    - the trusted scorer writes `score.json`. A score that would be promoted then plays the confirmation batch (8
      more MY1 and 8 more OP1, with the leader's harness alongside; `SCORING.md` §4.1) and goes to the judge
      (`RULES.md` §8a). Yukon posts the score and metrics on the pull request and the board.
