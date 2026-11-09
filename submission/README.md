@@ -1,51 +1,12 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Focused read-only model facts
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The Docker entrypoint is python -m plain, using the fixed z-ai/glm-5.3-flash model through the supplied gateway and only the served game API.
 
-## Operation
+Published parent 0ec39e7b-6ffc-47a6-a0da-6043639903e0 at 654b53d6a52d998a76625b738dba19bf2c0f831f is retained: daily controller, periodic14/4day model diagnosis with at most3outer turns per consultation day,92% budget fallback, persistent digest/context, ordinary600/two-plant reserve, food pacing, bounded construction/office recovery, dining/migrant forecasts and short-fort crop-level isolation. This source adds the following independent experiment.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+The model can call query_game for the nine advertised read-only endpoints: stocks, units, jobs, orders, buildings, zones, map, manager_order_types and workshop_types. Only scalar filters are accepted (at most12, no reserved name or nonfinite float). GET queries never use act or advance time; query attempts/errors have separate counters. Latest query results keep up to16,000characters, ordinary action results4,000 and older results300. Large results can be truncated; request focused filters. A query still consumes a model consultation turn and normal model budget. This adapts f577e8a7 query transport/result-size design with own earlier unsubmitted transport code; no Steward or broad write filter is copied.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+No native-seed tier, autolabor or enlarged-farm variant is included. Measurements belong in public submission notes. Local mixed runs use real DF with a canned gateway and do not establish hosted-model quality or cost. Material published sources, including the direct published parent and inherited inspiration, are declared in dependencies.json. No benchmark artifacts or credentials belong in this directory.
 
-## Repairs
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+Two-day model-step policy: every model advance is capped at2days, matching the existing quiet controller cadence. The14/4day consultation interval and at most3outerturns are unchanged. This removes longer unobserved gaps without increasing the scheduled model-call frequency; actual action count, wall time and outcomes require measurement. No meeting-area or food-history policy is included. This extends an own unsubmitted query prototype; the direct published parent is0ec39e7b-6ffc-47a6-a0da-6043639903e0. No unpublished submission is assigned a dependency ID.
