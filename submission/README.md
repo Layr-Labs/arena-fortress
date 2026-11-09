@@ -1,51 +1,49 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Migrant-surge housing and window brewing on the current leader
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+This package is i34-9's current leader `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4` (PR #40), with seven changes that apply
+only when the task's goal mentions migrants: the leader's own `surge` flag (`"migrant" in goal`), which in season 0
+is the LT08 migrant-surge task. On every other task the code path is the leader's, unchanged. Credits, local
+measurements and limits are in the submission note; the formal declaration is `dependencies.json`.
 
-## Operation
+## What changed (`overseer/harness.py`, surge only)
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+- **Bed batches and target.** Regular bed orders take up to 30 beds per batch (the idea of mpjunior92's
+  `f42cefb1` and its port source `0e538cbc`), toward a target of `max(citizens + 12, 50)` from day 0, so the
+  whole migrant wave's beds are made before the hands-off window, when placement is still allowed.
+- **Beds before seats.** While placed beds are fewer than citizens, no table or chair orders or placements. The
+  task scores beds, not seats; on the public forts tables and chairs had taken a third of the only dormitory level
+  and every later bed placement failed with `no_space`. The manager's office chair is exempt (a chair is still
+  ordered if the office has none and none is free). Seats resume once beds cover the citizens.
+- **Dormitory first.** The first undug room at least three levels below the surface (two from day 8) is dug as the
+  9x7 dormitory before any further farm rooms. The leader digs farm rooms first, up to a target that grows with the
+  population, and on fast waves every room became a farm: no dormitory, so no bed was ever placed (seen in 2 of 8
+  public fort-2001 games across versions). Farms still have the fort's pre-dug soil floor (F sites).
+- **Farm plots off the dormitory floor.** Once dug, the dormitory's soil floor is listed as F sites, and the farm step
+  built plots on it (in one public game two plots took 18 tiles and the fort ended 3 beds short). Farm candidates
+  that overlap the dormitory's dig box are skipped.
+- **Overflow placement.** When the dormitory level takes fewer beds than asked, the rest go to the other dug
+  levels, largest open area first; the inherited `rezone()` then zones loose built beds. It runs only after the
+  day's dormitory placement actually ran (not when a later same-day pass is rate-limited).
+- **Carpenters.** Up to three Carpenters' workshops while beds are short (a narrow variant of the population-scaled
+  Carpenters in mpjunior92's `afd1d5b6`; the inherited rule that adds a second shop stays as a floor).
+- **Window brewing.** The hands-off window's standing brew order runs whenever two brewable plants exist, instead of
+  half a plant per citizen. Brewable plants were the binding input (0 to 7 all game on the public forts while logs
+  and empty barrels were plentiful), so the old reserve kept the order idle through the whole window.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+## Operation (inherited)
 
-## Repairs
-
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+The runtime is the leader's: a deterministic overseer (`overseer/harness.py`) runs on each observed game day ahead
+of the model loop (`plain/harness.py`, `plain/digest.py`, `plain/prompt.py`), which calls `z-ai/glm-5.3-flash`
+through the gateway. Both share the day's action allowance. See the leader's note (PR #40) for the model loop.
 
 ## Checks
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s submission/tests
+docker build --platform linux/amd64 -t fortress-surge-housing submission/
 ```
 
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+55 tests pass: the 46 inherited and 9 new in `tests/test_surge_beds.py` (day-0 bed target, beds before seats, the
+office-chair exemption, overflow to another level, no overflow on a rate-limited same-day pass, dormitory first
+below the shallow levels, farm plots kept off the dormitory floor, and unchanged seats, farm ordering and farm sites
+outside the migrant task).
