@@ -4,7 +4,7 @@ Run: python3 -m unittest discover -s runner/ci/tests -t .
 import argparse, contextlib, datetime, io, json, os, re, subprocess, sys, tempfile, unittest, urllib.error
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"))
-import collect, dispatch, early_judge, emit_score, gate, ledger, prior, tier  # noqa: E402
+import collect, dispatch, early_judge, emit_score, gate, ledger, prior, result_comment, tier  # noqa: E402
 
 SUB = "11111111-2222-3333-4444-555555555555"
 OURS = "aaaaaaaa-0000-0000-0000-000000000000"
@@ -527,6 +527,44 @@ class Gate(unittest.TestCase):
         self.assertTrue(gate.judge_needed({"score": 50, "metrics": {"stage": 2}}, "")[0])
         self.assertTrue(gate.judge_needed({"score": 50, "metrics": {"stage": 2}}, "49")[0])
         self.assertFalse(gate.judge_needed({"score": 50, "metrics": {"stage": 2}}, "50")[0])
+
+
+class ResultComment(unittest.TestCase):
+    LF = {"OP1": 79.09, "MY1": 95.63, "labs": 106.32}
+
+    def full(self, lb, **kw):
+        m = {"stage": 2, "lb95": lb, "point": lb + 2, "ub95": lb + 4, "judge_verdict": "pass",
+             "confirmation": "not_run: would not be promoted", "family_OP1": 70.0, "family_MY1": 96.0,
+             "family_labs": 104.0, **kw}
+        return {"score": 0, "metrics": m}
+
+    def test_near_miss_says_noise(self):
+        t = result_comment.render(self.full(93.52), 91.32, self.LF, "pooled", 250, 6, 7, "abc")
+        self.assertIn("The bar for promotion is **93.60**", t)
+        self.assertIn("could clear it by luck alone", t)
+        self.assertIn("The biggest gap is **OP1** (-9.1): OP1 counts for half", t)
+        self.assertIn("6 of 7 used, 1 left", t)
+        self.assertIn("yukon reset abc", t)
+
+    def test_far_below_and_failed_paired(self):
+        t = result_comment.render(self.full(80.0), 91.32, self.LF, "pooled", 250)
+        self.assertIn("won't get there", t)
+        t = result_comment.render(self.full(93.0, confirmation="failed_paired", paired_diff_point=1.2,
+                                             paired_diff_lb=-3.1), 91.32, self.LF, "pooled", 250)
+        self.assertIn("failed the paired check", t)
+
+    def test_stage1_only_and_judge_fail(self):
+        s1 = {"score": 0, "metrics": {"stage": 1, "lb95": 90.96, "ub95": 99.85, "judge_verdict": "fail",
+              "stage2": "skipped: tier new plays stage 1 only (RULES.md tiers); not a failure: Yukon records ..."}}
+        t = result_comment.render(s1, 91.32, self.LF, "pooled", 250, 1, 2)
+        self.assertIn("Why: tier new plays stage 1 only (RULES.md tiers)", t)
+        self.assertNotIn("not a failure", t)
+        self.assertIn("The judge returned **fail**", t)
+        self.assertNotIn("| OP1", t)          # no family table for a stage-1 result
+
+    def test_never_per_game(self):
+        t = result_comment.render(self.full(90.0), 91.32, self.LF, "pooled", 250)
+        self.assertNotRegex(t, r"OP1-\d|MY1-\d|seed|fort ")
 
 
 class PriorBaseFromGit(unittest.TestCase):

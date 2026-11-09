@@ -1166,6 +1166,23 @@ jobs:
             [ -s j/summary.md ] && head -c 60000 j/summary.md || echo "(no judge summary: see the dfbench-judge artifact)"
             echo; echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; } > j/comment.md
           gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body-file j/comment.md
+      - name: Result in plain words on the submission PR (runner/ci/bin/result_comment.py; aggregates only)
+        if: always() && needs.admit.outputs.kind != 'baseline'
+        continue-on-error: true      # a failed comment must not fail the run: Yukon would discard the score
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DFBENCH_YUKON_API: ${{ vars.DFBENCH_YUKON_API }}
+          YUKON_API_KEY: ${{ secrets.YUKON_API_KEY }}
+          DFBENCH_OPS_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
+          DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
+          DFBENCH_SEASON: ${{ env.SEASON }}
+        run: |
+          [ -s .yukon/score.json ] || exit 0
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$GITHUB_REF_NAME" --state all --json number -q '.[0].number')
+          [ -n "$pr" ] || exit 0
+          python3 -I runner/ci/bin/result_comment.py --score .yukon/score.json --suite "$SCORE_SUITE" \
+            --benchmark "${{ needs.admit.outputs.benchmark }}" --user "${{ needs.admit.outputs.user }}" --out j/result.md
+          gh pr comment "$pr" -R "$GITHUB_REPOSITORY" --body-file j/result.md
 
   release:
     needs: [admit, harness, aggregate, confirm-pool, judge, early-reject]
