@@ -70,6 +70,21 @@ class Pacing(unittest.TestCase):
         self.assertEqual([call.args[0]["day"] for call in step.call_args_list], [0, 1])
         self.assertEqual((model.calls, runner.stats["stall_advances"]), (5, 1))
 
+    def test_migrant_shortfall_caps_only_unhoused_advances(self):
+        for migrant, beds, expected in ((True, 9, 2), (True, 10, 14), (False, 9, 14)):
+            with self.subTest(migrant=migrant, beds=beds):
+                game, model = FakeGame(), FakeModel()
+                task = SimpleNamespace(task={"days": 60, "goal": "migrants" if migrant else "fort"},
+                                       days=60, credits=None)
+                runner = harness.Plain(task, game, model)
+                with redirect_stdout(io.StringIO()):
+                    runner.setup()
+                    runner.guard.cit = 10
+                    runner.guard.placed = {"bed": beds}
+                    runner.run_call({"id": "advance", "function": {
+                        "name": "advance_days", "arguments": '{"days": 14}'}})
+                self.assertEqual(game.actions[-1], ("advance_days", {"days": expected}))
+
     def test_model_error_advance_resets_idle_before_the_next_model_turn(self):
         game, model = FakeGame(), FakeModel(fail_on=4)
         runner = harness.Plain(SimpleNamespace(task={"days": 10}, days=10, credits=None), game, model)

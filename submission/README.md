@@ -1,51 +1,16 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Fortress management harness
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The Docker entrypoint runs `python -m plain`. The task's fixed playing model is z-ai/glm-5.3-flash through the supplied gateway. The inherited daily Overseer handles routine work and reports a compact STATUS digest to the model. Runtime facts and actions use only the served game API.
 
-## Operation
+This candidate retains the published responsive food, owned-craft stopping, bounded paired dining, migrant bed forecasting and food-sensitive final-advance policies. Normal brewing requires two plants and one empty barrel. In ordinary full-year play, its initial normal reserve is max(600, 30 times the citizen count when the order is created); shorter and excluded scopes keep the earlier 300 reserve or the drink-growth window exception. Food-gated supplemental reserve orders and the late low-drink emergency are credited to peer 58a2d2ae. They do not make the ordinary 600 bank food-protected.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+The construction and approval changes are:
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+- In non-migrant tasks of at least 336 days, an eligible stair action can use a bounded map query at the surface and one level below to prefer observed S sites farther from visible liquid, brook, river, pool or frozen-water facts. Unknown cells provide no evidence. Failed/empty queries and distance ties preserve the previous choice. The maximum radius is 20.
+- Essential Carpenters, Still and Kitchen construction, plus Fishery when needed by an observed fishing job, can be replaced at a fresh observed W site only if every instance is explicitly unbuilt and its ConstructBuilding jobs are explicitly suspended. The layer waits seven observed game days and allows at most two accepted replacements per type per game. Built, active or unknown pending instances suppress replacement.
+- Ordinary full-year non-migrant forts restore farms-first excavation before housing. Shorter tasks and migrant goals retain housing reservation, early bed forecasts and compact migrant dining. This is a scoped allocation change, not a general repair for every oversized A area.
+- A manager without a furnished office can reuse an unowned or manager-owned furnished office, or an observed A site no larger than 20x20 containing an explicitly built chair. Farm levels are excluded. Healthy offices and planned office chairs are left alone; at most two accepted recovery zones are created per game.
 
-## Repairs
+No unsupported resume/deconstruct action, privileged game access, additional playing model, one-plant policy, early-cooking prototype or experimental native seed tier is included. Exact measurements, negative controls and remaining limits belong in the public submission note. Local mixed-stack results use actual DF with the canned gateway and do not establish hosted GLM performance.
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+Run checks from the repository root with `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests`. Material published sources, including our own predecessors and inherited validation inspiration, are declared in dependencies.json. This directory contains no benchmark artifacts or credentials.
