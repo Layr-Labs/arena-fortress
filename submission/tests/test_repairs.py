@@ -92,6 +92,77 @@ class Repairs(unittest.TestCase):
                 if role == "dorm":
                     self.assertEqual(game.calls[0][1], {"site": "R1", "w": 9, "h": 7})
 
+    def test_drink_growth_goal_removes_ceiling_only_for_a_lab_window(self):
+        for window, capped in ((39, False), (None, True)):
+            with self.subTest(window=window):
+                overseer, game = self.overseer([])
+                overseer.drink_growth = True
+                overseer.hands_off = window
+                overseer.supply()
+                brew = next(args for tool, args in game.calls
+                            if tool == "add_order" and args.get("recipe") == "brew_drink")
+                self.assertEqual(any(c.get("stock") == "drink" for c in brew["when"]), capped)
+                self.assertTrue(any(c.get("stock") == "plants_brewable" for c in brew["when"]))
+                self.assertTrue(any(c.get("stock") == "barrels_empty" for c in brew["when"]))
+
+    def test_migrant_bed_deficit_does_not_queue_dining_furniture(self):
+        overseer, game = self.overseer([])
+        overseer.surge = True
+        overseer.supply()
+        recipes = [args.get("recipe") for tool, args in game.calls if tool == "add_order"]
+        self.assertIn("make_bed", recipes)
+        self.assertNotIn("make_table", recipes)
+        self.assertNotIn("make_chair", recipes)
+
+    def test_migrant_bed_batch_covers_a_large_observed_shortfall(self):
+        overseer, game = self.overseer([])
+        overseer.surge = True
+        overseer.cit = 51
+        overseer.st["beds"] = 19
+        overseer.supply()
+        bed = next(args for tool, args in game.calls
+                   if tool == "add_order" and args.get("recipe") == "make_bed")
+        self.assertEqual(bed["amount"], 30)
+
+    def test_migrant_carpenter_capacity_scales_with_population(self):
+        overseer, game = self.overseer(workshops())
+        overseer.surge = True
+        overseer.cit = 45
+        overseer.o["workshops"] = [{"type": "Carpenters"}] * 2
+        overseer.closer()
+        self.assertEqual(game.calls, [("build_workshop", {"type": "Carpenters", "site": "W1"})])
+        game.calls.clear()
+        overseer.o["workshops"] = [{"type": "Carpenters"}] * 3
+        overseer.closer()
+        self.assertEqual(game.calls, [])
+
+    def test_large_migrant_wave_can_reserve_an_additional_dorm(self):
+        overseer, game = self.overseer([room(True)])
+        overseer.o["farm_plots"] = [{"id": n} for n in range(4)]
+        overseer.roles = {"R10": "dorm", "R11": "dine", "R12": "office"}
+        overseer.surge = True
+        overseer.cit = 51
+        overseer.placed = {"bed": 43}
+        overseer.digging()
+        self.assertEqual(overseer.roles["R1"], "dorm")
+        self.assertEqual(game.calls[0][1], {"site": "R1", "w": 9, "h": 7})
+
+    def test_two_existing_farms_leave_next_soil_room_for_housing(self):
+        overseer, game = self.overseer([room(True)])
+        overseer.o["farm_plots"] = [{"id": 4}, {"id": 5}]
+        overseer.cit = 52
+        overseer.digging()
+        self.assertEqual(overseer.roles["R1"], "dorm")
+
+    def test_farm_candidates_do_not_consume_housing_level(self):
+        sites = [room(True),
+                 {"id": "F1", "kind": "F", "z": 9},
+                 {"id": "F2", "kind": "F", "z": 8}]
+        overseer, game = self.overseer(sites)
+        overseer.roles["R1"] = "dorm"
+        overseer.farms()
+        self.assertEqual([args["site"] for tool, args in game.calls if tool == "build_farm"], ["F2"])
+
     def test_failed_dig_retains_existing_retry_limit(self):
         overseer, game = self.overseer([room(True)], failures=2)
         for day in (0, 3, 6):
