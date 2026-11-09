@@ -21,6 +21,7 @@ Run: python -m plain   (reads DFBENCH_TASK)
 """
 import copy
 import json
+import math
 import os
 import sys
 import time
@@ -35,7 +36,7 @@ from . import digest, prompt
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
-MAX_DAYS = 14               # advance_days cap (the API allows 28)
+MAX_DAYS = 2                # model advances also preserve the controller's one/two-day cadence
 STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
@@ -47,6 +48,8 @@ CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reason
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
 UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
+READ_QUERIES = ("stocks", "units", "jobs", "orders", "buildings", "zones", "map", "manager_order_types", "workshop_types")
+QUERY_RESULT_MAX = 16000   # focused read-only facts may exceed the ordinary action-result size
 
 
 def log(kind, **kw):
@@ -62,6 +65,13 @@ def prepare_tools(tools):
             days = ((f.get("parameters") or {}).get("properties") or {}).get("days")
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
+    out.append({"type": "function", "function": {
+        "name": "query_game", "description": "Read extra facts from the fixed game API. Never writes or advances time. "
+        "Use for blocked orders, materials, units, revealed map, or job/workshop catalogs; request focused results.",
+        "parameters": {"type": "object", "properties": {
+            "which": {"type": "string", "enum": list(READ_QUERIES)},
+            "params": {"type": "object", "description": "Optional scalar query filters, e.g. kind=animals or limit=20."}},
+            "required": ["which"]}}})
     return out
 
 
@@ -106,7 +116,8 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0,
+                      "queries": 0, "query_errors": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
@@ -115,6 +126,10 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.consult_day = None
+        self.consult_calls = 0
+        self.stats["consultations"] = 0
+        self.stats["cadence_advances"] = 0
 
     def setup(self):
         t = self.game.task()
@@ -137,6 +152,37 @@ class Plain:
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
         return 2
+
+    def model_ready(self, resp):
+        """Adapt f577e8a7's bounded14-day diagnosis (four during moods); the controller still runs between calls."""
+        day = resp.get("day")
+        if type(day) is not int:
+            return True  # preserve ordinary behavior if the envelope cannot support a game-day clock
+        moods = getattr(self.guard, "o", {}).get("moods")
+        interval = 4 if isinstance(moods, list) and moods else 14
+        if self.consult_day is None or day < self.consult_day or day - self.consult_day >= interval:
+            return True
+        return day == self.consult_day and self.consult_calls < 3
+
+    def record_model_attempt(self, resp):
+        day = resp.get("day")
+        if type(day) is not int:
+            day = None
+        if self.consult_day is None or self.consult_day != day:
+            self.consult_day, self.consult_calls = day, 0
+            self.stats["consultations"] += 1
+        self.consult_calls += 1
+
+    def cadence_days(self, resp):
+        days = self.quiet_days(resp)
+        facts = getattr(self.guard, "o", {})
+        if facts.get("moods") or (facts.get("threats") or {}).get("visible_hostiles"):
+            days = min(days, 1)
+        if self.guard.in_endgame():
+            food, citizens = self.guard.st.get("food_edible"), self.guard.cit
+            if type(food) is int and citizens > 0 and food < 4 * citizens:
+                days = min(days, 1)
+        return days
 
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
@@ -182,6 +228,13 @@ class Plain:
                 if not self.layer_only("budget"):   # no model left; the layer still runs
                     break
                 continue
+            if not self.model_ready(resp):
+                self.stats["cadence_advances"] += 1
+                if not self.advance(self.cadence_days(resp), "model_cadence"):
+                    break
+                idle = 0  # a real time advance ends the non-advance action streak
+                continue
+            self.record_model_attempt(resp)
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
@@ -269,6 +322,29 @@ class Plain:
             resp = self.model.chat(self.messages, tools=self.tools, **params)
         return resp["choices"][0].get("message") or {}
 
+    def read_query(self, args):
+        """Only the fixed read-only query endpoints; no query is sent through /act."""
+        which = args.get("which")
+        if not isinstance(which, str) or which not in READ_QUERIES:
+            return {"ok": False, "error_code": "bad_query", "error": "choose an advertised read-only query"}
+        params = args.get("params", {})
+        if not isinstance(params, dict) or len(params) > 12 or "name" in params or any(
+                not isinstance(k, str) or not isinstance(v, (str, int, float, bool, type(None)))
+                or (isinstance(v, float) and not math.isfinite(v))
+                for k, v in params.items()):
+            return {"ok": False, "error_code": "bad_query_params", "error": "params must be scalar query filters"}
+        try:
+            response = self.game.query(which, **params)
+        except GameAPIError as e:
+            return {"ok": False, "error_code": "query_failed", "error": str(e)[:300]}
+        payload = response.get("result", response) if isinstance(response, dict) else response
+        failed = response.get("ok") is False if isinstance(response, dict) else False
+        if failed or (isinstance(payload, dict) and payload.get("ok") is False):
+            err = response if failed else payload
+            return {"ok": False, "query": which, "error_code": err.get("error_code", "query_failed"),
+                    "error": str(err.get("error") or "query refused")[:300], "result": payload}
+        return {"ok": True, "query": which, "result": payload}
+
     def run_call(self, call):
         """Run one tool call and append its result. Returns True when game time moved."""
         fn = call.get("function") or {}
@@ -286,12 +362,27 @@ class Plain:
         elif refused:
             resp = refused
             self.stats["churn_refused"] += 1
+        elif name == "query_game":
+            resp = self.read_query(args)
         else:
             if name == "advance_days":
                 try:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                # The migrant wave needs repeated controller passes before hands-off.
+                # Adapted from the pacing policy described by a9f894e / 5ef22a35.
+                if self.guard.surge and getattr(self.guard, "cit", 0) > self.guard.placed.get("bed", 0):
+                    args["days"] = min(args["days"], 2)
+                # Short food reserves need another controller pass before a long advance can miss a dip.
+                if self.guard.in_endgame():
+                    food = self.guard.st.get("food_edible")
+                    citizens = self.guard.cit
+                    if type(food) is int and citizens > 0:
+                        if food < 4 * citizens:
+                            args["days"] = min(args["days"], 1)
+                        elif food < 6 * citizens:
+                            args["days"] = min(args["days"], 2)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
@@ -302,7 +393,7 @@ class Plain:
                 self.advance(1, "action_limit")
                 return True
             self.remember(name, args, resp, tick)
-        self.result(call, name, args, resp)
+        self.result(call, name, args, resp, is_action=name != "query_game")
         moved = name == "advance_days" and bool(resp.get("ok"))
         self.stats["advances"] += moved
         return moved
@@ -346,17 +437,21 @@ class Plain:
             if sig is not None:
                 self.cancelled = (self.cancelled + [(tick, sig, args.get("order_id"))])[-50:]
 
-    def result(self, call, name, args, resp):
+    def result(self, call, name, args, resp, is_action=True):
         ok = bool(resp.get("ok"))
-        self.stats["actions"] += 1
-        self.stats["rejected"] += not ok
-        text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
+        if is_action:
+            self.stats["actions"] += 1
+            self.stats["rejected"] += not ok
+        else:
+            self.stats["queries"] += 1
+            self.stats["query_errors"] += not ok
+        text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX if is_action else QUERY_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
         try:
             self.memory.record((self.game.last or {}).get("day"), name, args, resp)
         except Exception as e:
             log("memory_error", error=repr(e)[:200])
-        log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
+        log("act" if is_action else "query", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
         """A harness-initiated advance. False when the game is over or the hands-off window has started."""

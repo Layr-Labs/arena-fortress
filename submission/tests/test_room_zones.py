@@ -64,6 +64,39 @@ class RoomZones(unittest.TestCase):
     def zone_calls(self):
         return [args for tool, args in self.game.calls if tool == "make_zone"]
 
+    def test_migrant_bed_deficit_keeps_dining_off_the_floor(self):
+        self.load([site()], free={"bed": 2, "table": 2, "chair": 2})
+        self.overseer.surge = True
+        self.overseer.furnish()
+        self.assertEqual([args["kind"] for tool, args in self.game.calls if tool == "place_furniture"],
+                         ["bed"])
+
+    def test_full_dorm_retries_another_observed_level(self):
+        self.load([site("A1"), site("A2", z=8)], free={"bed": 2})
+        original = self.game.act
+        def action(tool, args):
+            if tool == "place_furniture" and args["site"] == "A1":
+                self.game.calls.append((tool, args.copy()))
+                return {"ok": False, "error_code": "no_space"}
+            if tool == "place_furniture":
+                self.game.at["bed"] = [11, 11, 8]
+            return original(tool, args)
+        self.game.act = action
+        placed = self.overseer.place("beds", "bed", self.overseer.kind("A")[0], 2)
+        self.assertEqual(placed, [{"kind": "bed", "x": 11, "y": 11, "z": 8}])
+        self.assertEqual([args["site"] for tool, args in self.game.calls if tool == "place_furniture"],
+                         ["A1", "A2"])
+        self.assertEqual(self.zone_calls(), [{"kind": "dormitory", "site": "A2"}])
+
+    def test_missing_material_does_not_probe_other_levels(self):
+        self.load([site("A1"), site("A2", z=8)], free={"bed": 2})
+        def action(tool, args):
+            self.game.calls.append((tool, args.copy()))
+            return {"ok": False, "error_code": "no_material"}
+        self.game.act = action
+        self.assertEqual(self.overseer.place("beds", "bed", self.overseer.kind("A")[0], 2), [])
+        self.assertEqual(len(self.game.calls), 1)
+
     def test_stair_only_area_does_not_get_shared_zones(self):
         self.load([site(w=1, h=1, open_tiles=1)], free={"bed": 1, "table": 1, "chair": 1})
         self.overseer.furnish()
