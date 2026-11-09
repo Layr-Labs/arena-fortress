@@ -29,7 +29,7 @@ dwarves, no tantrums); beds and dining space for everyone; and on full-year runs
 things counts only through these: production that doesn't feed, house or protect the fort adds nothing.
 
 RULES. Up to 40 actions per game day; then only advance_days is accepted until the day changes. Nothing happens in
-the game unless you call advance_days (this harness caps it at 14 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
+the game unless you call advance_days (this harness caps it at 2 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
 are paid from this game's credits; when they run out, the run continues to the end without you.
 """
 
@@ -98,7 +98,7 @@ dig_stairs + dig_room (farm room); once logs_usable > 0 build Carpenters, Still,
 barrels, drink, meals, beds; build_farm when the room is dug, autofarm; dormitory and dining; squad and shelter.
 On an established fort (MY1) check which of these are already in place and fill only the gaps. Don't repeat an
 action that just failed with the same arguments: read error_code, fix the cause (another site, missing material,
-wrong kind) or move on. When the fort is running, advance 3-7 days at a time and re-check stocks; advance 1-2 days
+wrong kind) or move on. When the fort is running, advance 1-2 days at a time and re-check stocks; keep short steps
 while waiting for digging, a build or a mood.
 """
 

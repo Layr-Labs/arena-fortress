@@ -61,6 +61,7 @@ class Overseer:
     def __init__(self, game, goal="", days=0):
         self.game = game
         self.surge = "migrant" in str(goal).lower()   # the task's own text says more dwarves are on the way
+        self.initial_citizens = None
         self.days = days or 0
         self.tries, self.last = {}, {}
         self.roles = {}          # room id -> farm | dorm | dine | office
@@ -73,6 +74,8 @@ class Overseer:
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
+        self.workshop_stalls = {}
+        self.workshop_replacements = {}
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -116,6 +119,8 @@ class Overseer:
         self.now = d(self.o.get("date")).get("abs_tick") or resp.get("tick") or 0
         self.people = [x for x in lst(self.o.get("dwarves")) if isinstance(x, dict)]
         self.cit = self.adm.get("citizens") or len(self.people)
+        if self.initial_citizens is None and type(self.cit) is int and self.cit > 0:
+            self.initial_citizens = self.cit
         self.sites = [s for s in lst(self.map.get("sites")) if isinstance(s, dict)]
         self.orders = [x for x in lst(self.o.get("orders")) if isinstance(x, dict)]
         if isinstance(self.o.get("orders"), list):
@@ -196,10 +201,13 @@ class Overseer:
             if spare and mgr is not None:
                 self.act("office_assign", "assign_zone", {"zone_id": spare["id"], "dwarf_id": mgr})
                 return
-            room = next(iter(self.dug_rooms("office") + self.dug_rooms("dine") + self.kind("A")), None)
+            seated = next((s for s in self.kind("A") + self.dug_rooms()
+                           if any(f.get("kind") == "chair" and f.get("built") and covers(s, f)
+                                  for f in lst(self.o.get("furniture")) if isinstance(f, dict))), None)
+            room = seated or next(iter(self.dug_rooms("office") + self.dug_rooms("dine") + self.kind("A")), None)
             if room:
                 result = self.act("office_zone", "make_zone", {"kind": "office", "site": room["id"]})
-                if result and result.get("ok") and (self.free.get("chair") or 0) > 0:
+                if result and result.get("ok") and not seated and (self.free.get("chair") or 0) > 0:
                     self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
             return
         if d(mine.get("furniture")).get("chair") or d(mine.get("furniture_planned")).get("chair"):
@@ -218,6 +226,30 @@ class Overseer:
         result = self.act("ws_" + wtype, "build_workshop", {"type": wtype, "site": sites[0]["id"]}, retry=retry)
         if result and result.get("ok"):
             self.sites.remove(sites[0])
+        return result
+
+    def ensure_workshop(self, wtype):
+        existing = [w for w in lst(self.o.get("workshops"))
+                    if isinstance(w, dict) and w.get("type") == wtype]
+        if not existing:
+            self.workshop_stalls.pop(wtype, None)
+            self.build(wtype)
+            return
+        def suspended(w):
+            jobs = [j for j in lst(w.get("job_details"))
+                    if isinstance(j, dict) and j.get("job") == "ConstructBuilding"]
+            return w.get("built") is False and jobs and all(j.get("suspended") is True for j in jobs)
+        if not all(suspended(w) for w in existing):
+            self.workshop_stalls.pop(wtype, None)
+            return
+        since = self.workshop_stalls.setdefault(wtype, self.now)
+        # A normal pending construction gets time to complete; only explicit suspension qualifies.
+        if self.now - since < 7 * DAY or self.workshop_replacements.get(wtype, 0) >= 2:
+            return
+        result = self.build(wtype)
+        if result and result.get("ok"):
+            self.workshop_replacements[wtype] = self.workshop_replacements.get(wtype, 0) + 1
+            self.workshop_stalls[wtype] = self.now
 
     def workshops(self):
         have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
@@ -229,7 +261,10 @@ class Overseer:
 
     def bed_target(self):
         """Beds per citizen is read at the horizon; a migrant task's wave is bigger than the fort's bed stock."""
-        return self.cit + (12 if self.surge else 3)
+        if self.surge:
+            forecast = min(90, 3 * (self.initial_citizens or self.cit))
+            return max(self.cit + 12, forecast)
+        return self.cit + 3
 
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
@@ -249,7 +284,12 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            # A migrant wave needs indoor floor before more fields. Reserve one
+            # level for the dorm; farms on its other flank would block room_for.
+            homes = {s.get("z") for s in rooms if self.roles.get(s["id"]) in ("dorm", "dine")}
+            reserve_home = self.surge and "dorm" in need and r.get("z") not in {
+                p.get("z") for p in lst(self.o.get("farm_plots")) if isinstance(p, dict)}
+            if r.get("soil") and farms < self.farm_target() and not reserve_home and r.get("z") not in homes:
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
@@ -267,6 +307,8 @@ class Overseer:
         if len(plots) >= target:
             return
         cands = self.kind("F") + [r for r in self.dug_rooms() if r.get("soil") and self.roles.get(r["id"], "farm") == "farm"]
+        home_levels = {s.get("z") for s in self.kind("R") if self.roles.get(s["id"]) in ("dorm", "dine")}
+        cands = [s for s in cands if s.get("z") not in home_levels]
         seeds = d(self.st.get("seeds_by_kind"))
         if any(not d(v).get("underground") for v in seeds.values()):
             cands += self.kind("G")[:2]
@@ -293,8 +335,15 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.bed_target()),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.surge and recipe != "make_bed" and self.placed.get("bed", 0) < self.bed_target():
+                continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = 30 if self.surge and recipe == "make_bed" else 8
+                result = self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
+                if self.surge and recipe == "make_bed" and want - have > 30 and result and result.get("ok"):
+                    # Adapt 937a7b6c: let the manager approve both legal batches early.
+                    self.act("o_bed_prequeue", "add_order",
+                             {"recipe": recipe, "amount": min(30, want - have - 30)}, retry=1, limit=99)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
@@ -337,13 +386,17 @@ class Overseer:
             self.butcher()
 
     def window_supply(self):
-        """Before a hands-off window: brew whenever a plant and a barrel allow, at a cap the window can't reach, so
-        drink keeps rising while nobody can act (LT08 wants drink at the end above drink at the window's start;
-        LT01 wants a batch brewed inside it). Plants are food too, and food must also hold through the window, so
-        half a plant per citizen stays unbrewed. Barrels are the usual limit: an extra barrel order runs alongside."""
-        self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
-            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": max(3, self.cit // 2)},
-            {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
+        """Keep a daily brew order through hands-off, with an accompanying barrel order.
+        Ordinary tasks retain the drink cap and half-plant-per-citizen threshold. Migrant tasks remove the cap,
+        require two brewable plants and gate on native cookable-food stock. That alias is not the observation's
+        edible-food count and does not guarantee a food reserve. LT08 requires drink growth across the window."""
+        conditions = [{"stock": "drink", "below": 2000},
+                      {"stock": "plants_brewable", "at_least": 2 if self.surge else max(3, self.cit // 2)},
+                      {"stock": "barrels_empty", "at_least": 1}]
+        if self.surge:
+            conditions = conditions[1:] + [{"stock": "food_edible", "at_least": max(12, self.cit // 2)}]
+        self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily",
+                 "when": conditions}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
         if (self.st.get("food_edible") or 0) < 4 * self.cit:
@@ -468,7 +521,7 @@ class Overseer:
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
                 self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
-        if dine:
+        if dine and not (self.surge and self.placed.get("bed", 0) < self.bed_target()):
             want = math.ceil(self.cit / 2) + 1
             placed = []
             for kind in ("table", "chair"):
@@ -485,9 +538,9 @@ class Overseer:
                 continue
             if not m.get("claimed_building_id"):
                 want = MOOD_WORKSHOP.get(str(m.get("skill")).upper(), "Craftsdwarfs")
-                have = {w.get("type") for w in lst(self.o.get("workshops")) if isinstance(w, dict)}
-                if want not in have:
-                    self.build(want, retry=2)
+                # A suspended construction is not a usable mood workshop. Adapt
+                # 937a7b6c's bounded recovery to this observed unclaimed-mood failure.
+                self.ensure_workshop(want)
             for need in lst(m.get("items_needed")):
                 if "bone" in str(d(need).get("item") or d(need).get("demand")).lower():
                     self.butcher()

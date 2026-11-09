@@ -35,7 +35,7 @@ from . import digest, prompt
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
-MAX_DAYS = 14               # advance_days cap (the API allows 28)
+MAX_DAYS = 2                # keep controller maintenance within two game days
 STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
@@ -115,6 +115,10 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.consult_day = None
+        self.consult_calls = 0
+        self.stats["consultations"] = 0
+        self.stats["cadence_advances"] = 0
 
     def setup(self):
         t = self.game.task()
@@ -137,6 +141,37 @@ class Plain:
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
         return 2
+
+    def model_ready(self, resp):
+        """Adapt f577e8a7's bounded14-day diagnosis (four during moods); the controller still runs between calls."""
+        day = resp.get("day")
+        if type(day) is not int:
+            return True  # preserve ordinary behavior if the envelope cannot support a game-day clock
+        moods = getattr(self.guard, "o", {}).get("moods")
+        interval = 4 if isinstance(moods, list) and moods else 14
+        if self.consult_day is None or day < self.consult_day or day - self.consult_day >= interval:
+            return True
+        return day == self.consult_day and self.consult_calls < 3
+
+    def record_model_attempt(self, resp):
+        day = resp.get("day")
+        if type(day) is not int:
+            day = None
+        if self.consult_day is None or self.consult_day != day:
+            self.consult_day, self.consult_calls = day, 0
+            self.stats["consultations"] += 1
+        self.consult_calls += 1
+
+    def cadence_days(self, resp):
+        days = self.quiet_days(resp)
+        facts = getattr(self.guard, "o", {})
+        if facts.get("moods") or (facts.get("threats") or {}).get("visible_hostiles"):
+            days = min(days, 1)
+        if self.guard.in_endgame():
+            food, citizens = self.guard.st.get("food_edible"), self.guard.cit
+            if type(food) is int and citizens > 0 and food < 4 * citizens:
+                days = min(days, 1)
+        return days
 
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
@@ -182,6 +217,13 @@ class Plain:
                 if not self.layer_only("budget"):   # no model left; the layer still runs
                     break
                 continue
+            if not self.model_ready(resp):
+                self.stats["cadence_advances"] += 1
+                if not self.advance(self.cadence_days(resp), "model_cadence"):
+                    break
+                idle = 0
+                continue
+            self.record_model_attempt(resp)
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})

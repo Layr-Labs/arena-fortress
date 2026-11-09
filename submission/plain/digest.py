@@ -525,7 +525,8 @@ def _labors(c):
     units = c.get("units")
     if units is None:
         return c["mem"].labors_missing   # the last known line, if any
-    cits = _l(_d(units).get("citizens")) or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None)
+    cits = (_l(_d(units).get("units")) or _l(_d(units).get("citizens"))
+            or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None))
     cits = [u for u in cits if isinstance(u.get("labors"), list)]
     if not cits:
         return None
