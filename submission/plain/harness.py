@@ -36,7 +36,7 @@ HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
@@ -123,6 +123,10 @@ class Plain:
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
+        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
+            self.guard.set_task(info)
+        except Exception as e:
+            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -136,6 +140,11 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
+        try:
+            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
+                return 1
+        except Exception:
+            pass
         return 2
 
     def spent(self):
@@ -205,7 +214,6 @@ class Plain:
                     continue
                 if not self.advance(1, "model_error"):
                     break
-                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
@@ -279,6 +287,8 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
+        # name must be a string before the set lookup, and only hashable cancel ids reach the cache (peer
+        # f577e8a7's failure cases, idea credited: validate before cache access; the API rejects the rest)
         if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -292,6 +302,11 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                try:
+                    if self.guard.beds_unmet():   # a surrogate goal the layer is still catching up on: advance
+                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
+                except Exception:
+                    pass
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
@@ -313,10 +328,10 @@ class Plain:
             return {"ok": False, "error_code": "layer_owned", "error": (
                 f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
                 "alert keeps civilians from drink and food).")}
-        oid = args.get("order_id")
-        if name == "cancel_order" and type(oid) is int and oid in self.guard.owned:
+        oid = args.get("order_id") if isinstance(args, dict) else None
+        if name == "cancel_order" and isinstance(oid, int) and oid in self.guard.owned:
             return {"ok": False, "error_code": "layer_owned", "error": (
-                f"not run: order {args.get('order_id')} is a standing order of the deterministic layer; it keeps "
+                f"not run: order {oid} is a standing order of the deterministic layer; it keeps "
                 "drink, food, barrels and furniture coming, inside hands-off windows too.")}
         if not isinstance(tick, int):
             return None
