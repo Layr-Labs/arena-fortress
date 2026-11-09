@@ -15,6 +15,7 @@ Design rule: a digest bug must never cost a game. digest() catches every excepti
 section out; the harness falls back to the raw observation alone if the whole digest fails.
 """
 import json
+import math
 
 DAY = 1200
 DRINK_PER_DWARF_PER_DAY = 20 / 336     # about 5 drinks a season (docs/SUCCESS.md section 1.2)
@@ -163,7 +164,7 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
+    sections = (_clock, _population, _wellbeing, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
                 _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
@@ -521,11 +522,47 @@ def _sites(c):
     return "sites: " + "; ".join(f"{k} {desc.get(k, '')}: " + ", ".join(v[:6]) for k, v in sorted(by.items())) if by else "sites: none listed"
 
 
+def _citizen_units(units):
+    # Facts query returns {"units": [...]}; retain legacy citizens/list envelopes.
+    payload = units
+    for _ in range(3):
+        if not isinstance(payload, dict) or "result" not in payload:
+            break
+        payload = payload["result"]
+    return _l(_d(payload).get("units")) or _l(_d(payload).get("citizens")) or _l(payload)
+
+
+def _wellbeing(c):
+    """Bounded fresh facts for currently stressed citizens, not an inferred diagnosis."""
+    current = {u.get("id"): u for u in _l(c["obs"].get("dwarves"))
+               if type(u.get("id")) is int and type(u.get("stress")) is int and 0 <= u["stress"] <= 1}
+    if not current:
+        return None
+    rows = []
+    for u in _citizen_units(c.get("units")):
+        uid = u.get("id")
+        if type(uid) is not int or uid not in current:
+            continue
+        needs = [n for n in _l(u.get("needs"))
+                 if isinstance(n.get("need"), str) and type(n.get("focus_level")) in (int, float)
+                 and math.isfinite(n["focus_level"]) and n["focus_level"] < 0]
+        needs.sort(key=lambda n: (n["focus_level"], n["need"]))
+        facts = ", ".join(n["need"][:40] + "=" + str(n["focus_level"]) for n in needs[:3])
+        if facts:
+            rows.append((current[uid]["stress"], uid, facts))
+    rows.sort()
+    if not rows:
+        return None
+    c["next"].append("wellbeing: inspect stressed citizens' needs and feasible work/leisure; negative focus alone does not establish the cause")
+    return "wellbeing query facts (fresh this consultation; lowest focus values, not a diagnosis): " + "; ".join(
+        "citizen " + str(uid) + " category " + str(stress) + " [" + facts + "]" for stress, uid, facts in rows[:3])
+
+
 def _labors(c):
     units = c.get("units")
     if units is None:
         return c["mem"].labors_missing   # the last known line, if any
-    cits = _l(_d(units).get("citizens")) or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None)
+    cits = _citizen_units(units)
     cits = [u for u in cits if isinstance(u.get("labors"), list)]
     if not cits:
         return None
