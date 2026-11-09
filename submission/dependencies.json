@@ -1,72 +1,189 @@
 [
- {
-  "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
- },
- {
-  "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
- },
- {
-  "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
- },
- {
-  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
- },
- {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
- },
- {
-  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
- },
- {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
- },
- {
-  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
- },
- {
-  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
- },
- {
-  "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
- },
- {
-  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
- },
- {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
- },
- {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
- },
- {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
- }
+  {
+    "submissionId": "dae8103d-8121-48f9-a75a-0e364eb392c1",
+    "rationale": "Direct base is our published responsive food/craft/dining/migrant-forecast runtime and88regressions. Those behaviors and clients/model loop are retained, with visible-water stairs, bounded suspended-workshop recovery and ordinary-year farms-first added. The earlier600 reserve is adapted into conditional food-protected tiers, with the new tier design separately credited to58a2d2ae.",
+    "evidence": "Published64616fc0f6518ccfe4de43de41cbd108e225602b submission/overseer/harness.py and submission/plain/harness.py are the direct base. Destination retains food response, craft ownership, dining, migrant forecasting and Plain food pacing; its supply/endgame_supply adapt the earlier reserve while stair_site/ensure_workshop/digging add foundation repairs."
+  },
+  {
+    "submissionId": "e45e32db-b2c7-4c22-8d33-1c800195c09a",
+    "rationale": "Builds directly on this own published housing-throughput runtime. It passed the judge and all 64 official games but failed paired promotion. The new low-food response and bounded progression order are substantive changes to its Overseer; original housing behavior and model loop remain.",
+    "evidence": "Published source d19b0458a3edea0b161e48d8caa6a4fe6efdb2c1. Compare submission/overseer/harness.py supply, butcher, progress and order tracking with this successor; submission/plain/harness.py retains its model and housing-pacing implementation. The official failed-paired result is used as the baseline comparator, not claimed as promotion. The new food warning/critical caps extend its existing model advance-clamp path; the fixed-model interface and prior housing pacing remain."
+  },
+  {
+    "submissionId": "df1ebc93-660a-4d67-bfd4-9406b9b4bdce",
+    "rationale": "Retains the housing-throughput implementation and original 57 regressions from this own earlier archive, refused at weekly admission before judging or games. The new food and progression policies extend that code. Its material upstream sources remain declared.",
+    "evidence": "Published candidate commit 1de6447423435bf5dd6200303af052047bb946ee. The housing room reservations, protected farm levels, migrant bed queue, alternative placement and advance cap remain in submission/overseer/harness.py and submission/plain/harness.py; the new food and craft policies extend the former."
+  },
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "The promoted starting harness is retained, including its hybrid daily controller, digest/model loop, supply closer, progression crafts, housing and ownership guards. Changes address room allocation, farm encroachment, and migrant pacing. The new ordinary full-year branch explicitly restores this promoted source\u2019s farms-first excavation, while retaining our housing reservation for shorter and migrant goals.",
+    "evidence": "Compare submission/overseer/harness.py, submission/plain/harness.py, digest.py, prompt.py, dfbench_client and Dockerfile with the promoted source at 2f3abb3. Compare published2f3abb30f6291e05a8d37a8c40c34a29732000b4 submission/overseer/harness.py digging with the destination full-year non-migrant condition."
+  },
+  {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "Inherited through the promoted leader: layer-aware digest, closer supply/window logic, housing checks, layer-only credit/error fallback, and ownership guard.",
+    "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "Inherited through the promoted leader: repaired deterministic layer, success-only room/site state, alert timer, furniture coverage checks, Fishery rule, office chair, typed arguments, Dockerfile and regression tests.",
+    "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
+  },
+  {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "rationale": "Inherited room-role/workshop-site and stall-pacing repairs carried by 5dfdcf15 and the current leader.",
+    "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "Inherited STATUS digest, failed-action memory, compact observation and PLAYBOOK prompt carried by the current leader.",
+    "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "Inherited first PLAYBOOK operating manual, carried through cut 2 and the current leader.",
+    "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "Inherited deterministic Overseer and hybrid daily-controller-before-model architecture, as repaired and extended in the promoted leader.",
+    "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "Inherited dining seat measurement, re-zoning of loose furniture, second-Carpenter/window-pacing ideas and continuing management after model credits stop, carried through the leader.",
+    "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
+  },
+  {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "rationale": "Earlier published source of the efac22bf housing measurement/re-zoning revision retained through the leader; the leader names this source for those pieces.",
+    "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "The promoted leader inherits its late-brewing idea. This work also directly uses the public note\u2019s population-scaled workshop-capacity design for migrant Carpenters, reimplemented with a different ratio and cap (ceil(population/15), at least two, at most four). No archive code was copied.",
+    "evidence": "submission/overseer/harness.py closer scales Carpenter targets. Compare the source public note Final implementation / Routine action selection. Existing endgame_supply retains the earlier late-brewing idea."
+  },
+  {
+    "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+    "rationale": "The public note describes two-day advances while migrant beds remain unmet and alternative observed bed-placement areas after no_space. Both ideas are adapted; no archive code was copied. The bed-priority policy and ceiling-less brewing for the public drink-growth goal are also adapted. The original note\u2019s unexercised historical batch-30 trial is acknowledged as context; it supplies no performance evidence for the measured queue change here.",
+    "evidence": "submission/plain/harness.py run_call caps migrant advances; submission/overseer/harness.py place retries up to two A areas on different levels only after actual no_space. Compare the note\u2019s Model advance clamp and No-space fallback sections. supply and furnish implement bed priority and the goal-dependent drink ceiling. The larger bed batch is measured separately in the new local trial."
+  },
+  {
+    "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+    "rationale": "The original public-goal policy note was read directly after discovering it through a9f894ea. It supplies the unmet-bed two-day cap and the no_space-triggered alternate area strategy. These designs are adapted, with at most two alternative levels and a simpler coverage check; archive code was not copied. The bed-priority policy and ceiling-less brewing for the public drink-growth goal are also adapted. The original note\u2019s unexercised historical batch-30 trial is acknowledged as context; it supplies no performance evidence for the measured queue change here.",
+    "evidence": "submission/plain/harness.py run_call and submission/overseer/harness.py place; source public note Public-goal policies / Bed progress checks and Bed fallback. supply and furnish implement bed priority and the goal-dependent drink ceiling. The larger bed batch is measured separately in the new local trial."
+  },
+  {
+    "submissionId": "58a2d2ae-a44f-472b-934e-7fdf0951eee6",
+    "rationale": "Retains the published food-gated brewing-tier and low-drink emergency design credited in the working125 source. This diagnostic control restores an unconditional max600/30cit early ordinary-year reserve from our published600 source, so it does not claim that the inherited food gate limits the normal bank or caused performance. Shorter/migrant/window policies stay300. No peer housing/office/window policy or performance result is copied.",
+    "evidence": "Published peer source5d77898 submission/overseer/harness.py367-382 supplies the retained higher/low-drink tiers. Destination surplus and endgame blocks retain that adaptation; the ordinary600 reserve is a separate restoration motivated by our local125 zero-seed/default drink failure, not a peer performance claim.",
+    "citations": [
+      {
+        "submissionId": "58a2d2ae-a44f-472b-934e-7fdf0951eee6",
+        "fileSha256": "6c9beaba4e9c8a10dd4a68b48286c1d157084c5525e67cbedba0ea8b129376c3",
+        "path": "submission/overseer/harness.py",
+        "startLine": 367,
+        "endLine": 382
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "6d0f0bb5ba8ff130e051bf142545128459ed2576aab1f71ce76036ce1c610b07",
+        "path": "submission/overseer/harness.py",
+        "startLine": 408,
+        "endLine": 412
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "6d0f0bb5ba8ff130e051bf142545128459ed2576aab1f71ce76036ce1c610b07",
+        "path": "submission/overseer/harness.py",
+        "startLine": 472,
+        "endLine": 482
+      }
+    ]
+  },
+  {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "rationale": "Retains the inherited typed-argument regression inspiration explicitly credited to peer PR27 in submission/tests/test_typed_arguments.py. Also credits small-excavation design context: the peer general 3x3 restriction was reviewed before selecting compact 3x3 migrant dining. Our public failed-lab trace directly motivated reducing manager mining work, but independence from that reviewed context is not claimed. No Steward/controller runtime was copied; ordinary dining and the 9x7 dorm remain different. Also adapts the published14-day/4-day-mood consultation cadence and maximum3calls perconsultation day. Routine control runs between consultations. This does not copy the Steward controller, its model_allowed3x3restriction,65% budget ceiling or1800-token cap.",
+    "evidence": "Published source 62195aa386b9cfa0be8f95029198116bbe588c9b, submission/plain/harness.py: schema_accepts/model_allowed/consult check model value types; model_allowed also rejects non-3x3 room requests. Destination retains submission/tests/test_typed_arguments.py with that source in its header, and submission/overseer/harness.py digging chooses a 3x3 dining size only for migrant goals while keeping ordinary 7x5 dining and 9x7 dorms. Local LT08 manager89 Dig/unvalidated bed-order observations motivated this narrower excavation choice; the peer source had been read before it was implemented. Published62195aa submission/plain/harness.py119-180 bounds one consultation to3calls and185-221 schedules14/4day intervals afterroutinework. Destination Plain.model_ready/record_model_attempt/cadence_days and run implement an adapted day-bounded consultation with the existing controller and92% fallback. Earlier typed-test/small-migrant context claims remain separate retained material.",
+    "citations": [
+      {
+        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+        "path": "submission/plain/harness.py",
+        "startLine": 119,
+        "endLine": 180
+      },
+      {
+        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+        "path": "submission/plain/harness.py",
+        "startLine": 185,
+        "endLine": 221
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "631afa5e2802cfb688cb3130f590751ce8d2ec60cf371efaf97be2e8d0f88f19",
+        "path": "submission/plain/harness.py",
+        "startLine": 145,
+        "endLine": 175
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "631afa5e2802cfb688cb3130f590751ce8d2ec60cf371efaf97be2e8d0f88f19",
+        "path": "submission/plain/harness.py",
+        "startLine": 220,
+        "endLine": 228
+      },
+      {
+        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+        "path": "submission/plain/harness.py",
+        "startLine": 24,
+        "endLine": 43
+      },
+      {
+        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+        "path": "submission/plain/harness.py",
+        "startLine": 87,
+        "endLine": 97
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "0be0fe384bfcbbc5b71b94272ba6fb65b409fea0137a6a91c7cab5b1bdab8dc9",
+        "path": "submission/tests/test_typed_arguments.py",
+        "startLine": 1,
+        "endLine": 20
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "6d0f0bb5ba8ff130e051bf142545128459ed2576aab1f71ce76036ce1c610b07",
+        "path": "submission/overseer/harness.py",
+        "startLine": 362,
+        "endLine": 383
+      }
+    ]
+  },
+  {
+    "submissionId": "0ac832cc-5541-49c4-beef-9012e0b3b37d",
+    "rationale": "Direct published production-recovery runtime and128checks retained. Adds bounded model consultations and short nonmigrant housing/farm-level isolation. Cadence design is separately credited to f577. No seed-tier/autolabor/farm-capacity prototype is included. Base official result88.18 was not promoted.",
+    "evidence": "Published0aa58aa853adba4d07eaaede67a22be86b8c80d2 is saved unmodified. Destination retains its clients/digest/prompt and controller, with a narrow Overseer.digging change: housing reservations skip already reserved farm levels on short nonmigrant runs. Plain retains its daily guard, model interface, ownership guards and92% fallback and adds model_ready/record_model_attempt/cadence_days plus a scheduling branch. The unsubmitted138publicLT02trace directly exposed the conflicting level roles; it has no earlier submission ID.",
+    "citations": [
+      {
+        "submissionId": "0ac832cc-5541-49c4-beef-9012e0b3b37d",
+        "fileSha256": "96bd070423e9068028e2f5740b8d686151fec15ef2ad1e35bcf35a34bfc42dd2",
+        "path": "submission/plain/harness.py",
+        "startLine": 167,
+        "endLine": 187
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "631afa5e2802cfb688cb3130f590751ce8d2ec60cf371efaf97be2e8d0f88f19",
+        "path": "submission/plain/harness.py",
+        "startLine": 200,
+        "endLine": 228
+      }
+    ]
+  }
 ]
