@@ -142,12 +142,44 @@ def api_sections(api_manual, numbers=API_SECTIONS):
     return "\n\n".join(keep)
 
 
-def system_prompt(api_manual=None, tool_names=None):
+LAB_POLICIES = {
+    "LT01": """DROUGHT CHECK: Positive stock today is not proof that the unattended window is covered.
+Check a built Still, validated repeating brewing, brewable plants, and empty barrels. Brewing must
+actually continue during the window. Repair the missing prerequisite rather than adding duplicate orders.""",
+    "LT02": """RESCUE CHECK: Diagnose the current fort rather than assuming any prerequisite exists.
+Before hands-off verify a BUILT Still and a BUILT farm with planted crops, plus drink and edible food
+that can last through the window. A designation or unfinished building is not completion. Protect scarce
+brewable plants from competing cooking. Use a visible feasible alternative food source and its workshop.""",
+    "LT03": """MOOD CHECK: Read each mood's claimed_building_id, waiting and items_needed facts.
+If the right workshop is built, diagnose the actual material request before duplicating a workshop.
+Protect the food/drink chain while supplying the mood. An active mood is not a completed artifact.""",
+    "LT08": """MIGRANT CHECK: Recount after arrivals. Manufacturing, placement jobs and built beds are
+different stages. The layer places its population-plus-12 reserve before hands-off and reports capacity.
+Do not fill the carpenters' queue with dining furniture while beds are short; a manager office chair is
+an essential exception. For drink, sustain replenishment through the window instead of merely raising
+the starting stock. Repair farm/input/labor or placement blockers shown in current facts. Free bed items
+need usable indoor floor. Await completion before treating placement jobs as built beds.""",
+}
+
+
+def system_prompt(api_manual=None, tool_names=None, task_info=None):
     s = MANUAL + PLAYBOOK
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + OBSERVATION
-    ref = api_sections(api_manual)
+    info = task_info if isinstance(task_info, dict) else {}
+    label = str(info.get("name") or info.get("id") or "").upper().split("-")[0]
+    lab = bool(info.get("hands_off")) and label in LAB_POLICIES
+    if lab:
+        s += "\n\n" + LAB_POLICIES[label]
+        s += """
+CURRENT FIELD CHECK: Use the observed schema and tool definitions when an older playbook example differs.
+Moods report claimed_building_id and claimed_workshop; while waiting, items_needed gives demands and
+collected counts. Dwarf stress is a category from 0 (most stressed) to 6; categories 0 and 1 are stressed.
+After a refusal, change the missing prerequisite or choose another
+feasible action; do not repeat the same rejected arguments. The layer's successful setup needs time to
+build or validate before it can be verified."""
+    ref = api_sections(api_manual, ("4",) if lab else API_SECTIONS)
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"
     return s

@@ -1,72 +1,102 @@
 [
- {
-  "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
-  "rationale": "Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
-  "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d."
- },
- {
-  "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
-  "rationale": "GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
-  "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15."
- },
- {
-  "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
-  "rationale": "GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
-  "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb."
- },
- {
-  "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
-  "rationale": "kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
-  "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76."
- },
- {
-  "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
-  "rationale": "kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
-  "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b."
- },
- {
-  "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
-  "rationale": "kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8."
- },
- {
-  "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
-  "rationale": "kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
-  "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor."
- },
- {
-  "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
-  "rationale": "e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
-  "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2."
- },
- {
-  "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
-  "rationale": "e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
-  "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf."
- },
- {
-  "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
-  "rationale": "e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28."
- },
- {
-  "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
-  "rationale": "mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
-  "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section."
- },
- {
-  "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
-  "rationale": "ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567."
- },
- {
-  "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
-  "rationale": "ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
-  "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133."
- },
- {
-  "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
-  "rationale": "akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
-  "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py."
- }
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "Direct base: i34-9's promoted harness at 2f3abb30f6291e05a8d37a8c40c34a29732000b4. Its full digest/layer architecture, long-game controller, client, pinned image and tests are retained. Our new migrant subclass and lab prompt checks are added on top.",
+    "evidence": "submission/plain/, submission/overseer/harness.py, submission/dfbench_client/, Dockerfile and tests compared with fa9c13cc."
+  },
+  {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "Inherited through fa9c13cc: i34-9's integration of the STATUS digest and deterministic layer, layer-aware reporting, closer, layer-only fallback and ownership guard. This is another participant's earlier work, not our own.",
+    "evidence": "submission/plain/digest.py and harness.py; closer methods in submission/overseer/harness.py."
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "Inherited through fa9c13cc: GordoAR's repaired deterministic layer, successful-action site/role tracking, office chair handling, alert timeout, typed arguments, pinned Dockerfile and tests. It is an ancestor, not this candidate's direct base.",
+    "evidence": "submission/overseer/harness.py, submission/plain/harness.py, Dockerfile, tests."
+  },
+  {
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701",
+    "rationale": "GordoAR's earlier archive of the repairs later carried by 5dfdcf15, inherited through the direct base.",
+    "evidence": "Room-role and workshop success checks in submission/overseer/harness.py and pacing in plain/harness.py."
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "Inherited through fa9c13cc: kshitij-hash's STATUS digest, compact observation, failure/recent-action memory and PLAYBOOK. Also the historical base of our first submission, which did not retain its digest.",
+    "evidence": "submission/plain/digest.py, prompt.py and user_message in harness.py."
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "Inherited through the direct base: kshitij-hash's operating-manual prompt from cut 1.",
+    "evidence": "submission/plain/prompt.py PLAYBOOK."
+  },
+  {
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c",
+    "rationale": "Earlier archive on kshitij-hash's digest lineage; overlapping inherited digest, prompt and loop, not an independent new input.",
+    "evidence": "submission/plain/digest.py, prompt.py and harness.py."
+  },
+  {
+    "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4",
+    "rationale": "Later archive on the same kshitij-hash digest lineage. Retained overlap credit from the direct base; no separate code was copied from it.",
+    "evidence": "submission/plain/digest.py, prompt.py and harness.py share inherited cut-2 lines."
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "Inherited through fa9c13cc: e-man07's original deterministic daily controller and hybrid architecture.",
+    "evidence": "submission/overseer/harness.py regular steps; daily controller pass in plain/harness.py."
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "Inherited through fa9c13cc: e-man07's zoned-seat measurement, rezoning, second carpenter, pre-window pacing and continuation after model credits stop. Its published stronger LT08 result also informed our comparison, but its full alternate lab package is not copied.",
+    "evidence": "submission/overseer/harness.py seats/rezone/closer; plain/harness.py quiet_days and layer_only."
+  },
+  {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "rationale": "Earlier archive of e-man07's housing repairs later inherited through efac22bf; overlapping ancestry retained from the direct base.",
+    "evidence": "submission/overseer/harness.py seats and rezone."
+  },
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "Inherited idea credit from fa9c13cc: mpjunior92's stronger late-game brewing. Also ancestral to GordoAR's second-carpenter goal policies used here.",
+    "evidence": "submission/overseer/harness.py endgame_supply and closer; migrant.py workshops."
+  },
+  {
+    "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c",
+    "rationale": "Overlap-only credit retained from fa9c13cc for ryan48's shared controller/digest ancestry. No independent new code is taken from this archive.",
+    "evidence": "Common inherited lines in submission/overseer/harness.py and submission/plain/."
+  },
+  {
+    "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2",
+    "rationale": "Overlap-only credit retained from fa9c13cc for ryan48's earlier archive on the same controller lineage.",
+    "evidence": "Common inherited lines in submission/overseer/harness.py and submission/plain/."
+  },
+  {
+    "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
+    "rationale": "Overlap-only credit retained from fa9c13cc for akhilc08's shared baseline/client and controller ancestry; not a direct new implementation source.",
+    "evidence": "submission/dfbench_client/ and inherited controller lines."
+  },
+  {
+    "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+    "rationale": "Direct idea/code-pattern source: GordoAR's public-goal selection, uncapped brew policy, bed-first queue, second carpenter, alternate placement after no_space, and slower advances while beds are unmet. Adapted into an isolated subclass with new capacity accounting and partial-success handling.",
+    "evidence": "submission/overseer/migrant.py applies/workshops/supply/furnish/advance_cap; plain/harness.py setup and advance integration, compared with PR36."
+  },
+  {
+    "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+    "rationale": "pepedesigner's integration of GordoAR's goal policies with the digest/layer family informed our integration and task-aware division of work. Its official full-suite metrics were reviewed. No progression_push code is imported.",
+    "evidence": "submission/overseer/migrant.py and plain/harness.py integration compared with PR42; research note comparison."
+  },
+  {
+    "submissionId": "1812e717-6d93-4bad-8935-8e711e657218",
+    "rationale": "pepedesigner's follow-up on fa9c13cc informed goal-policy integration and prompted checks for uncapped-order detection and limiting workshop count. We use a separate subclass and a new multi-area capacity policy rather than copying its whole harness.",
+    "evidence": "submission/overseer/migrant.py supply/workshops/furnish; plain/harness.py, compared with PR48."
+  },
+  {
+    "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+    "rationale": "mpjunior92's public report of free bed items stranded behind no_space and managed-task repair analysis informed our diagnostic focus. No bounded width/height tool extensions or threshold policy code are copied.",
+    "evidence": "submission/overseer/migrant.py bed_facts and furnish; research note, compared with PR52 public report."
+  },
+  {
+    "submissionId": "bcf357cb-3237-4189-a354-cc2086a3211b",
+    "rationale": "Our earlier task-specific prompt submission. The lab verification, planted-vs-designated distinction, reserve-bed and handoff reasoning are distilled here. Its local 24-game Luna comparison motivated reducing repeated model work. Its plain controller is replaced by the credited promoted architecture.",
+    "evidence": "submission/plain/prompt.py LAB_POLICIES versus earlier submission/plain/prompts/LT01.txt, LT02.txt, LT03.txt, LT08.txt; new capacity checks in migrant.py."
+  }
 ]
