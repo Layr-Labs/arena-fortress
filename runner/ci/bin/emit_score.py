@@ -10,7 +10,8 @@ or "not run" (the judge wasn't needed: the score can't change the board). A miss
 other verdict, is `hold` (fail closed).
 
 scalar (season 0 today; promotionMode automatic):
-  pass / not run -> the trusted score as is, metrics.judge_verdict
+  pass / not run -> the trusted score as is, metrics.judge_verdict; metrics.chart_score (complete runs: the score,
+                    or the pooled score of a run that failed its paired check)
   fail / hold    -> score 0, partial true, metrics.judge_verdict, metrics.score_if_accepted: Yukon records a
                     non-improving result and doesn't promote (the Distillation sentinel) [Yukon Q7]
 pareto (Yukon docs/pareto-mode.md; NOT exercised yet, kept so the switch is one flag):
@@ -58,6 +59,14 @@ def emit(score, mode="scalar", dossier=None, override=None, actor=None, not_run=
             out.pop("scores")
         return out
     s["metrics"] = m
+    # chart_score: the comparable value of a complete, judge-passed run, for boards that plot every attempt (Yukon
+    # `progress.chart.attemptsScoreMetric`). Yukon promotes any score above the bar, so a run that beat it but failed
+    # the paired confirmation reports score 0 (paired.py); its pooled score is kept here. Omitted for stage-1-only
+    # results (another scale) and for runs the judge failed or held.
+    if m.get("stage") == 2 and verdict in ("pass", "not_run"):
+        cs = s.get("score") if s.get("score") not in (None, 0) else (m.get("score_pooled") or m.get("lb95"))
+        if isinstance(cs, (int, float)) and cs != 0:
+            m["chart_score"] = cs
     if verdict in ("fail", "hold"):
         m["score_if_accepted"] = s.get("score")
         s["score"] = 0

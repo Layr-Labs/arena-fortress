@@ -443,6 +443,19 @@ class Emit(unittest.TestCase):
         self.assertEqual((s["score"], s["metrics"]["judge_verdict"], s["metrics"]["tier"]),
                          (61.0, "not_run: does not beat the leader", "new"))
 
+    def test_chart_score(self):
+        """Every complete, judge-passed run carries its comparable value; stage-1 and judge-blocked runs don't."""
+        self.assertEqual(emit_score.emit(self.S, dossier={"verdict": "pass"})["metrics"]["chart_score"], 61.0)
+        self.assertEqual(emit_score.emit(self.S, not_run="x")["metrics"]["chart_score"], 61.0)
+        for v in ("fail", "hold"):
+            self.assertNotIn("chart_score", emit_score.emit(self.S, dossier={"verdict": v})["metrics"])
+        paired = {"score": 0, "partial": True,
+                  "metrics": {"stage": 2, "lb95": 90.1, "score_pooled": 91.41, "confirmation": "failed_paired"}}
+        s = emit_score.emit(paired, dossier={"verdict": "pass"})
+        self.assertEqual((s["score"], s["metrics"]["chart_score"]), (0, 91.41))   # still unpromotable
+        s1 = {"score": 0, "partial": True, "metrics": {"stage": 1, "lb95": 92.7}}
+        self.assertNotIn("chart_score", emit_score.emit(s1, dossier={"verdict": "pass"})["metrics"])
+
     def test_pareto_shape(self):
         p = emit_score.emit(self.S, "pareto", dossier={"verdict": "pass"})
         self.assertEqual((p["valid"], p["scores"]), (True, [61.0, 0.21]))
