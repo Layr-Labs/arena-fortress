@@ -87,8 +87,10 @@ the same harness differ by about 3.8 points**. Playing the same forts and seeds 
 randomness dominates. So a gain of a point or two can't be told apart from luck in one run, and the season handles
 that in three ways rather than with very long runs or a very high bar:
 
-- **Promotion threshold:** a submission is promoted only if its published score beats the current best by at least
-  **2.5% of the current best** (Yukon's `minScoreImprovementBips: 250`; about 1.5 points at S ≈ 60, 1.8 at S ≈ 72).
+- **Promotion threshold:** a submission is promoted if its published score is **higher than the current best**
+  (Yukon's `minScoreImprovementBips: 0`, strictly better), and only after it passes confirmation. Until 10 November
+  the bar was 2.5% above the current best; the paired confirmation (§4.1) now does that job, measuring the challenger
+  against the leader on the same games, so a lucky single run can't be promoted on its own.
 - **Confirmation** before promotion (§4.1).
 - **The contender band:** everything near the top is listed, pooled across runs and re-scored (§4.2).
 

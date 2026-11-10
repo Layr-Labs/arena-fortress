@@ -103,8 +103,10 @@ def render(score, leader_score=None, leader_fams=None, leader_src="its promoted 
                   "unless someone else was promoted first."]
         elif lb is not None:
             L += [f"**{lb:.2f}** (the lower bound of this run; point {point:.2f}, bounds {lb:.2f}–{ub:.2f})"
-                  + (f". The bar for promotion is **{bar:.2f}** (the leader's {float(leader_score):.2f} + "
-                     f"{int(bips)} bips)." if bar is not None else ".")]
+                  + ((f". The bar for promotion is **{bar:.2f}** (the leader's {float(leader_score):.2f} + "
+                      f"{int(bips)} bips)." if bips else
+                      f". To be promoted it has to beat the leader's **{float(leader_score):.2f}** and pass "
+                      "confirmation.") if bar is not None else ".")]
             c = chance_line(lb, point, ub, bar)
             if c:
                 L += ["", c]

@@ -575,6 +575,11 @@ class ResultComment(unittest.TestCase):
         self.assertIn("The judge returned **fail**", t)
         self.assertNotIn("| OP1", t)          # no family table for a stage-1 result
 
+    def test_zero_margin_wording(self):
+        t = result_comment.render(self.full(90.0), 91.32, self.LF, "pooled", 0)
+        self.assertIn("beat the leader's **91.32** and pass confirmation", t)
+        self.assertNotIn("bips", t)
+
     def test_never_per_game(self):
         t = result_comment.render(self.full(90.0), 91.32, self.LF, "pooled", 250)
         self.assertNotRegex(t, r"OP1-\d|MY1-\d|seed|fort ")

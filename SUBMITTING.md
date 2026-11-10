@@ -222,7 +222,7 @@ Season 0 runs on Yukon as an open, public challenge.
    for a confirmation batch.
 7. **Check status:** `yukon submissions`; cancel a queued one with `yukon cancel <id>`.
 
-Promotion is automatic when the lower-bound score beats the current best by at least 2.5% (`SCORING.md` §3), **after the
+Promotion is automatic when the lower-bound score beats the current best (`SCORING.md` §3) and passes confirmation, **after the
 automated judge passes the submission**
 (`RULES.md` §8a): attribution, fair play and contents. A failed or held judgment isn't promoted; the reasons are
 posted on your pull request. The judge's report is published with the run.
