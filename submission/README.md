@@ -1,3 +1,30 @@
+# Housing capacity, batched furniture orders, and food-aware brewing
+
+This is i34-9's promoted harness (`fa9c13cc-2503-4df4-b989-6a0f49b3cbd4`) with six changes (and a conservative-digging revision) to the deterministic
+layer in `overseer/harness.py`; see the submission note for the evidence and the credits (`dependencies.json`).
+
+- **Housing capacity:** placements that find no free floor mark the area full; beds overflow to the next level with
+  free floor (the expansion room or any dug level when no room has the dorm role); tables and chairs take only the
+  floor the remaining beds don't need (none while beds are short on a migrant task); `expand()` digs one 9x7 room on
+  an existing room site only on a migrant task or after floor has run out, never with water on the fort's levels and
+  never a deeper staircase.
+- **Furniture orders:** the whole bed shortfall in one order (up to 30; tables and chairs up to 15), beds first on a
+  migrant task (GordoAR's `5ef22a35` idea), so the manager's validation wait is paid once.
+- **Pre-window plant reserve:** sized to the food the rest of the run needs, not half a plant per citizen.
+- **End-of-run brewing:** the leader's original order (a three-tier food-guarded staircase was tried in the first
+  three submissions and reverted in the fourth: it held brewing back on drink-limited forts).
+- **Manager's office:** never on a one-tile stair landing; an office that can't take a chair is replaced and
+  reassigned, so orders keep being validated past 20 citizens.
+- **Late food:** in the last 14 days of a long open run, while food is under 40 per citizen, slaughter a spare tame
+  animal every few days (e-man07's `1e6cbe5e` idea as extended by mpjunior92's `07b5e1e3`).
+
+Tests: `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests` (the
+inherited suite plus `tests/test_housing_capacity.py`).
+
+---
+
+The README of the base follows.
+
 # Hybrid repairs, brew protection, and early office chairs
 
 This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
