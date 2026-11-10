@@ -292,6 +292,8 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                if self.guard.surge and (self.guard.placed.get("bed") or 0) < self.guard.cit:
+                    args["days"] = min(args["days"], 2)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1

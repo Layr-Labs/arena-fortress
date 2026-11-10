@@ -249,7 +249,7 @@ class Overseer:
             if rid in self.roles:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
-            if r.get("soil") and farms < self.farm_target():
+            if r.get("soil") and farms < self.farm_target() and (not self.surge or "dorm" in self.roles.values()):
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "farm"
@@ -257,6 +257,11 @@ class Overseer:
             elif need:
                 role = need[0]
                 size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
+                if self.surge and role == "dorm":
+                    # Both dorm and dining placement can use this level. Reserve floor for
+                    # one bed and a half-pair of dining furniture per expected citizen,
+                    # plus a dozen tiles for stairs, the office, and existing farms.
+                    size = {"w": 15, "h": min(15, max(7, math.ceil((2 * self.bed_target() + 12) / 15)))}
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = role
@@ -293,8 +298,11 @@ class Overseer:
         for recipe, have, want in (("make_bed", self.st.get("beds") or 0, self.bed_target()),
                                    ("make_table", self.st.get("tables") or 0, seats),
                                    ("make_chair", self.st.get("chairs") or 0, seats + 1)):
+            if self.surge and recipe != "make_bed":
+                continue
             if have < want and not self.pending(recipe) and self.logs():
-                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(8, want - have)}, retry=1, limit=99)
+                batch = 30 if self.surge and recipe == "make_bed" else 8
+                self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
@@ -340,9 +348,11 @@ class Overseer:
         """Before a hands-off window: brew whenever a plant and a barrel allow, at a cap the window can't reach, so
         drink keeps rising while nobody can act (LT08 wants drink at the end above drink at the window's start;
         LT01 wants a batch brewed inside it). Plants are food too, and food must also hold through the window, so
-        half a plant per citizen stays unbrewed. Barrels are the usual limit: an extra barrel order runs alongside."""
+        half a plant per citizen stays unbrewed on other labs. Migrant tasks keep a two-plant reserve instead:
+        their drink-growth goal needs brewing even when each harvest is smaller than half the population.
+        An extra barrel order runs alongside."""
         self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
-            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": max(3, self.cit // 2)},
+            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": 2 if self.surge else max(3, self.cit // 2)},
             {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
@@ -453,6 +463,27 @@ class Overseer:
     def place(self, key, kind, room, count):
         result = d(self.act(key, "place_furniture", {"kind": kind, "site": room["id"], "count": count},
                             retry=1, limit=99))
+        if self.surge and kind == "bed" and result.get("error_code") == "no_space":
+            # Other observed indoor levels can hold beds even when the preferred dorm is full.
+            # open_tiles includes occupied tiles: only the placement response establishes capacity.
+            alternatives = sorted((a for a in self.kind("A") if a["id"] != room["id"]
+                                   and a.get("subterranean") and (a.get("open_tiles") or 0) >= 6
+                                   and a.get("w", 0) <= 20 and a.get("h", 0) <= 20),
+                                  key=lambda a: (-(a.get("open_tiles") or 0), a["id"]))
+            for area in alternatives[:2]:
+                extra = d(self.act(
+                    key + "_" + area["id"], "place_furniture",
+                    {"kind": "bed", "site": area["id"], "count": count}, retry=1, limit=99))
+                if not extra.get("ok"):
+                    continue
+                points = d(extra.get("result")).get("at") or []
+                if points and not isinstance(points[0], list):
+                    points = [points]
+                placed = [{"kind": "bed", "x": x, "y": y, "z": z} for x, y, z in points]
+                if self.needs_zone(area, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
+                    self.act("z_spill_" + area["id"], "make_zone",
+                             {"kind": "dormitory", "site": area["id"]}, retry=1)
+                return placed
         if not result.get("ok"):
             return []
         points = d(result.get("result")).get("at") or []
@@ -468,7 +499,7 @@ class Overseer:
             placed = self.place("beds", "bed", dorm, n) if n > 0 else []
             if self.needs_zone(dorm, self.zone("dorm") + self.zone("bedroom"), ("bed",), placed):
                 self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
-        if dine:
+        if dine and not self.surge:
             want = math.ceil(self.cit / 2) + 1
             placed = []
             for kind in ("table", "chair"):
