@@ -1,51 +1,11 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Early logging safety from visible wildlife
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The entrypoint is `python -m plain`, using the fixed `z-ai/glm-5.3-flash` model through the supplied gateway and the served game API. The complete published source of `93af105d-e6af-4d47-8220-eca24b1949b9` is the direct base. Its controller, bounded model queries and consultation clock, food reserve response, exact citizen labor facts, visible-water stairs, workshop and office recovery, dining placement and migrant forecast are retained with their earlier attribution.
 
-## Operation
+Before initially enabling autochop in an ordinary year game, the controller reads the normal `units` query for other visible units. A visible non-visitor ALLIGATOR temporarily delays autochop even when the API labels it non-hostile. Other work continues. The delay ends when none remain visible, food is below two per citizen, drink is below four per citizen, the game reaches day 56, or the query fails. The read runs at most once per game-day. The model receives a local refusal if it tries to enable autochop while that pause is active.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+This only applies to ordinary horizons of at least 336 days, before autochop is already enabled. It cannot disable an existing plugin and does not claim protection from predators absent from the served facts, other predator species, or later attacks. Short and migrant tasks retain the predecessor policy. The conservative delay and resource thresholds are heuristics requiring native measurements.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+There are 174 regression checks, including seven new bounded wildlife decisions and model-action checks. Measurements and the earlier adverse experiments are reported in the public note. Mixed local games use real Dwarf Fortress with a canned gateway; they do not establish hosted GLM quality or cost.
 
-## Repairs
-
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+The dependency declaration names the genuine complete published direct parent, which carries its older sources and declarations. The public note preserves the full older provenance and does not claim independent authorship of those features. This candidate does not incorporate the experimental dairy, meat-cooking, shared-floor farming or seed-stage policies. No credentials or benchmark artifacts belong in this directory.
