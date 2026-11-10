@@ -6,7 +6,9 @@ import hashlib, json, os, re, subprocess
 # Limits (characters of annotated text unless noted). Recorded in the dossier.
 LIMITS = {
     "max_changed_files": 500,        # more -> hold (size_limit)
-    "max_file_chars": 60_000,        # a file whose annotated diff is longer is inventoried (name/size/hash + excerpt)
+    "max_file_chars": 250_000,       # a file whose annotated diff is longer is inventoried (name/size/hash + excerpt);
+                                     # below one review chunk (300k) so a large harness file is reviewed whole. At 60k a
+                                     # 74 KB controller was shown as a 3k excerpt and held as unreviewable (2026-11-10)
     "excerpt_chars": 3_000,          # head excerpt shown for an inventoried text file
     "max_deleted_lines_shown": 200,  # per file; deletions are summarised beyond this
     "chunk_chars": 300_000,          # one review chunk of the diff (~90k tokens)

@@ -358,6 +358,15 @@ class JudgeTests(unittest.TestCase):
         g = self.fx(GOOD_HEAD, note="x" * 102_401)
         self.assertTrue(any(r.startswith("size limit") for r in g.run()[0]["reasons"]))
 
+    def test_large_harness_file_is_reviewed_whole(self):
+        """A 74 KB controller (0xplemonade e57e62e1) was shown as a 3k excerpt at the old 60k limit and held."""
+        code = "".join(f"def rule_{i}(obs):\n    return obs.get('stock_{i}', 0) > {i}\n\n" for i in range(1500))
+        f = self.fx({**GOOD_HEAD, "submission/overseer.py": code})
+        d, _ = f.run()
+        files = {x["path"]: x for x in d["evidence"]["files"]}
+        self.assertEqual(files["submission/overseer.py"]["shown"], "diff")
+        self.assertGreater(len(code), 60_000)
+
     def test_hold_on_bad_sha(self):
         f = self.fx(GOOD_HEAD)
         f.head = "deadbeef" * 5
@@ -365,7 +374,7 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(d["verdict"], "hold")
 
     def test_large_and_binary_files_inventoried(self):
-        big = "".join(f"line {i} of dwarf lore, wiki excerpt\n" for i in range(4000))
+        big = "".join(f"line {i} of dwarf lore, wiki excerpt\n" for i in range(9000))   # > max_file_chars annotated
         f = self.fx({"submission/lore.md": big})
         with open(os.path.join(f.repo, "submission", "w.bin"), "wb") as fh:
             fh.write(bytes(range(256)) * 10)
