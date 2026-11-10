@@ -1,51 +1,73 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Fewer dead dwarves on the long tasks: nobody fishes, and the fort shuts when hostile wildlife comes
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+This harness is our previous submission (the slaughter schedule that keeps food
+from rotting inside the scored stretch) with two additions on the tasks without
+a hands-off window, MY1 and OP1. Both are about citizens dying.
 
-## Operation
+## Nobody fishes
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+Every training fort starts with one Fisherdwarf, the only dwarf with the
+fishing labour. That dwarf does 99% of the fishing, 70 to 100 tiles from the
+wagon, and is the dwarf river predators kill: in recorded games a sea lamprey
+made the fisher dodge into the water and drown, and alligators come ashore.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
+No tool sets a labour. DFHack's autolabor gives the fishing labour to nobody
+while the fort has no Fishery, and the hunting labour to nobody while it has no
+Butchers. So on a fort that starts with neither workshop the controller enables
+autolabor at once, builds no Fishery, and builds the Butchers three days before
+the final slaughter (or at once if food runs out and an animal has to be
+slaughtered early). The model's `build_workshop` calls for those two types are
+refused with the reason. A fort that already has a Fishery or a Butchers is
+played as before.
 
-## Repairs
+Drafting the Fisherdwarf was tried first and is not used: on duty a dwarf
+fights where a civilian flees, and the drafted fisher was killed by an
+alligator on the second day of the one test game.
 
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
+## The fort shuts when hostile wildlife comes
 
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
+The inherited defence sounds the civilian alert for invaders only. On one
+training embark three undead harpies, which are not invaders, fly in and kill
+four or five dwarves in every undefended game. Sounding the alert for them
+without closing the stair is worse (9 and 14 dead in two games): the dwarves go
+below and the harpies follow. With a hatch cover on the surface stair, locked
+while the alert is on, nobody died in the games played with this version.
 
-## Checks
+So the controller now:
+
+- puts a hatch cover over every stair that opens on the surface, and grows the
+  shelter burrow with the dug levels (both do nothing until needed);
+- starts a lockdown when a hostile that is not an invader is within 100 tiles
+  of the wagon, but only if every surface stair has its own built hatch, the
+  shelter has room, no hostile is already inside it, and the whole observation
+  could be read;
+- during a lockdown sounds the alert, waits until all but one citizen are below
+  (or a day), then locks each stair hatch by its own id;
+- ends it when the hostile is gone or beyond 130 tiles, after 20 days (one day
+  above ground follows before the fort may be shut again), when invaders
+  arrive, or when the seal cannot be kept; it clears the alert first and
+  unlocks only what it locked;
+- steps one game day at a time while a hostile is in sight.
+
+The model's `civilian_alert` calls were already refused. On these two tasks its
+`lock_door` calls are now refused too, with the reason, whenever they would lock
+a way to the surface (a call with no `door_id` locks every door; a door on a
+surface stair or on the wagon's level) or would undo a lockdown. In one test
+game the model locked all three stair hatches itself with one call; food, drink
+and the workshops are above them. Doors of its own below the surface stay its
+own.
+
+It also raises the food level at which one small animal is slaughtered in the
+last 30 days, so a fort does not sit at zero food just before the final
+slaughter.
+
+Lab tasks are untouched: every new path is behind a test for "no hands-off
+window", and recorded lab games replay to identical action streams. Full source
+declarations and citations are in dependencies.json.
+
+The runtime uses the game API and fixed GLM gateway, standard-library Python,
+and the inherited pinned Dockerfile. Tests run with:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests
 ```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
