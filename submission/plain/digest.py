@@ -47,7 +47,7 @@ CANCEL_KEYS = [("brew", ("brew_drink", "brew_drink_from_fruit")), ("barrel", ("m
                ("bed", ("make_bed",)), ("door", ("make_door",)), ("table", ("make_table",)),
                ("throne", ("make_chair",)), ("chair", ("make_chair",)), ("bin", ("make_bin",)),
                ("hatch", ("make_hatch_cover",)), ("charcoal", ("make_charcoal",))]
-# labors the core chain needs -> what breaks without them (matched case-insensitively as substrings of DF's names)
+# labors the core chain needs -> what breaks without them (matched case-insensitively as DF labor enum names)
 LABORS = [("MINE", "nobody digs"), ("CUTWOOD", "nobody fells trees (autochop needs a woodcutter)"),
           ("CARPENTER", "nobody builds wood furniture or barrels"), ("BREWER", "nobody brews"),
           ("COOK", "nobody cooks"), ("PLANT", "nobody farms")]
@@ -525,12 +525,13 @@ def _labors(c):
     units = c.get("units")
     if units is None:
         return c["mem"].labors_missing   # the last known line, if any
-    cits = _l(_d(units).get("citizens")) or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None)
+    cits = (_l(_d(units).get("units")) or _l(_d(units).get("citizens"))
+            or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None))
     cits = [u for u in cits if isinstance(u.get("labors"), list)]
     if not cits:
         return None
     all_labors = {str(l).upper() for u in cits for l in u.get("labors") or []}
-    missing = [(k, why) for k, why in LABORS if not any(k in l for l in all_labors)]
+    missing = [(k, why) for k, why in LABORS if k not in all_labors]
     if not missing:
         line = "labors: every core labor (mining, woodcutting, carpentry, brewing, cooking, farming) is held by someone"
     else:

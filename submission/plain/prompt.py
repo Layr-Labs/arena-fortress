@@ -29,7 +29,7 @@ dwarves, no tantrums); beds and dining space for everyone; and on full-year runs
 things counts only through these: production that doesn't feed, house or protect the fort adds nothing.
 
 RULES. Up to 40 actions per game day; then only advance_days is accepted until the day changes. Nothing happens in
-the game unless you call advance_days (this harness caps it at 14 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
+the game unless you call advance_days (this harness caps it at 2 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
 are paid from this game's credits; when they run out, the run continues to the end without you.
 """
 
@@ -60,8 +60,9 @@ there by standing orders rather than one-shot amounts, e.g.
   add_order recipe=make_barrel amount=3 repeat=daily when=[{"stock":"barrels_empty","below":3}]
   add_order recipe=cook_meal amount=3 repeat=daily when=[{"stock":"prepared_meals","below":<2 x citizens>}]
 Cooking and brewing use the same plants (stocks.plants_by_kind says which are brewable/cookable): when plants are
-scarce, brew first and cook only meat, fish or surplus. enable_automation seedwatch keeps seeds from being cooked or
-brewed away. Before a hands-off window, check that these repeating orders exist and are validated, the Still and
+scarce, brew first and cook only meat, fish or surplus. enable_automation seedwatch restricts cooking of seeds and
+their plants when accessible seed stocks are low; it does not restrict brewing. Before a hands-off window, check
+that these repeating orders exist and are validated, the Still and
 Kitchen are built, barrels_empty > 0 and plants_brewable > 0, then advance. Dwarves drink water when there is no
 drink, but work slower and grow unhappy.
 
@@ -98,7 +99,7 @@ dig_stairs + dig_room (farm room); once logs_usable > 0 build Carpenters, Still,
 barrels, drink, meals, beds; build_farm when the room is dug, autofarm; dormitory and dining; squad and shelter.
 On an established fort (MY1) check which of these are already in place and fill only the gaps. Don't repeat an
 action that just failed with the same arguments: read error_code, fix the cause (another site, missing material,
-wrong kind) or move on. When the fort is running, advance 3-7 days at a time and re-check stocks; advance 1-2 days
+wrong kind) or move on. When the fort is running, advance 1-2 days at a time and re-check stocks; keep short steps
 while waiting for digging, a build or a mood.
 """
 
@@ -147,6 +148,8 @@ def system_prompt(api_manual=None, tool_names=None):
     if tool_names is None or "add_manager_order" in tool_names:
         s += ORDERS
     s += "\n" + OBSERVATION
+    if tool_names and "query_game" in tool_names:
+        s += "\nREAD-ONLY FACTS. query_game reads stocks, units (including needs), jobs, orders, buildings, zones, revealed map or the job/workshop catalogs. Use focused scalar filters and a small limit when you need to diagnose a specific blocked task. It never writes or advances time, but uses one consultation turn. Returned facts can explain a problem; act only through the advertised action tools.\n"
     ref = api_sections(api_manual)
     if ref:
         s += "\n\nGAME API REFERENCE (from the game server; where it differs from the text above, it is right):\n\n" + ref + "\n"

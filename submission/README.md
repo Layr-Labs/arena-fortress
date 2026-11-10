@@ -1,51 +1,9 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Clarify seedwatch cooking restrictions in the model prompt
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+Complete source base: published60951f05-b05a-42c9-b1c1-56da8174700a, commitdd58deda46884fcc79fabf20a8c42956dd7bc556. Its46file hashes were verified. It failed the weekly admission cap before official games; its local mixed95.24 is not an official score or promotion.
 
-## Operation
+Only production change: plain/prompt.py now says seedwatch restricts cooking of seeds and their plants when accessible seed stocks are low, and does not restrict brewing. The prior claim about seeds being brewed away conflated cooking protection with brewing. Pinned primary DFHack53.16-r2 source plugins/seedwatch.cpp do_cycle() checks accessible seeds and toggles Kitchen::denyPlantSeedCookery/allowPlantSeedCookery. This is a correction to model-facing factual guidance, not a new game mechanic, seed target, farm rule or manager order.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+All deterministic policies, tools, transport, budgeting, fixed z-ai/glm-5.3-flash model and184existing checks are retained. No rejected excavation-under-water experiment is included. Native mixed runs use a canned gateway, so they can check integration and regressions but cannot show a hosted GLM decision-quality effect of this prompt correction. The earlier fishing/drowning safety limitation remains unresolved. Public native outcomes must be recorded honestly, including all adverse and no-effect cases.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
-
-## Repairs
-
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+The unpublished early-craft timing variant is excluded. The unchanged progression policy begins on day40 with its existing25-log condition and5500wealth target. Its separate native results are retained as rejected experiments, not candidate validation.
