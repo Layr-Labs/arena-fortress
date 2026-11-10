@@ -36,7 +36,7 @@ HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
@@ -123,6 +123,10 @@ class Plain:
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
+        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
+            self.guard.set_task(info)
+        except Exception as e:
+            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -136,6 +140,11 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
+        try:
+            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
+                return 1
+        except Exception:
+            pass
         return 2
 
     def spent(self):
@@ -205,7 +214,6 @@ class Plain:
                     continue
                 if not self.advance(1, "model_error"):
                     break
-                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
@@ -279,6 +287,8 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
+        # name must be a string before the set lookup, and only hashable cancel ids reach the cache (peer
+        # f577e8a7's failure cases, idea credited: validate before cache access; the API rejects the rest)
         if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -292,11 +302,17 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                try:
+                    if self.guard.beds_unmet():   # a surrogate goal the layer is still catching up on: advance
+                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
+                except Exception:
+                    pass
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
             try:
-                resp = self.game.act(name, args)
+                resp = self.open_advance(args) if name == "advance_days" and self.open_play() \
+                    else self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
@@ -307,16 +323,86 @@ class Plain:
         self.stats["advances"] += moved
         return moved
 
+    def open_play(self):
+        try:
+            return self.guard.open_play()
+        except Exception:
+            return False
+
+    def open_advance(self, args):
+        """Open play: however far the model advances, the layer gets a pass every two game days (its slaughter
+        schedule is timed in days, and one pass a fortnight would miss it). One model call still decides the advance;
+        the layer's passes cost no credits. A tripwire stop ends the advance as it would have. The API measures two
+        tripwires against the start of a call (a hostile 25 tiles closer, indoor water half as much again): those
+        are checked here against the start of the whole advance, from the observation, and end it the same way with
+        a `harness_stop` note (not an API field). The steps' interruptions and ignored tripwires are passed on."""
+        total, done, ticks, resp = args["days"], 0, 0, None
+        notes, ignored = [], []
+        first = self.alarm_state(self.game.observe()) if total > 2 else None   # a free read; no time passes
+        while done < total:
+            step = min(2, total - done)
+            resp = self.game.act("advance_days", {**args, "days": step})
+            res = resp.get("result") if isinstance(resp.get("result"), dict) else {}
+            if isinstance(res.get("stopped"), dict) and isinstance(res["stopped"].get("after_ticks"), int):
+                res["stopped"]["after_ticks"] += ticks      # counted from the start of the whole advance
+            done += step
+            ticks += res.get("advanced_ticks") or 0
+            notes += res.get("interruptions") if isinstance(res.get("interruptions"), list) else []
+            ignored += res.get("tripwires_ignored") if isinstance(res.get("tripwires_ignored"), list) else []
+            if not resp.get("ok") or resp.get("game_over") or res.get("stopped") or done >= total:
+                break
+            obs = self.game.observe()
+            if obs.get("game_over"):
+                break
+            if obs.get("day") != self.guard_day:
+                self.guard_day = obs.get("day")
+                self.guard.step(obs)
+            why = self.alarm(first, self.alarm_state(obs))
+            if why:
+                res["harness_stop"] = why
+                break
+        if isinstance(resp.get("result"), dict):
+            if ticks:
+                resp["result"]["advanced_ticks"] = ticks
+                resp["result"]["advanced_days"] = round(ticks / DAY, 2)
+            if notes:
+                resp["result"]["interruptions"] = notes
+            if ignored:
+                resp["result"]["tripwires_ignored"] = ignored
+        return resp
+
+    @staticmethod
+    def alarm_state(resp):
+        """(nearest visible hostile's distance to the wagon or None, indoor water depth units) from an observation."""
+        o = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
+        th = o.get("threats") if isinstance(o.get("threats"), dict) else {}
+        water = o.get("water_on_fort_levels") if isinstance(o.get("water_on_fort_levels"), dict) else {}
+        near = th.get("nearest_hostile_dist_to_wagon") if th.get("visible_hostiles") else None
+        return (near if isinstance(near, (int, float)) else None,
+                water.get("total_depth") if isinstance(water.get("total_depth"), (int, float)) else 0)
+
+    @staticmethod
+    def alarm(first, now):
+        if first[0] is not None and now[0] is not None and first[0] - now[0] >= 25:
+            return f"a visible hostile is {first[0] - now[0]:.0f} tiles closer to the wagon than when this advance began"
+        if now[1] - first[1] >= 50 and now[1] >= 1.5 * first[1]:
+            return f"indoor water rose from {first[1]} to {now[1]} depth units during this advance"
+        return None
+
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
+        if name == "slaughter" and self.open_play():
+            return {"ok": False, "error_code": "layer_owned", "error": (
+                "not run: the deterministic layer schedules slaughter on this task. Food rots in about 17 days here, "
+                "so it keeps the animals for the last two weeks and slaughters one earlier only if food runs short.")}
         if name in LAYER_TOOLS:
             return {"ok": False, "error_code": "layer_owned", "error": (
                 f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
                 "alert keeps civilians from drink and food).")}
-        oid = args.get("order_id")
-        if name == "cancel_order" and type(oid) is int and oid in self.guard.owned:
+        oid = args.get("order_id") if isinstance(args, dict) else None
+        if name == "cancel_order" and isinstance(oid, int) and oid in self.guard.owned:
             return {"ok": False, "error_code": "layer_owned", "error": (
-                f"not run: order {args.get('order_id')} is a standing order of the deterministic layer; it keeps "
+                f"not run: order {oid} is a standing order of the deterministic layer; it keeps "
                 "drink, food, barrels and furniture coming, inside hands-off windows too.")}
         if not isinstance(tick, int):
             return None

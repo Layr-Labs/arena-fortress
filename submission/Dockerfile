@@ -8,7 +8,7 @@ FROM python:3.12-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /harness
 COPY dfbench_client/ dfbench_client/
-COPY overseer/ overseer/
 COPY plain/ plain/
+COPY overseer/ overseer/
 USER nobody
 ENTRYPOINT ["python", "-m", "plain"]
