@@ -350,6 +350,14 @@ class JudgeTests(unittest.TestCase):
         self.assertTrue(d["reasons"][0].startswith("size limit"))
         self.assertEqual(fake.calls, [])
 
+    def test_note_within_yukons_cap_is_not_a_size_hold(self):
+        """SUBMITTING allows notes up to 100 KiB; a 64k-character note (newjordan 7d62bc3f) was held at the old 40k."""
+        f = self.fx(GOOD_HEAD, note=GOOD_NOTE + "\n\n" + ("Measured on the public forts; details per task. " * 1350))
+        d, _ = f.run()
+        self.assertFalse(any(r.startswith("size limit") for r in d["reasons"]), d["reasons"])
+        g = self.fx(GOOD_HEAD, note="x" * 102_401)
+        self.assertTrue(any(r.startswith("size limit") for r in g.run()[0]["reasons"]))
+
     def test_hold_on_bad_sha(self):
         f = self.fx(GOOD_HEAD)
         f.head = "deadbeef" * 5

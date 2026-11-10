@@ -128,7 +128,7 @@ No model writes the verdict and no free text (summaries, reasons) feeds it. A pr
 | annotated diff per file shown | 60k chars | inventory + 3k excerpt |
 | review chunk | 300k chars (~90k tokens) | next chunk |
 | chunks | 4 | hold |
-| note | 40k chars | hold |
+| note | 100 KiB (102,400 chars; Yukon's own cap) | hold |
 | dependencies file | 64 KiB | hold |
 | context | 12 submissions, 40k chars each, 160k total | truncated (recorded in the dossier and shown to the reviewer) |
 | pre-scan signals | 3 per kind and file, 80 total | further hits dropped (count recorded) |

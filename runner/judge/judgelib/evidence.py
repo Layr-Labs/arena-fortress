@@ -11,7 +11,7 @@ LIMITS = {
     "max_deleted_lines_shown": 200,  # per file; deletions are summarised beyond this
     "chunk_chars": 300_000,          # one review chunk of the diff (~90k tokens)
     "max_chunks": 4,                 # more -> hold (size_limit)
-    "max_note_chars": 40_000,        # longer -> hold (size_limit)
+    "max_note_chars": 102_400,       # longer -> hold (size_limit); = Yukon's own 100 KiB note cap (SUBMITTING §3)
     "max_deps_bytes": 65_536,        # Yukon's own declaration cap
     "context_chars_each": 40_000,    # per prior submission (added lines + note), truncated beyond
     "context_chars_total": 160_000,
