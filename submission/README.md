@@ -1,51 +1,9 @@
-# Hybrid repairs, brew protection, and early office chairs
+# Fresh fish cooking for ordinary midyear handovers
 
-This uses e-man07's controller from `6e775ed2-93b1-4d27-b591-6d3b4f3de8aa` and our V1
-`41cfa9eb-6548-4618-96aa-fa4f3f990701`. Added work covers alerts, zones, lookup checks from peer PR 27, Fishery
-support, and controller brew protection. See [NOTE.md](NOTE.md) for credits, evidence, and experiment limits.
-The current promoted base is `9b597a76-9bf9-4923-a9d4-1c8ee83067a9`; its source credit is also declared.
+The fixed-model entrypoint is python -m plain with z-ai/glm-5.3-flash and the normal facts-only game API. This candidate copies complete published777c0ed8-6726-4c8f-9837-2b76d6a3a0a1 at commit774376c6a3e7b0dc47771e8b0a3d4b3d3ef63bf5, including its full runtime, bounded alligator forestry pause, year-only fish cooking order, earlier food/housing/progression/recovery policies, client, digest, prompt and GLM loop. That parent failed the weekly cost cap before official games; it has no official performance score or promotion.
 
-## Operation
+Only the scope of the fish order changes. It is now eligible in ordinary tasks lasting at least216days with no hands-off window, as well as its existing336day branch. Migrant and shorter tasks retain their behavior. The order remains owned daily PrepareMeal2 with FISH unrotten,cookable>=2 and FOOD unrotten<200; no fishing, processing, recipe ingredient choice, crop, slaughter, defense or model policy changes.
 
-On each new observed game day, the controller handles routine management, defence, supply, farms, rooms, and
-furniture. It makes no model calls. The model then receives the current facts and recent history. The harness runs
-its first tool call. Controller and model actions share the game's daily allowance.
+Two exploratory real-DF/mixed-gateway MY1 trials ended at100. The fresh public2013 handover's parent comparison scored95.5 with full supply; its new order produced only7recorded FOOD birth units, so the score difference in wellbeing does not show a food gain. On the standard publicMY1 save the new order produced229recorded FOOD units/70creationrecords; food200->256 had a nondeclining final fit, versus the parent's40->67. Native population also differed14vs12 and both had full supply, so these are unpaired observations rather than causal or official gain estimates. Full measurements and adverse cases must be retained in the public note.
 
-The model loop keeps a 12-message history, temperature 0, low effort, and 4,000 maximum output tokens. It advances
-a day after four model turns without a time advance. Model advances are capped at 14 days. The 92% credit stop,
-five-failure exit, and order-churn checks remain.
-
-## Repairs
-
-- Store a room role only after a successful dig.
-- Remove a workshop site from the pass only after a successful build.
-- Clear the stall counter after a successful model-error advance.
-- Record successful controller daily brew IDs. Refuse model cancellation of those integer IDs as `order_churn`.
-  Other orders keep their existing paths.
-- Start a missing alert timer from the observed state. Failed alert actions do not change it.
-- Place one available chair in a new office immediately after successful zone creation.
-- After core workshops, attempt a missing Fishery when a dwarf's job is `Fish`. A planned Fishery prevents
-  another build.
-- Reject nonstring tool names before set lookup. Send list/dictionary cancel IDs to normal API rejection.
-  Other hashable-ID behavior, including `7.0`, is unchanged.
-- Skip small stair areas. Place furniture first, then use successful returned coordinates and existing furniture
-  to check coverage. Add a zone only for uncovered items. Failed or retry-blocked placement creates no empty zone.
-  The check adds no observation call.
-
-Old overlapping zones remain because the API cannot delete them. Use unique furniture IDs for physical dining
-counts. Farm logic is unchanged. Catalog, bins, capacity, and one-day pacing variants remain outside this runtime.
-
-## Checks
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=submission python3 -m unittest discover -s submission/tests
-docker build --platform linux/amd64 -t fortress-room-alert submission/
-```
-
-All 54 tests pass. The current fake check in `.yukon/runs/office-chair-container-check` exited 0 at hands-off
-day 39; the server reached day 60, with no OOM, crash, or wall cap. It used toy facts and a canned model.
-The package uses pinned Python 3.12 and `USER nobody`.
-
-Isolated pace-one LT08 reached day 60 but failed its goal (partial 0.8677). The bed-batch trial never exercised its
-changed cap. Early-bins O 89.1 includes 129 unmanaged days and has no causal proof. None is adopted or measures
-the current runtime. See NOTE for exact source and control limits; all local Qwen results are unpriced.
+There are180offline checks:178 inherited plus ordinary216day handover and216day hands-off scope checks. The native fixed model is separate from these canned-gateway local runs. No official result is claimed. The separate peaceful-recruitment, late-slaughter, dairy, meat-cooking and farm/seed variants are excluded. The genuine complete published parent is machine-declared; its historical source attribution remains due.
