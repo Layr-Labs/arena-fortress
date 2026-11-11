@@ -49,7 +49,7 @@ client for the API you may copy. `submission/` starts as a copy of the plain bas
 
 **Do your development here, not on the official board.** One official run is a single draw on 48 games: two runs
 of the same harness differ by about 3.8 suite points (`SCORING.md` §4), more than most single changes are worth.
-You get 7 a week (`RULES.md` §7), and every one is public. Local runs cost only your own model credits (a few dollars for a full
+You hold up to 7 attempts, with one back each day (`RULES.md` §7), and every one is public. Local runs cost only your own model credits (a few dollars for a full
 public suite of the plain baseline), so the strongest entrants test each change locally, several times, against
 the leader and the best contenders on the same day (§3a), and submit only when they're clearly ahead.
 
@@ -162,15 +162,15 @@ Season 0 runs on Yukon as an open, public challenge.
 > **Your limits** (`RULES.md` §7; read this before your first submission)
 >
 > - **Tiers, set automatically at each submission:** **established** (a promoted result on another Yukon challenge,
->   or a scored submission here): 7 submissions a week, full suite. **New** (everyone else): 2 a week. **Probation**
->   (a GitHub account younger than 30 days): 1 a week, stage 1 only, for the full 30 days (new GitHub account? Ask the organisers (a known person can be moved to established)). One submission in flight per account; Yukon's
+>   or a scored submission here): hold up to 7 attempts, one back every 24 h, full suite. **New** (everyone else): up to 2,
+>   one back every 3.5 days. **Probation** (a GitHub account younger than 30 days): 1, one back every 7 days, stage 1 only, for the full 30 days (new GitHub account? Ask the organisers (a known person can be moved to established)). One submission in flight per account; Yukon's
 >   own limits (1 in flight, 10 an hour) apply too.
 > - **A new account's first submission plays stage 1 only** (the four lab tasks and MY1), so it **can't be
 >   promoted**, however well it does. Once it has been scored you are established, and your next submission plays
 >   the full suite. Treat your first submission as the one that unlocks the full suite.
 > - **A global weekly allowance** covers all accounts. When it's used up, new submissions wait until the next week
 >   (Monday 00:00 UTC); the refusal on your pull request says when.
-> - **Counts against your week:** a scored submission, a judge fail or hold, a harness that doesn't build.
+> - **Uses an attempt:** a scored submission, a judge fail or hold, a harness that doesn't build.
 >   **Doesn't count:** a refusal at admission (a limit, the global allowance, an unchanged harness), a submission
 >   you cancel, infra failures on our side.
 
@@ -209,7 +209,7 @@ Season 0 runs on Yukon as an open, public challenge.
      runners; when several submissions are scoring at once, yours may wait in Yukon's queue first;
    - **admission:** the workflow checks that the pull request changes only `submission/` and is based on the
      current challenge tree, screens `submission/`, reads your tier and checks your limits. It comments on the pull
-     request either way: admitted (with what this attempt costs you this week) or not admitted (why, and that it
+     request either way: admitted (with how many attempts you have left) or not admitted (why, and that it
      doesn't count);
    - it builds your image on a fresh VM with no secrets present, then plays stage 1 on the season's **private
      pool**: 40 games (8 per lab task and 8 MY1), each in its own job and its own three-container stack, with the

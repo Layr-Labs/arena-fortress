@@ -94,9 +94,8 @@ Submissions are screened before they build (no credential files, size limits).
 
 ## 7. Submission limits (per account)
 
-**Season 0 dates:** opens **Friday 6 November 2026** and closes **Monday 23 November 2026, 23:59:59 UTC** (about 2.5 weeks). Submissions after the close aren't accepted. The weekly limits below use Monday-00:00-UTC weeks, so the
-season spans a short first week (Friday 6 to Sunday 8 November), two full weeks (9-15 and 16-22 November) and its
-last day (Monday 23 November).
+**Season 0 dates:** opens **Friday 6 November 2026** and closes **Monday 23 November 2026, 23:59:59 UTC** (about 2.5 weeks). Submissions after the close aren't accepted. Your attempts refill daily (below); only the global
+allowance uses Monday-00:00-UTC weeks.
 
 Season 0 is open to anyone with a Yukon account (sign in with GitHub), subject to the Terms of Service: there is no
 allowlist, invitation or application. There are no teams: limits apply to the Yukon account that submits.
@@ -104,11 +103,11 @@ Collaborators are credited with `--coauthors`; a group that works together submi
 within each member's limits, and doesn't route one person's work through several accounts to get more runs (that's
 a rules breach).
 
-| tier | who | in flight | submissions per week | suite |
+| tier | who | in flight | attempts held (refill) | suite |
 |---|---|---|---|---|
-| **established** | a promoted result on another Yukon challenge (shown on your public Yukon profile), or a scored submission here already | 1 | 7 | full |
-| **new** | everyone else | 1 | 2 | stage 1 only until you have a scored submission here, then full |
-| **probation** | a GitHub account younger than 30 days | 1 | 1 | stage 1 only |
+| **established** | a promoted result on another Yukon challenge (shown on your public Yukon profile), or a scored submission here already | 1 | 7 (one back every 24 h) | full |
+| **new** | everyone else | 1 | 2 (one back every 3.5 days) | stage 1 only until you have a scored submission here, then full |
+| **probation** | a GitHub account younger than 30 days | 1 | 1 (one back every 7 days) | stage 1 only |
 
 - **Your tier is automatic.** The scoring workflow reads it from Yukon's API and GitHub's at each submission;
   there's nothing to apply for. A promoted result on another Yukon challenge makes you established; otherwise a
@@ -119,13 +118,16 @@ a rules breach).
   shown with its stage-1 numbers and **can't be promoted**. Once it has been scored, the account is established and
   plays the full suite from its next submission on. Probation accounts play stage 1 only for their first 30 days, so
   their results can't be promoted during that time.
-- **Over a limit**, the run stops before your harness is built, with a message on the pull request saying when you
-  can submit again. A week is the ISO week (Monday 00:00 UTC). Yukon's own limits (one in flight per account, 10
+- **Daily refill (since 11 November 2026):** attempts don't reset weekly. You hold up to your tier's number, each
+  counted submission uses one, and one comes back every 168 / that number hours (24 h for established), never above
+  it. Every account started full on 11 November. Refused and refunded attempts don't use one.
+- **Over a limit**, the run stops before your harness is built, with a message on the pull request saying when your
+  next attempt is available. The global allowance's week is the ISO week (Monday 00:00 UTC). Yukon's own limits (one in flight per account, 10
   submissions an hour) apply too.
 - **A global weekly allowance.** The organisers pay for the model and the runners, and a weekly allowance over all
   accounts protects that budget: when it's used up, new submissions wait until the next week, and the refusal says
   when.
-- **What counts against your week:** a submission that is admitted, whether it is then scored, failed or held by
+- **What uses an attempt:** a submission that is admitted, whether it is then scored, failed or held by
   the judge (§8a), or fails to build. **What doesn't count:** a refusal at admission (over a limit, the global
   allowance, an unchanged harness, §6), a submission you cancel, and infra failures on our side (§6).
 - **These numbers can change.** The per-account numbers in this section are the ones that may be adjusted during the

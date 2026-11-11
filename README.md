@@ -19,7 +19,7 @@ A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yu
 > are the game server's internals: you never need to touch them.
 >
 > **Develop locally; submit when you're clearly ahead.** An official run is one noisy draw: two runs of the same
-> harness differ by about 3.8 suite points, more than most single improvements. You get 7 a week, and many of the
+> harness differ by about 3.8 suite points, more than most single improvements. You hold up to 7 attempts (one comes back each day), and many of the
 > best ideas are in submissions that weren't promoted. So iterate on your own machine: run your harness and the
 > strongest earlier submissions (`yukon reset <id>`) on the same day, compare them with `dfbench-tk compare`
 > (`toolkit/`), and use official runs to confirm, not to explore (`SUBMITTING.md` §2, §3a).
@@ -42,22 +42,23 @@ A harness challenge played in the game Dwarf Fortress, on Yukon (`https://www.yu
 >   no allowlist, invitation or application.
 > - **Per account, by tier.** Your tier is set automatically at each submission; there's nothing to apply for.
 >
->   | tier | who | submissions per week | suite |
+>   | tier | who | attempts you can hold (refill) | suite |
 >   |---|---|---|---|
->   | **established** | a promoted result on another Yukon challenge, or a scored submission here already | 7 | full |
->   | **new** | everyone else | 2 | your **first** scored submission here plays **stage 1 only**, then full |
->   | **probation** | a GitHub account younger than 30 days | 1 | stage 1 only |
+>   | **established** | a promoted result on another Yukon challenge, or a scored submission here already | 7 (one back every 24 h) | full |
+>   | **new** | everyone else | 2 (one back every 3.5 days) | your **first** scored submission here plays **stage 1 only**, then full |
+>   | **probation** | a GitHub account younger than 30 days | 1 (one back every 7 days) | stage 1 only |
 >
 >   Stage 1 is the four lab tasks and MY1. A stage-1-only result is shown but **can't be promoted**, so a new
 >   account's first submission can't top the board. Once a submission of yours has been scored here, you are
->   established: 7 a week and the full suite from your next submission. **Probation lasts the full 30 days**, even
+>   established: up to 7 attempts (one back each day) and the full suite from your next submission. **Probation lasts the full 30 days**, even
 >   after a scored submission (new GitHub account? Ask the organisers (a known person can be moved to established)).
 > - **One submission in flight** per account. Yukon's own limits apply too: 1 in flight and 10 submissions an hour.
 > - **A global weekly allowance** covers everyone (the organiser pays for the model and the runners). When it's used
->   up, new submissions wait until the next week; the refusal says when. Weeks start Monday 00:00 UTC, so season 0
->   has a short first week (6-8 Nov), two full weeks (9-15 and 16-22 Nov) and its last day (23 Nov), each with
->   its own weekly limits.
-> - **What counts against your week:** a submission that is scored, one the judge fails or holds, and one whose
+>   up, new submissions wait until the next week (Monday 00:00 UTC); the refusal says when.
+> - **Daily refill (since 11 November):** your attempts no longer reset on Mondays. You hold up to your tier's number,
+>   each counted submission uses one, and one comes back on a steady clock (every 24 h for established accounts), never
+>   above the cap. Everyone started full on 11 November. A refusal says when your next attempt is available.
+> - **What uses an attempt:** a submission that is scored, one the judge fails or holds, and one whose
 >   image doesn't build. **What doesn't:** a submission refused at admission (over a limit, an unchanged harness),
 >   one you cancel, and infra failures on our side.
 > - **Per game:** $0.50 of model credits and 90 minutes of wall time per game-year, 40 actions per game-day, a

@@ -204,7 +204,8 @@ jobs:
                 --user "${{ steps.who.outputs.user }}" --in-flight "${{ steps.who.outputs.in_flight }}" \
                 --weekly "${{ steps.who.outputs.weekly }}" --suite "${{ steps.who.outputs.suite }}" \
                 --season-cap "${{ steps.who.outputs.season_cap || 0 }}" \
-                --global "$GLOBAL" --run "$GITHUB_RUN_ID" --tree "$(git rev-parse HEAD:submission)" "${extra[@]}")
+                --global "$GLOBAL" --run "$GITHUB_RUN_ID" --tree "$(git rev-parse HEAD:submission)" \
+                --bucket-epoch "${{ vars.DFBENCH_BUCKET_EPOCH }}" "${extra[@]}")
           echo "$r"
           echo "$r" > "$RUNNER_TEMP/who/admit.json"       # the PR comments read it (quota, retry_of, reason)
           python3 -I - "$RUNNER_TEMP/who/admit.json" <<'EOF' >> "$GITHUB_STEP_SUMMARY"
@@ -213,8 +214,12 @@ jobs:
           print("### Admission: " + ("admitted" if r["admitted"] else "not admitted (not counted)"))
           print(f"- {r['reason']}")
           if q:
-              print(f"- this attempt {'counts' if q['counts'] else 'does not count'}: {q['weekly_used']}/{q['weekly_limit']} "
-                    f"this week, {q['season_used']}/{q['season_cap'] or 'no cap'} this season")
+              if q.get("mode") == "daily":
+                  print(f"- this attempt {'counts' if q['counts'] else 'does not count'}; {q['available']} of {q['limit']} "
+                        f"available after it (one back every {q['refill_hours']:g} h)")
+              else:
+                  print(f"- this attempt {'counts' if q['counts'] else 'does not count'}: {q['weekly_used']}/{q['weekly_limit']} "
+                        f"this week, {q['season_used']}/{q['season_cap'] or 'no cap'} this season")
           if r.get("retry_of"):
               print(f"- a retry of {r['retry_of']} (infra failure, not counted)")
           EOF
@@ -315,8 +320,10 @@ jobs:
           import json, os, sys
           r = json.load(open(sys.argv[1])); q = r.get("quota") or {}
           s = (f"**Admitted** (tier `{os.environ['TIER']}`, {'full suite' if os.environ['FULL'] == 'true' else 'stage 1 only'}). "
-               f"This attempt counts: {q.get('weekly_used')}/{q.get('weekly_limit')} this week, "
-               f"{q.get('season_used')}/{q.get('season_cap') or 'no cap'} this season.")
+               + (f"This attempt counts; you have {q.get('available')} of {q.get('limit')} left, and one comes back "
+                  f"every {q.get('refill_hours'):g} h." if q.get("mode") == "daily" else
+                  f"This attempt counts: {q.get('weekly_used')}/{q.get('weekly_limit')} this week, "
+                  f"{q.get('season_used')}/{q.get('season_cap') or 'no cap'} this season."))
           if r.get("retry_of"):
               s += f" It's a retry of `{r['retry_of']}`, whose infra failure wasn't counted."
           print(s + f"\nScoring takes about 1-1.5 h. Run: {os.environ['RUN_URL']}")
@@ -1176,6 +1183,7 @@ jobs:
           DFBENCH_OPS_TOKEN: ${{ secrets.DFBENCH_OPS_TOKEN }}
           DFBENCH_OPS_REPO: ${{ env.OPS_REPO }}
           DFBENCH_SEASON: ${{ env.SEASON }}
+          DFBENCH_BUCKET_EPOCH: ${{ vars.DFBENCH_BUCKET_EPOCH }}
         run: |
           [ -s .yukon/score.json ] || exit 0
           pr=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$GITHUB_REF_NAME" --state all --json number -q '.[0].number')

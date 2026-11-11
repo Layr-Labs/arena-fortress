@@ -8,7 +8,7 @@ with the file's sha (optimistic concurrency, retried on conflict), so two runs c
 user's week or of the global allowance. Python 3 stdlib only.
 
   admit   --submission ID --user U --in-flight N --weekly N --suite S [--season-cap N] [--global N] [--rerun]
-          [--run ID] [--tree T]
+          [--run ID] [--tree T] [--bucket-epoch ISO]
           reserve a slot; prints {"admitted", "reason", "full_suite", "week", "quota", ["retry_of"]}; quota says
           whether this attempt counts and the weekly/season use after it; a submission/ tree (T, the git tree id)
           identical to one already scored this season is refused and not counted (infra_failed attempts are exempt)
@@ -21,6 +21,8 @@ user's week or of the global allowance. Python 3 stdlib only.
   leader-set --stage1-point X --submission ID [--score Y] [--note TEXT]
   show    [--user U]
 
+Daily refill (D36, --bucket-epoch): instead of the weekly reset, each user holds up to --weekly attempts, full at the
+epoch; a counted entry takes one and one comes back every 168/--weekly hours (bucket_balance).
 Rules (challenge/RULES.md §7; per user, no teams; the limits bound the organiser's spend): a week is the ISO week
 (UTC, Monday 00:00). Counted: reserved, scored and rejected entries (a rejected harness still used the runners). Not
 counted: infra_failed and cancelled. In flight: at most --in-flight `reserved` entries per user. Weekly: at most
@@ -103,6 +105,25 @@ def next_week_start(t=None):
     return f"{d.isoformat()} 00:00 UTC"
 
 
+def bucket_balance(own, cap, epoch, t):
+    """Daily-refill allowance (D36): the balance starts full (`cap`) at `epoch`, each counted entry created since then
+    takes one, and one comes back every 168/cap hours (7 a week -> 1 a day), never above `cap`. Returns (balance,
+    seconds until the next whole attempt; 0 when one is available). Refused and refunded attempts aren't counted."""
+    refill = 7 * 86400 / cap
+    tokens, last = float(cap), epoch
+    for e in sorted((e for e in own if e["status"] in COUNTED and _ts(e["created"]) >= epoch), key=lambda e: e["created"]):
+        te = _ts(e["created"])
+        tokens = min(cap, tokens + (te - last).total_seconds() / refill) - 1
+        last = te
+    tokens = min(cap, tokens + (t - last).total_seconds() / refill)
+    return tokens, (0 if tokens >= 1 - 1e-9 else (1 - tokens) * refill)
+
+
+def _ts(s):
+    d = datetime.datetime.fromisoformat(s)
+    return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
+
+
 def full_suite(suite, user_rec):
     if suite == "full":
         return True
@@ -146,6 +167,34 @@ def admit_decision(led, a, t=None):
     if sum(1 for e in own if e["status"] == "reserved") >= a.in_flight:
         return {**base, "admitted": False, "_nowrite": True,
                 "reason": f"{a.user} already has {a.in_flight} submission(s) in flight; submit again when it finishes"}
+    epoch = getattr(a, "bucket_epoch", None)
+    if epoch:
+        # D36: daily refill instead of a weekly reset (the weekly limit is the bucket's size)
+        ep = _ts(epoch)
+        bal, wait = bucket_balance(own, a.weekly, ep, t)
+        cap = int(getattr(a, "season_cap", 0) or 0)
+        used_season = sum(1 for e in own if e["status"] in COUNTED)
+        q = {"counts": False, "mode": "daily", "available": int(bal + 1e-9), "limit": a.weekly,
+             "refill_hours": round(168 / a.weekly, 1), "season_used": used_season, "season_cap": cap or None}
+        base["quota"] = q
+        if wait > 0:
+            nxt = (t + datetime.timedelta(seconds=wait)).strftime("%Y-%m-%d %H:%M UTC")
+            return {**base, "admitted": False, "_nowrite": True,
+                    "reason": f"no attempt available for {a.user} right now (one comes back every "
+                              f"{q['refill_hours']:g} h, up to {a.weekly}); the next one is available at {nxt}"}
+        if cap and used_season >= cap:
+            return {**base, "admitted": False, "_nowrite": True,
+                    "reason": f"season limit reached for {a.user} ({used_season}/{cap} this season); no further "
+                              "submissions are scored this season"}
+        entry = {"submission": a.submission, "user": a.user, "week": wk, "status": "reserved",
+                 "created": t.isoformat(), "updated": t.isoformat(), "run": a.run, "tree": tree}
+        prev = [e for e in own if tree and e.get("tree") == tree and e["status"] == "infra_failed"]
+        if prev:
+            entry["retry_of"] = prev[-1]["submission"]
+        es.append(entry)
+        quota = {**q, "counts": True, "available": int(bal - 1 + 1e-9), "season_used": used_season + 1}
+        return {**base, "admitted": True, "reason": f"attempt admitted; {quota['available']} left after this one",
+                "quota": quota, **({"retry_of": entry["retry_of"]} if prev else {})}
     used = sum(1 for e in own if e["week"] == wk and e["status"] in COUNTED)
     cap = int(getattr(a, "season_cap", 0) or 0)
     used_season = sum(1 for e in own if e["status"] in COUNTED)
@@ -299,6 +348,8 @@ def main():
     x.add_argument("--global", dest="global_cap", type=int)
     x.add_argument("--rerun", action="store_true"); x.add_argument("--run")
     x.add_argument("--tree", help="git tree id of submission/ (refused if identical to one already scored)")
+    x.add_argument("--bucket-epoch", default="", help="ISO time: daily refill from here (D36), full at this time; "
+                                                       "empty = the weekly reset")
     x.set_defaults(f=cmd_admit)
     x = sp.add_parser("infra", help="record an attempt that failed on our side before admission (not counted)")
     x.add_argument("--submission", required=True); x.add_argument("--user", required=True)

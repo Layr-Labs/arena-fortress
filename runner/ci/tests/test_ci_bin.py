@@ -427,6 +427,44 @@ class Ledger(unittest.TestCase):
         self.assertTrue(ledger.full_suite("stage1_until_first_valid", {"first_valid": {"x": 1}}))
 
 
+class DailyRefill(unittest.TestCase):
+    """D36: up to 7 held, one back every 24 h, full at the epoch; refunds and refusals don't count."""
+    EP = "2026-11-11T18:00:00+00:00"
+
+    def args(self, sub, **kw):
+        return argparse.Namespace(submission=sub, user="u", in_flight=9, weekly=7, suite="full", season_cap=0,
+                                  global_cap=400, rerun=False, run="1", tree=sub, bucket_epoch=self.EP, **kw)
+
+    def at(self, h):
+        return datetime.datetime(2026, 11, 11, 18, tzinfo=datetime.timezone.utc) + datetime.timedelta(hours=h)
+
+    def test_full_then_one_a_day(self):
+        led = {"entries": [{"submission": "old", "user": "u", "week": "2026-W46", "status": "scored",
+                            "created": "2026-11-10T10:00:00+00:00"}] * 7, "users": {}}
+        for i in range(7):                                   # everyone starts full at the epoch, history ignored
+            r = ledger.admit_decision(led, self.args(f"s{i}"), self.at(0.1 * i))
+            self.assertTrue(r["admitted"], r["reason"]); led["entries"][-1]["status"] = "scored"
+        r = ledger.admit_decision(led, self.args("s7"), self.at(1))
+        self.assertFalse(r["admitted"]); self.assertIn("next one is available at 2026-11-12", r["reason"])
+        r = ledger.admit_decision(led, self.args("s7"), self.at(24.2))
+        self.assertTrue(r["admitted"], r["reason"]); self.assertEqual(r["quota"]["available"], 0)
+
+    def test_refunds_dont_count_and_cap_holds(self):
+        led = {"entries": [], "users": {}}
+        r = ledger.admit_decision(led, self.args("a"), self.at(0)); led["entries"][-1]["status"] = "cancelled"
+        self.assertEqual(ledger.admit_decision(led, self.args("b"), self.at(500))["quota"]["available"], 6)
+        own = [{"status": "scored", "created": self.at(1).isoformat()}]
+        bal, wait = ledger.bucket_balance(own, 7, ledger._ts(self.EP), self.at(2))
+        self.assertAlmostEqual(bal, 6 + 1 / 24, places=3); self.assertEqual(wait, 0)
+        self.assertAlmostEqual(ledger.bucket_balance(own, 2, ledger._ts(self.EP), self.at(2))[0], 1 + 1 / 84, places=3)
+
+    def test_weekly_mode_unchanged_without_epoch(self):
+        led = {"entries": [], "users": {}}
+        a = self.args("w"); a.bucket_epoch = ""
+        r = ledger.admit_decision(led, a, self.at(0))
+        self.assertEqual(r["quota"]["weekly_used"], 1)
+
+
 class Emit(unittest.TestCase):
     S = {"score": 61.0, "metrics": {"stage": 2, "lb95": 61.0, "credits_per_game_year": 0.21}}
 

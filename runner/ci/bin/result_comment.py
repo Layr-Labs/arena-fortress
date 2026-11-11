@@ -120,7 +120,10 @@ def render(score, leader_score=None, leader_fams=None, leader_src="its promoted 
           f"{RUN_NOISE} points. Before you spend another attempt, compare your change with the leader"
           + (f" (`yukon reset {leader_id}`)" if leader_id else "")
           + " locally on the same day: `SUBMITTING.md` §3a (`dfbench-tk compare`)."]
-    if used is not None and limit is not None:
+    if used == "daily" and limit:
+        avail, cap, hours = limit
+        L += ["", f"Attempts: **{avail} of {cap} available**; one comes back every {hours:g} h."]
+    elif used is not None and limit is not None:
         left = max(0, int(limit) - int(used))
         L += ["", f"Attempts this week: **{used} of {limit} used, {left} left** (weeks start Monday 00:00 UTC)."]
     return "\n".join(L) + "\n"
@@ -164,14 +167,20 @@ def pooled_leader(leader_id, suite):
 
 
 def week_use(user, tier):
+    """-> (used, limit) for the weekly reset, or ("daily", (available, limit, refill hours)) for D36's daily refill."""
     try:
         import ledger, tier as T
         led, _ = ledger.load("ledger.json")
-        wk = ledger.week_of(ledger.now().isoformat())
-        used = sum(1 for e in led.get("entries", []) if e.get("user") == user and e.get("week") == wk
-                   and e.get("status") in ledger.COUNTED)
         tiers = {**T.DEFAULT_TIERS, **json.loads(os.environ.get("DFBENCH_TIERS") or "{}")}
-        return used, (tiers.get(tier) or {}).get("weekly")
+        limit = (tiers.get(tier) or {}).get("weekly")
+        own = [e for e in led.get("entries", []) if e.get("user") == user]
+        epoch = os.environ.get("DFBENCH_BUCKET_EPOCH")
+        if epoch and limit:
+            bal, _ = ledger.bucket_balance(own, limit, ledger._ts(epoch), ledger.now())
+            return "daily", (int(bal + 1e-9), limit, round(168 / limit, 1))
+        wk = ledger.week_of(ledger.now().isoformat())
+        used = sum(1 for e in own if e.get("week") == wk and e.get("status") in ledger.COUNTED)
+        return used, limit
     except Exception as e:
         sys.stderr.write(f"result_comment: ledger unavailable ({e})\n")
         return None, None
