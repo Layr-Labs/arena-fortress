@@ -105,7 +105,14 @@ while waiting for digging, a build or a mood.
 ORDERS = """
 ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and amount are both required). For any
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
-and material_category, with the same repeat/when; it runs at whichever built workshop can do that job."""
+and material_category, with the same repeat/when; it runs at whichever built workshop can do that job.
+
+TASK-SPECIFIC WORK THE LAYER TAKES CHARGE OF. On a lab task whose goal says "every dwarf must have a placed bed"
+or that a hands-off window is coming, the deterministic layer handles the whole chain: it orders and places beds
+only (seats wait until every dwarf sleeps), runs two Carpenters, and routes beds that don't fit the dormitory into
+the next-largest dug area. Don't spend your own turns on furniture or seats there; spend them on supply, work
+assignments, danger and anything the layer's LAYER report shows refused. Where the goal says drink must not end
+lower, the layer's brew order has no drink ceiling and keeps brewing inside the window."""
 
 OBSERVATION = """
 ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before you: the manager and their office,
