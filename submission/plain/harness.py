@@ -123,6 +123,10 @@ class Plain:
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
+        try:
+            self.guard.set_task(info)
+        except Exception as e:
+            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -136,6 +140,11 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
+        try:
+            if self.guard.beds_unmet():
+                return 1
+        except Exception:
+            pass
         return 2
 
     def spent(self):
@@ -292,6 +301,11 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
+                try:
+                    if self.guard.beds_unmet():
+                        args["days"] = min(args["days"], 2)
+                except Exception:
+                    pass
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
