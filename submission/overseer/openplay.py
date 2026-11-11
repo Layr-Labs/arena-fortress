@@ -37,6 +37,7 @@ HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a 
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
 HUNGER_GAP_FINAL = 5    # ... from FINAL_STRETCH days out
+HUNGER_BIG = 15         # ... where a fort this size culls two animals a pass (d34: OP1 1016-p had 20 citizens at 0 food)
 COOK_RAW = 6            # meat, fish, cheese and eggs in stock (food that is neither a plant nor a meal) from which the
                         #   feast cooks: with less, a cook would only take the plants the still needs
 DRINK_SAFE = 28         # drink per citizen at which brewing stops for the feast, so the plants harvested in those
@@ -129,8 +130,8 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
-            if food < max(8, HUNGER_FINAL * self.cit):
-                self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
+            if food < max(8, HUNGER_FINAL * self.cit):     # a big fort eats one small animal in a day or two: two a pass
+                self.cull("hunger", 2 if self.cit >= HUNGER_BIG else 1, smallest=True, retry=HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
             self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP)
 
