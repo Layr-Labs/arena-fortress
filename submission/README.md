@@ -1,3 +1,12 @@
+# Measurement build: the PR #124 harness with the model switched off
+
+This is the promoted PR #124 harness (submission `65e60732`) with one change: `NO_MODEL = True` in
+`plain/harness.py`. After setup the harness goes straight to `layer_only()`, the mode the PR #124 build already
+falls back to when the model is unusable. The deterministic layer plays the whole game and no model call is made.
+It is submitted to measure how much of the harness's score comes from the model. The model loop, prompt and digest
+are still in the package but are not used while `NO_MODEL` is on. The rest of this file describes the PR #124
+build unchanged.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
