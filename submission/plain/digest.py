@@ -1,29 +1,9 @@
-"""The STATUS digest (cut 2): a compact, derived reading of the fort, placed before the raw observation.
-
-Everything here is computed from the observation (docs/GAME-API.md section 6, obs schema 8) and the free read-only
-queries (section 7). It never calls the model and never acts. It is interpretation, which the facts-only API leaves
-to the harness: stock per dwarf and the days it lasts, why an order isn't moving, what is missing from the chain
-(manager, office, workshop, input), housing per capita, the labors nobody has, the model's own recent failures.
-
-Sources it adapts (RULES.md section 4 allows both; credited in NOTE.md):
-  - harness2.diagnose() in the repo root: the per-order "stuck because" reasons, the office rule, the cancellation
-    matching (_CANCEL_KEYS) and the recipe -> workshop table (RECIPES);
-  - policies.Scripted: the order of checks in the NEXT list (manager, automation, workshops, barrels before brewing,
-    beds, meals, farm, squad and shelter).
-
-Design rule: a digest bug must never cost a game. digest() catches every exception per section and leaves the
-section out; the harness falls back to the raw observation alone if the whole digest fails.
-"""
 import json
-import re
-
 DAY = 1200
-DRINK_PER_DWARF_PER_DAY = 20 / 336     # about 5 drinks a season (docs/SUCCESS.md section 1.2)
-FOOD_PER_DWARF_PER_DAY = 8 / 336       # about 2 units a season
+DRINK_PER_DWARF_PER_DAY = 20 / 336
+FOOD_PER_DWARF_PER_DAY = 8 / 336
 CORE_WORKSHOPS = ("Carpenters", "Still", "Kitchen")
-OFFICE_FROM = 20                       # citizens from which the manager validates only from an office
-
-# recipe -> (workshop, inputs); job/reaction -> recipe for orders the observation doesn't name
+OFFICE_FROM = 20
 RECIPES = {
     "brew_drink": ("Still", "brewable plant + empty barrel"),
     "brew_drink_from_fruit": ("Still", "brewable fruit + empty barrel"),
@@ -42,64 +22,28 @@ JOB_RECIPE = {("CustomReaction", "BREW_DRINK_FROM_PLANT"): "brew_drink",
               ("MakeCharcoal", None): "make_charcoal"}
 JOB_WORKSHOP = {"MakeCrafts": "Craftsdwarfs", "ButcherAnimal": "Butchers", "PrepareRawFish": "Fishery",
                 "ProcessPlants": "Farmers", "MillPlants": "Quern", "MakeCheese": "Farmers"}
-# DF job names in cancellation reports ("<dwarf> cancels <job>: <reason>") -> recipes (harness2._CANCEL_KEYS)
 CANCEL_KEYS = [("brew", ("brew_drink", "brew_drink_from_fruit")), ("barrel", ("make_barrel",)),
                ("cookable", ("cook_meal",)), ("prepare", ("cook_meal",)), ("meal", ("cook_meal",)),
                ("bed", ("make_bed",)), ("door", ("make_door",)), ("table", ("make_table",)),
                ("throne", ("make_chair",)), ("chair", ("make_chair",)), ("bin", ("make_bin",)),
                ("hatch", ("make_hatch_cover",)), ("charcoal", ("make_charcoal",))]
-# labors the core chain needs -> what breaks without them (matched case-insensitively as substrings of DF's names)
 LABORS = [("MINE", "nobody digs"), ("CUTWOOD", "nobody fells trees (autochop needs a woodcutter)"),
           ("CARPENTER", "nobody builds wood furniture or barrels"), ("BREWER", "nobody brews"),
           ("COOK", "nobody cooks"), ("PLANT", "nobody farms")]
-# Event text: recent_events holds the game's latest reports, with no day. Large predators by the words its reports
-# use (overseer/beasts.py lists them by race id, plus the river's sea lamprey and two smaller hunters).
-PREDATOR_WORDS = ("carnotaurus", "alligator", "crocodile", "bear", "tiger", "lion", "jaguar", "anaconda",
-                  "tyrannosaurus", "spinosaurus", "utahraptor", "deinonychus", "quetzalcoatlus", "torvosaurus",
-                  "allosaurus", "afrovenator", "ceratosaurus", "dilophosaurus", "andrewsarchus", "megalania",
-                  "smilodon", "kelenken", "anteosaurus", "dimetrodon", "ogre", "yeti", "sasquatch", "blizzard man",
-                  "beak dog", "nightwing", "grimeling", "lamprey", "cougar", "wolf", "lioness", "tigress")
-PREDATOR = re.compile(r"\b(?:%s)\b" % "|".join(PREDATOR_WORDS))
-NOT_PREDATOR = re.compile(r"alligator snapping turtle|tiger shark|wolf spider|sea lion|lion tamarin")
-PREDATOR_REACH = 100    # tiles from the wagon within which one in sight is an ALERT (the layer's lockdown distance)
-EVENT_DAYS = 3          # an event report is quoted in ALERT for this many days after the digest first saw it
-REPORT_DAYS = 7         # recent_events holds reports of the last seven days: a line still there after that is new
-ATTACK = re.compile(r"^The ([a-z' -]+?) (?:bites|strikes|kicks|punches|gores|charges|scratches|attacks|latches|grabs|"
-                    r"shakes|rams|slams|tears|lashes|bashes|stabs|slashes|hacks|pushes)\b", re.I)
-DEATH = re.compile(r"has been found dead|has died|has bled to death|has drowned|has been struck down|has been killed",
-                   re.I)
-SPEECH = re.compile(r"^[^:]{1,60}, [^:]{1,40}: ")    # "<name>, <profession>: <a thought>", not a report
-ERAS = ("cretaceous ", "jurassic ", "cenozoic ", "permian ")
-CALM_WORKSHOPS = ("Fishery", "Butchers")       # the layer keeps these unbuilt on a calm fort (the model is refused)
 MOOD_WORKSHOP = {"CARPENTRY": "Carpenters", "MASONRY": "Masons", "BONECARVE": "Craftsdwarfs",
                  "STONECRAFT": "Craftsdwarfs", "WOODCRAFT": "Craftsdwarfs", "COOK": "Kitchen", "BREWING": "Still",
                  "BUTCHER": "Butchers", "FISH": "Fishery", "PROCESSPLANTS": "Farmers"}
-
-
 def _d(x):
     return x if isinstance(x, dict) else {}
-
-
 def _l(x):
     return [i for i in x if isinstance(i, dict)] if isinstance(x, list) else []
-
-
-def _seq(x):
-    """A list of anything (_l keeps only dicts)."""
-    return list(x) if isinstance(x, (list, tuple)) else []
-
-
 def _n(x, default=0):
     return x if isinstance(x, (int, float)) and not isinstance(x, bool) else default
-
-
 def recipe_of(o):
     r = o.get("recipe")
     if r:
         return r
     return JOB_RECIPE.get((o.get("job"), o.get("reaction")))
-
-
 def workshop_for(o):
     r = recipe_of(o)
     if r and r in RECIPES:
@@ -109,8 +53,6 @@ def workshop_for(o):
             return "Masons"
         return ws
     return JOB_WORKSHOP.get(o.get("job"))
-
-
 def parse_cancels(obs):
     out = []
     for t in obs.get("recent_cancellations") or []:
@@ -118,8 +60,6 @@ def parse_cancels(obs):
             job, _, reason = t.split(" cancels ", 1)[1].partition(":")
             out.append((job.strip(), reason.strip()))
     return out
-
-
 def cancellations_for(recipe, cancels):
     if not recipe:
         return []
@@ -129,24 +69,16 @@ def cancellations_for(recipe, cancels):
         if any(k in text and recipe in rs for k, rs in CANCEL_KEYS) and reason and reason not in out:
             out.append(reason)
     return out[:2]
-
-
 class Memory:
-    """What the model would otherwise forget after history truncation: recent failed actions with their error
-    codes, recent successful actions, advance stops, and when each order was first seen unvalidated."""
     FAILED, DONE = 8, 6
-
     def __init__(self):
-        self.failed = []          # (day, tool, args_short, error_code, error_short)
-        self.done = []            # (day, tool, args_short)
-        self.stops = []           # (day, reason, detail)
-        self.first_unvalidated = {}   # order id -> tick first seen unvalidated
-        self.prev = None          # (tick, drink, food) of the previous digest, for the trend
-        self.labors_missing = None    # from the last units query
+        self.failed = []
+        self.done = []
+        self.stops = []
+        self.first_unvalidated = {}
+        self.prev = None
+        self.labors_missing = None
         self.last_units_tick = None
-        self.first_seen = {}      # event text -> the day the digest first saw it (recent_events carry no day)
-        self.last_events = set()  # ... the lines of the previous digest: one that comes back is a new report
-
     @staticmethod
     def short_args(args):
         try:
@@ -154,7 +86,6 @@ class Memory:
         except Exception:
             s = str(args)
         return s if len(s) <= 90 else s[:87] + "..."
-
     def record(self, day, tool, args, resp):
         a = self.short_args(args)
         if resp.get("ok"):
@@ -166,32 +97,23 @@ class Memory:
         else:
             err = str(resp.get("error") or "")[:110]
             self.failed = (self.failed + [(day, tool, a, str(resp.get("error_code") or "failed"), err)])[-self.FAILED:]
-
-
 def days_of(stock, per_day):
     if per_day <= 0:
         return None
     return stock / per_day
-
-
 def fmt_days(x):
     if x is None:
         return "?"
     if x > 999:
         return ">999"
     return "%.0f" % x
-
-
 def digest(obs, env, memory=None, units=None, animals=None, layer=None):
-    """The digest text. obs: the observation dict (the model's version is fine). env: the response envelope (day,
-    tick, days_left, hands_off_in_days). units/animals: the `units` query results (citizens / animals), or None.
-    layer: {"report": [...], "owned": set()} from the deterministic layer (its recent actions and its order ids)."""
     mem = memory or Memory()
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_alert, _clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats,
-                _moods, _sites, _labors, _memory, _layer)
+    sections = (_clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
+                _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
            "next": [], "citizens": len(_l(obs.get("dwarves"))) or _n(_d(obs.get("administrators")).get("citizens"), 0)}
@@ -200,174 +122,17 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
             out = fn(ctx)
             if out:
                 lines.extend(out if isinstance(out, list) else [out])
-        except Exception as e:   # a digest bug must never cost a game
+        except Exception as e:
             lines.append(f"{fn.__name__.strip('_')}: (digest error {type(e).__name__})")
     try:
         if ctx["next"]:
-            nxt = list(dict.fromkeys(ctx["next"]))   # deduplicated, order kept
-            lines.append("NEXT (" + ("routine gaps, after the ALERT above; " if ctx.get("alerts") else "gaps found, ")
-                         + "in playbook order; skip what the observation shows is already under way"
+            nxt = list(dict.fromkeys(ctx["next"]))
+            lines.append("NEXT (gaps found, in playbook order; skip what the observation shows is already under way"
                          + (", and what the LAYER line shows it is doing" if ctx.get("layer") else "") + "): "
                          + "; ".join(nxt[:6]))
     except Exception:
         pass
     return "STATUS (derived by the harness from the observation and read-only queries; the observation is the ground truth)\n" + "\n".join(lines)
-
-
-def _person(e):
-    """A death report names a person ("<name>, Mason has been found dead."), not an animal ("The Stray Dog (Tame)
-    has...", "Lolor Udisterith, Dog (Tame) has...")."""
-    who = e.split(" has ", 1)[0]
-    return not who.startswith("The ") and "(" not in who
-
-
-def _lockdown(c):
-    """The layer's lockdown as this observation shows it, or None: the layer's status plus `states` (each of its
-    hatch ids: locked True/False, or None when the door list doesn't show it), `outside` (citizens on the hatches'
-    level or above, as (id, profession)) and `inside` (the shelter's citizens_inside)."""
-    lock = _d(c["layer"].get("lockdown"))
-    if not lock:
-        return None
-    obs = c["obs"]
-    doors = {x.get("id"): x for x in _l(_d(obs.get("doors")).get("list"))}
-    ids = [i for i in _seq(lock.get("hatches")) if isinstance(i, int) and not isinstance(i, bool)]
-    states = {i: _d(doors.get(i)).get("locked") if i in doors else None for i in ids}
-    zs = [_d(doors.get(i)).get("z") for i in ids]
-    zs = [z for z in zs if isinstance(z, int) and not isinstance(z, bool)]
-    outside = [(p.get("id"), p.get("profession")) for p in _l(obs.get("dwarves"))
-               if zs and isinstance(p.get("z"), int) and p["z"] >= min(zs)]
-    shelter = next((b for b in _l(_d(obs.get("burrows")).get("list")) if b.get("civ_alert_burrow")), {})
-    return {**lock, "opening": [i for i in _seq(lock.get("opening")) if isinstance(i, int)], "states": states,
-            "outside": outside, "inside": shelter.get("citizens_inside"), "cit": c["citizens"]}
-
-
-def _lockdown_text(v):
-    """One sentence on the layer's lockdown, from what the observation shows."""
-    inside = v.get("inside")
-    inside = (f"{inside} of {v.get('cit')} citizens in the shelter" if isinstance(inside, int)
-              else "the shelter's count not readable")
-    if v.get("phase") != "hold":
-        return f"The layer is ending its lockdown of day {v.get('since_day')}"
-    if v.get("gathering"):
-        return (f"The layer's lockdown began day {v.get('since_day')}: the alert sends the citizens to the shelter "
-                f"({inside}), and it locks the hatches once they are in or after a day")
-    parts = []
-    for word, test in (("locked", lambda x: x is True), ("open", lambda x: x is False), ("not shown", lambda x: x is None)):
-        ids = [str(i) for i, x in v["states"].items() if test(x)]
-        if ids:
-            parts.append(f"hatch {', '.join(ids)} {word}")
-    return (f"The layer's lockdown holds since day {v.get('since_day')}: {inside}; "
-            + ("; ".join(parts) or "no hatch shown") + "; it opens the fort when the danger has gone")
-
-
-def _fell_wait(c):
-    """The predators the layer's first-felling wait is for (a list, maybe empty), or None when it doesn't wait."""
-    v = c["layer"].get("fell_wait")
-    return list(v) if isinstance(v, (list, tuple)) else None
-
-
-def _name(race):
-    r = str(race).lower().replace("_", " ")
-    for era in ERAS:
-        r = r[len(era):] if r.startswith(era) else r
-    return r
-
-
-def _beast_rows(c):
-    """[(tiles from the wagon or None, race)] from the layer's last look for large predators, if it is recent (the
-    layer looks on each of its passes while the fort can be shut)."""
-    view = _d(c["layer"].get("beasts"))
-    if not isinstance(view.get("day"), int) or not isinstance(c["day"], int) or c["day"] - view["day"] > 2:
-        return []
-    return [tuple(x) for x in _seq(view.get("seen")) if isinstance(x, (list, tuple)) and len(x) == 2
-            and (x[0] is None or isinstance(x[0], int))]
-
-
-def _beasts(c):
-    """'carnotaurus 58 tiles from the wagon', ... for the first three of _beast_rows."""
-    return [f"{_name(r)} " + (f"{t} tiles from the wagon" if t is not None else "(place unknown)")
-            for t, r in _beast_rows(c)[:3]]
-
-
-# --- sections ---------------------------------------------------------------------------------------------------
-def _alert(c):
-    """ALERT lines, first in the digest: dangers to a citizen's life. From recent_events (a citizen's death, a citizen
-    fighting a large predator, a large predator attacking anything: reports the digest first saw in the last
-    EVENT_DAYS, with that day, since a report carries none), the layer's look for large predators (never listed as
-    hostiles) when one is within reach of the wagon, and the citizens shut out of the layer's lockdown."""
-    obs, mem, lay = c["obs"], c["mem"], c["layer"]
-    events = [e for e in _seq(obs.get("recent_events")) if isinstance(e, str)]
-    day = c["day"] if isinstance(c["day"], int) else None
-    for e in events:                 # a line absent last time, or older than the list's own window, is a new report
-        f = mem.first_seen.get(e)
-        if e not in mem.last_events or not isinstance(f, int) or (day is not None and day - f > REPORT_DAYS):
-            mem.first_seen.pop(e, None)
-            mem.first_seen[e] = day
-    mem.last_events = set(events)
-    if len(mem.first_seen) > 400:
-        mem.first_seen = dict(list(mem.first_seen.items())[-200:])
-    fresh = [e for e in events if day is None or not isinstance(mem.first_seen.get(e), int)
-             or day - mem.first_seen[e] <= EVENT_DAYS]
-    words = {"dwarf"}
-    for p in _l(obs.get("dwarves")):
-        for w in (p.get("profession"), str(p.get("name") or "").split(" ")[0]):
-            if isinstance(w, str) and len(w) > 2:
-                words.add(w.lower())
-
-    def quote(e):
-        return f'"{e[:150]}" (first seen day {mem.first_seen.get(e)})'
-    out = []
-    deaths = [e for e in fresh if DEATH.search(e) and not SPEECH.match(e) and _person(e)]
-    if deaths:
-        out.append("ALERT death: " + " | ".join(quote(e) for e in deaths[:2]))
-    fights, hunting = [], []
-    for e in fresh:
-        m = ATTACK.match(e)
-        low = NOT_PREDATOR.sub("", e.lower())
-        if not m or not PREDATOR.search(low):
-            continue
-        who = m.group(1).lower()
-        if who in words or any(f"the {w} " in low or f"the {w}'s" in low for w in words):
-            fights.append(e)
-        else:
-            hunting.append(e)
-    if fights:
-        out.append("ALERT a citizen is fighting a large predator: " + " | ".join(quote(e) for e in fights[:2]))
-    rows, v = _beast_rows(c), _lockdown(c)
-    near = [r for r in rows if r[0] is None or r[0] <= PREDATOR_REACH]
-    if near or hunting:
-        what = ("ALERT large predator " + ("in sight: " + ", ".join(_beasts(c)) if near else "near the fort")
-                + " (ordinary wild animals, large predators included, are not in threats)")
-        if hunting:
-            what += "; " + quote(hunting[0])
-        if v:
-            what += ". " + _lockdown_text(v)
-        out.append(what + ". The layer runs the civilian alert and the hatches. Don't send a squad: dwarves who fight "
-                   "it die.")
-    if v and v["phase"] == "hold" and not v.get("gathering") and v["outside"]:
-        who = ", ".join(f"{x[1] or 'citizen'} {x[0]}" for x in v["outside"][:6])
-        shown = [i for i in v["opening"] if v["states"].get(i) is False]
-        loose = [i for i, x in v["states"].items() if x is False and i not in v["opening"]]
-        if shown:
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}): hatch "
-                       f"{', '.join(str(i) for i in shown)} is open for them; the layer locks it when they are below")
-        elif loose:
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}): hatch "
-                       f"{', '.join(str(i) for i in loose)} shows open, and the layer is locking it again")
-        elif not v["states"] or not all(x is True for x in v["states"].values()):
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}); the hatch's state is not shown")
-        else:
-            far, lurk = v.get("far"), v.get("lurk")
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}), whose hatch is shut: the layer "
-                       "opens one for them while every predator in sight is far enough from it"
-                       + (f" (more than {far} tiles; an alligator more than {far // lurk})"
-                          if isinstance(far, int) and isinstance(lurk, int) and lurk else "")
-                       + (f"; {v['openings_left']} openings left in this lockdown"
-                          if isinstance(v.get("openings_left"), int) else ""))
-    c["alerts"] = out
-    return out or None
-
-
 def _clock(c):
     env, obs = c["env"], c["obs"]
     date = _d(obs.get("date"))
@@ -376,8 +141,6 @@ def _clock(c):
     if ho is not None:
         s += f"; HANDS-OFF in {ho} days: everything must be self-running (repeating orders with when, farms, autofarm) by then"
     return s
-
-
 def _population(c):
     obs = c["obs"]
     dw = _l(obs.get("dwarves"))
@@ -395,8 +158,6 @@ def _population(c):
     if n and stressed and stressed / n > 0.3:
         c["next"].append("wellbeing: many stressed dwarves: check drink, beds, dining")
     return s
-
-
 def _supply(c):
     obs, mem, n = c["obs"], c["mem"], max(1, c["citizens"])
     st = _d(obs.get("stocks"))
@@ -426,8 +187,6 @@ def _supply(c):
     if food / n < 2 or (f_days is not None and f_days < 30):
         c["next"].append(f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
     return s
-
-
 def _manager(c):
     obs = c["obs"]
     adm = _d(obs.get("administrators"))
@@ -452,8 +211,6 @@ def _manager(c):
     c["manager_active"] = bool(active)
     c["office_ok"] = (not need_office) or (isinstance(office, dict) and bool(office.get("chair")))
     return s
-
-
 def _workshops(c):
     obs = c["obs"]
     ws = _l(obs.get("workshops"))
@@ -474,10 +231,7 @@ def _workshops(c):
     if missing:
         s += "; MISSING core: " + ", ".join(missing)
         plugins = _d(obs.get("plugins"))
-        if _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0 and _fell_wait(c) is not None:
-            s += ("; no usable log or boulder: the layer holds the first tree felling while a large predator is in "
-                  "sight and starts it itself")
-        elif _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
+        if _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
             c["next"].append("no usable log or boulder, so no workshop can be built: enable_automation autochop"
                              + ("" if plugins.get("autochop") != "on" else " is on; advance a few days for logs") )
         else:
@@ -485,8 +239,6 @@ def _workshops(c):
     if planned and _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
         s += "; placed workshops wait for a usable log/boulder"
     return s
-
-
 def _orders(c):
     obs, mem = c["obs"], c["mem"]
     orders = _l(obs.get("orders"))
@@ -555,8 +307,6 @@ def _orders(c):
     if ("Kitchen" in built or "Kitchen" in planned) and "cook_meal" not in have and _n(st.get("prepared_meals")) < 2 * n:
         c["next"].append(f"no cooking order: add_order cook_meal amount=3 repeat=daily when=[{{stock prepared_meals below {2 * n}}}]")
     return [head] + out if out else head
-
-
 def _farms(c):
     obs = c["obs"]
     plots = _l(obs.get("farm_plots"))
@@ -572,9 +322,7 @@ def _farms(c):
     if pend:
         s += f"; digging pending: {pend} tiles"
     for p in ("autochop", "seedwatch"):
-        if p == "autochop" and _fell_wait(c) is not None:
-            s += "; autochop: held by the layer while a large predator is in sight (it enables it itself)"
-        elif plugins.get(p) != "on" and not any(p in x for x in c["next"]):
+        if plugins.get(p) != "on" and not any(p in x for x in c["next"]):
             c["next"].append(f"enable_automation {p}")
     if plots and plugins.get("autofarm") != "on":
         c["next"].append("enable_automation autofarm (plots have no crop choice without it)")
@@ -586,7 +334,7 @@ def _farms(c):
         if dug or f_sites:
             c["next"].append("no farm yet: build_farm on " + ", ".join(x.get("id") for x in (dug + f_sites)[:3]))
         elif desig or pend:
-            pass   # digging under way
+            pass
         else:
             s_sites = [x.get("id") for x in sites if x.get("kind") == "S"]
             r_sites = [x.get("id") for x in sites if x.get("kind") == "R" and not x.get("designated")]
@@ -595,8 +343,6 @@ def _farms(c):
             elif s_sites:
                 c["next"].append("no farm yet: dig_stairs " + s_sites[0] + " down 1 level, then dig_room an R site beside it")
     return s
-
-
 def _housing(c):
     obs = c["obs"]
     n = max(1, c["citizens"])
@@ -633,8 +379,6 @@ def _housing(c):
     if seats < (n + 1) // 2 and rooms and (_n(ff.get("chair")) and _n(ff.get("table"))):
         c["next"].append(f"dining: make_zone dining_hall on {rooms[-1]} and place_furniture table + chair there")
     return s
-
-
 def _threats(c):
     obs = c["obs"]
     th = _d(obs.get("threats"))
@@ -643,10 +387,7 @@ def _threats(c):
     hostiles = _n(th.get("visible_hostiles"))
     squads = _l(mil.get("squads"))
     sq = squads[0] if squads else None
-    lay = c["layer"]
-    lock = _d(lay.get("lockdown"))
-    s = (f"threats (the hostiles the API lists; ordinary wild animals, large predators included, are not listed): "
-         f"{hostiles} visible hostiles")
+    s = f"threats: {hostiles} visible hostiles"
     if hostiles:
         s += f", nearest {th.get('nearest_hostile_dist_to_wagon')} tiles from the wagon"
         by = _d(th.get("by_race"))
@@ -656,32 +397,12 @@ def _threats(c):
         s += f"; squad '{sq.get('name')}' {len(_l(sq.get('members')))} members, {_n(sq.get('armed'))} armed, uniform {sq.get('uniform')}, orders {len(_l(sq.get('orders')))}"
     else:
         s += "; no squad"
-    seen, fell = _beasts(c), _fell_wait(c)
-    if seen:
-        s += f"; large predators in sight (the layer's look, day {_d(lay.get('beasts')).get('day')}): " + ", ".join(seen)
-    elif fell:
-        s += "; large predators in sight: " + ", ".join(_name(r) for r in fell[:3])
-    if fell is not None:
-        s += " (the layer holds the first tree felling until they leave)"
     shelter = any(b.get("civ_alert_burrow") for b in _l(bur.get("list")))
-    s += f"; shelter burrow {'yes' if shelter else 'no'}; civilian_alert {'ON' if bur.get('civilian_alert') else 'off'}"
-    v = _lockdown(c)
-    if v:
-        s += f" ({_lockdown_text(v)})"
-    elif bur.get("civilian_alert") and lay.get("thaw"):
-        s += (" (the layer's, for the spring thaw: ice melts at the start of spring and a dwarf on it drowns; it "
-              "clears it after the first three days of spring)")
-    elif bur.get("civilian_alert"):
-        s += " (the layer's; it clears it itself)"
-    s += f"; weapons_free {_n(mil.get('weapons_free'))}"
-    # the civilian alert and the stair hatches are the layer's (the model's calls are refused): never suggested here
-    if hostiles and not lock:
-        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles; " if sq else "")
-                         + ("the layer sounds the civilian alert itself" if shelter
-                            else "create_burrow on an A site (the shelter); the layer sounds the civilian alert itself"))
+    s += f"; shelter burrow {'yes' if shelter else 'no'}; civilian_alert {'ON' if bur.get('civilian_alert') else 'off'}; weapons_free {_n(mil.get('weapons_free'))}"
+    if hostiles:
+        c["next"].insert(0, "HOSTILES VISIBLE: the squad and the civilian alert are handled for you"
+                         + ("" if shelter else "; create_burrow on an A site for the Shelter"))
     return s
-
-
 def _moods(c):
     obs = c["obs"]
     moods = _l(obs.get("moods"))
@@ -697,11 +418,9 @@ def _moods(c):
             line += "; WAITING for: " + ", ".join(f"{x.get('demand') or x.get('item')} ({_n(x.get('collected'))} collected)" for x in needs[:4])
         out.append(line)
         if not m.get("claimed_workshop") and str(m.get("mood")) in ("Fey", "Secretive", "Possessed", "Macabre", "Fell"):
-            if ws and ws not in (c.get("built") or {}) and not (ws in CALM_WORKSHOPS and c["layer"].get("calm")):
+            if ws and ws not in (c.get("built") or {}):
                 c["next"].insert(0, f"MOOD: build_workshop {ws} (the {skill} mood needs it) before the dwarf goes insane")
     return ["moods:"] + out
-
-
 def _sites(c):
     obs = c["obs"]
     sites = _l(_d(obs.get("map")).get("sites"))
@@ -724,12 +443,10 @@ def _sites(c):
     desc = {"W": "workshop", "S": "stair start", "R": "room", "F": "farm (dug soil)", "G": "surface farm",
             "A": "dug area", "E": "stair for hatch", "D": "doorway"}
     return "sites: " + "; ".join(f"{k} {desc.get(k, '')}: " + ", ".join(v[:6]) for k, v in sorted(by.items())) if by else "sites: none listed"
-
-
 def _labors(c):
     units = c.get("units")
     if units is None:
-        return c["mem"].labors_missing   # the last known line, if any
+        return c["mem"].labors_missing
     cits = _l(_d(units).get("citizens")) or _l(_d(units).get("result")) or _l(units if isinstance(units, list) else None)
     cits = [u for u in cits if isinstance(u.get("labors"), list)]
     if not cits:
@@ -739,12 +456,9 @@ def _labors(c):
     if not missing:
         line = "labors: every core labor (mining, woodcutting, carpentry, brewing, cooking, farming) is held by someone"
     else:
-        line = "labors MISSING: " + "; ".join(f"{k} ({why})" for k, why in missing) + ". enable_automation autolabor assigns labors automatically"
-        c["next"].append("labors missing (" + ", ".join(k for k, _ in missing) + "): enable_automation autolabor")
+        line = "labors MISSING: " + "; ".join(f"{k} ({why})" for k, why in missing)
     c["mem"].labors_missing = line
     return line
-
-
 def _memory(c):
     mem = c["mem"]
     out = []
@@ -756,11 +470,7 @@ def _memory(c):
     if mem.stops:
         out.append("recent advance stops: " + " | ".join(f"d{d} {r} {det}" for d, r, det in mem.stops))
     return out or None
-
-
 def _layer(c):
-    """The deterministic layer's recent actions: what it did today and what the API refused (that is the model's
-    work), so the model neither repeats nor fights it. Orders marked [layer] above are its standing orders."""
     lay = c.get("layer") or {}
     rep = _l(lay.get("report"))
     if not rep:
@@ -776,11 +486,7 @@ def _layer(c):
     return ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
             "orders, beds/seats, zones, shelter, mood workshop; don't redo or cancel its work): " + " | ".join(parts)
             + (f" -- {failed} refused: those are yours to solve" if failed else "")]
-
-
 def compact_observation(obs):
-    """The raw observation with its biggest repeated lists cut: the per-item furniture list (the digest counts it)
-    and workshops' job_details. Facts, fewer tokens."""
     o = dict(obs)
     if isinstance(o.get("furniture"), list):
         o["furniture_count"] = len(o["furniture"])
