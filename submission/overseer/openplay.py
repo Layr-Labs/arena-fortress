@@ -6,7 +6,8 @@ import json
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameOver, HandsOff
-from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, whole
+from overseer.beasts import BEASTS, FOUGHT_MAX, LURK_SCALE, LURKERS, TROOPS, fought, in_sight, whole
+from plain.digest import ATTACK
 
 DAY = 1200
 
@@ -93,6 +94,11 @@ BEAST_FOOD = 1          # ... and food per citizen
 BEAST_FAILS = 2         # looks that may fail in a row before the layer stops looking for a reason to shut the fort:
                         #   an unanswered query is retried by the client for minutes of the game's wall time
 HOLD_FAILS = 4          # ... and before it stops looking during a lockdown, which then runs to its limit
+TROOP_QUICK = 90        # a troop animal (overseer/beasts.py TROOPS) within this many tiles of the wagon: the hatches
+                        #   are due at once, not after the day's gathering. In our records troops crossed 80 tiles
+                        #   in under a day, and attacks came most often when one first appeared 61-90 tiles from a
+                        #   citizen outside. Citizens still outside are let in by admit() while it is over ADMIT_FAR
+FULL_YEAR = 336         # task days (the task's own `days`) from which the troop animals are left out (full_year)
 BUTCHER_LEAD = 3        # with nobody hunting: days before the feast at which the Butchers is built
 CALM_TRIES = 5          # refusals of the labour plugin after which the inherited workshop rules return
 # Open play: the first felling. Measured in 51 recorded full-year games: the tree-felling plugin fells about 250
@@ -330,7 +336,8 @@ class OpenPlayRules:
             q = d(d(self.game.query("units", kind="others", limit=300)).get("result"))
             if not isinstance(q.get("units"), list):
                 raise ValueError("no unit list in the answer")
-            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"))
+            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"),
+                                   frozenset() if self.full_year() else TROOPS | self.fought)
             told = sorted({b["race"] for b in found})
             if told != self.beast_told:
                 log("beasts", day=self.day, seen=told, nearest=min((b["dist"] for b in found), default=None))
@@ -343,6 +350,32 @@ class OpenPlayRules:
             return [], False
         self.beast_fail = 0
         return found, sure
+
+    def full_year(self):
+        """A task of a full year or more (OP1, 336 days; the task's own `days`). On it the troop animals are left out
+        of the lockdown: its looks, starts and the quick lock behave as in the base harness (65e60732). On the
+        official private forts the base scored OP1 88.3 over 16 games (6 at tier 4) and this extension 85.3 over 8
+        (none at tier 4), with no citizen deaths in either, and in our OP1 records keas within 90 tiles shut an
+        18-citizen fort for 10 days at day 234 and again from day 310 to the horizon, two dwarves stressed from that
+        first lockdown to the end (G3 needs at most 10% of citizen-days stressed: 2/18 is 11%). Shorter tasks (MY1
+        and the labs) are untouched."""
+        return (self.days or 0) >= FULL_YEAR
+
+    def note_fights(self):
+        """Add to self.fought the species this observation's reports show attacking a citizen (overseer/beasts.py
+        fought()), for the rest of the game, up to FOUGHT_MAX. Whatever goes wrong here costs nothing else."""
+        try:
+            names = {"dwarf"}
+            for p in self.people:
+                for w in (p.get("profession"), str(p.get("name") or "").split(" ")[0]):
+                    if isinstance(w, str) and len(w) > 2:
+                        names.add(w.lower())
+            new = fought(lst(self.o.get("recent_events")), names, ATTACK) - self.fought - TROOPS
+            for key in sorted(new, key=sorted)[:max(0, FOUGHT_MAX - len(self.fought))]:
+                self.fought.add(key)
+                log("fought", day=self.day, species=" ".join(sorted(key)))
+        except Exception as e:
+            log("fought_error", error=repr(e)[:160])
 
     def beast_short(self):
         """Is the fort too short of drink or food to be shut for an animal? True when either is known to be; None
@@ -416,6 +449,8 @@ class OpenPlayRules:
         # Large wild predators are in no threat field: they are looked for here and counted with the hostiles.
         # The look is its own evidence. What it finds counts; a look that fails or is incomplete finds less and
         # proves no absence, and it never makes the doors, the alert or the threats above any less readable.
+        if not self.full_year():
+            self.note_fights()
         holding = self.lock is not None and self.lock["phase"] == "hold"
         api_seen, api_dist = seen, dist      # the API's hostiles alone
         beasts, sure = [], True
@@ -520,7 +555,8 @@ class OpenPlayRules:
                 why = self.beast_limit(lock)     # these two limits need the threats and the stocks, not the doors
             if why is None:
                 indoors = (shelter or {}).get("citizens_inside") or 0
-                if known and (lock["due"] is not None or indoors >= self.cit - 1 or age >= DAY):
+                quick = any(b.get("troop") and b["x"] is not None and b["dist"] <= TROOP_QUICK for b in beasts)
+                if known and (lock["due"] is not None or indoors >= self.cit - 1 or age >= DAY or quick):
                     if lock["due"] is None:
                         lock["due"] = self.now
                     keep = self.admit(lock, hatches, hostiles, api_seen, api_dist, listed, sure)

@@ -128,6 +128,7 @@ class Overseer(OpenPlayRules):
         self.beast_told = []     # ... and the species last logged
         self.beast_fail = 0      # ... looks that failed in a row
         self.beast_spent = 0     # ... ticks spent shut from the first sight of one to the opening of the fort
+        self.fought = set()      # open play: species (overseer/beasts.py words()) seen attacking a citizen this game
         self.fell = None         # open play, the first felling: None undecided, {"since", "blind"} waiting for a
                                  #   large predator to leave, False no longer waiting
 
