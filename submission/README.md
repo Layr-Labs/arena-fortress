@@ -1,3 +1,17 @@
+# Workshop reservations and a usable manager office
+
+This revision builds on the complete promoted harness from submission
+`65e60732-98d2-4765-a2c6-f84076c3e5fe` (0xplemonade, main at `ab1668c`). It reserves a successful workshop site
+across workshop types within a controller pass. On open tasks, it also prefers a manager office containing a
+built chair, assigning an existing chaired office or zoning over an already built chair. It checks all owned
+office zones because the API's manager summary can show an older chairless office while another assigned office
+is usable. The inherited model loop and lab-specific office path continue to run.
+
+The new office behavior was checked with a local 35-day diagnostic based on the public LT08 fixture played as an
+open task: the leader ended with 13 unvalidated orders; this revision repaired its office on day 7 and had no
+unvalidated orders at the horizon. These are mixed-stack games (real DF, fake model), not official results.
+Source ancestry is retained through the direct base declared in `dependencies.json`. The original README follows.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its

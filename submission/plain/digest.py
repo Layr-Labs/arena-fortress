@@ -435,6 +435,13 @@ def _manager(c):
     active = adm.get("manager_active_for_orders")
     mgr = adm.get("MANAGER")
     office = adm.get("manager_office")
+    # The summary names the first owned office, which may be an older chairless one after a repair.
+    manager_id = adm.get("MANAGER_id")
+    usable = next((z for z in _l(obs.get("zones")) if isinstance(z, dict)
+                   and str(z.get("type")).lower() == "office" and manager_id is not None
+                   and z.get("owner") == manager_id and _n(_d(z.get("furniture")).get("chair")) > 0), None)
+    if usable:
+        office = {"zone_id": usable.get("id"), "chair": True}
     need_office = n >= OFFICE_FROM
     s = f"manager: {mgr if mgr else 'VACANT'}" + (f" (id {adm.get('MANAGER_id')})" if adm.get("MANAGER_id") is not None else "")
     if not active:
