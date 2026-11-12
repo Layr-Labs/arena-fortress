@@ -2,17 +2,15 @@
 
 Every submission whose lower bound is within the band of the leader's pooled point estimate. Pooled = all of a submission's scored games (its scoring run, any confirmation batch and the weekly re-scores), scored like a single run. Aggregates only. **Yukon's board decides promotion; this list doesn't.** See `SCORING.md` §4.2.
 
-Updated 2026-11-07T21:08:46+00:00.
+Updated 2026-11-12T01:35:33+00:00.
 
 | | submission | solver | pooled S (point) | lower bound | upper bound | runs | games | gap to leader |
 |---|---|---|---|---|---|---|---|---|
-| leading on pooled games | `a9f894ea` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/a9f894ea-c2db-4e37-9883-1ec1e14ec8d4) | pepedesigner | 94.8 | 93.23 | 96.14 | 2 | 96 | 3.73 |
-| contender | `07b5e1e3` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/07b5e1e3-c627-4a51-98e7-337235215539) | mpjunior92 | 94.72 | 91.02 | 97.38 | 1 | 48 | 1.52 |
-| leading on pooled games | `7c3e587d` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/7c3e587d-2593-4c34-9be4-6055174849e5) | ryan48 | 92.85 | 90.74 | 94.75 | 2 | 96 | 1.24 |
-| leading on pooled games | `1812e717` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/1812e717-6d93-4bad-8935-8e711e657218) | pepedesigner | 92.81 | 90.34 | 95.06 | 2 | 96 | 0.84 |
-| contender | `7662723d` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/7662723d-6c2d-4b44-add3-fc22131d2261) | i34-9 | 90.94 | 88.99 | 92.74 | 1 | 64 | -0.51 |
-| leader | `fa9c13cc` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/fa9c13cc-2503-4df4-b989-6a0f49b3cbd4) | i34-9 | 89.5 | 85.69 | 92.84 | 2 | 112 | 0.0 |
-| contender | `5dfdcf15` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/5dfdcf15-9802-4fbf-a64f-9866323c1412) | GordoAR | 88.28 | 86.07 | 90.46 | 1 | 64 | -3.43 |
+| leader | `65e60732` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/65e60732-98d2-4765-a2c6-f84076c3e5fe) | 0xplemonade | 97.03 | 96.02 | 97.82 | 1 | 64 | 0.0 |
+| contender | `d1febd13` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/d1febd13-b50c-4bec-84cd-e078d68a4156) | 0xplemonade | 96.6 | 95.91 | 97.28 | 1 | 48 | -1.12 |
+| contender | `82e5301e` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/82e5301e-1c43-4036-b16b-363aa2d0e4b8) | 0xplemonade | 96.07 | 94.38 | 97.25 | 2 | 96 | -2.65 |
+| contender | `879ec09f` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/879ec09f-c421-4c1b-b297-358d77043c2f) | 0xplemonade | 95.83 | 94.03 | 97.19 | 2 | 96 | -3.0 |
+| contender | `a9f894ea` [PR](https://github.com/Layr-Labs/arena-fortress/pulls?q=is%3Apr+head%3Asubmissions/a9f894ea-c2db-4e37-9883-1ec1e14ec8d4) | pepedesigner | 94.8 | 93.23 | 96.14 | 2 | 96 | -3.8 |
 
 Each submission's note and declared dependencies (its attribution) are on its PR and its Yukon submission page.
 
