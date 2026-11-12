@@ -7,15 +7,14 @@ One turn:
   3. one chat call through the gateway (tool_choice required)
   4. run the first tool call (POST /act); its result goes back to the model as JSON
   5. guards: refuse order churn locally; advance a day after STALL_AFTER actions without one, or when the day's
-     actions are used up; stop calling the model near the end of the credits
+     actions are used up; stop calling the model near the end of the credits; stop calling the model when the wall
+     budget left no longer covers one call (an answer after the cap is worthless, and exiting early lets the
+     server run the fort on unmanaged to the horizon instead of ending the game at the cap tick)
 The harness exits when the game is over, the hands-off window starts, the model keeps failing, or the credits run
 low; the server then runs the fort on unmanaged to the horizon (contract §2).
 
-Cut 2 adds, on top of the organiser's plain baseline and cut 1's prompt: a STATUS digest before the observation
-(digest.py: supply per dwarf and days left, the manager/office rule, workshops, each order with why it is stuck,
-farms, housing, threats, moods, sites, labors from the `units` query, and a NEXT list), a memory of recent failed
-and successful actions and advance stops (digest.Memory), and a compacted observation (the furniture list and
-workshop job_details are summarised by the digest instead). The loop, the guards and the model call are unchanged.
+There is no summary of the fort, no diagnosis of stuck orders and no memory beyond the history window: the model
+reads the raw facts. README.md lists the obvious places to improve.
 
 Run: python -m plain   (reads DFBENCH_TASK)
 """
@@ -30,30 +29,28 @@ from dfbench_client import (ActionLimit, BudgetExhausted, ContextTooLong, GameAP
 
 from overseer.harness import Overseer
 
-from . import digest, prompt
+from . import prompt
 
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
-MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
+MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits, unless a safe
+                            #   recovery advance exists (gateway melts recover in minutes; see recover_turn)
+RECOVER_MAX = 40            # consecutive no-model days the recovery advance may cover before giving up
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
+WALL_PACE_AFTER = 0.50      # from this fraction of the game's wall cap, pace quiet days with the overseer
+WALL_MODEL_EVERY = 5        # one model turn every N quiet overseer-pace days
+WALL_CALL_DEFAULT = 60.0    # first-call estimate of a model call's wall cost (seconds)
+WALL_CALL_RECENT = 8        # the recent calls whose slowest sets the estimate
+WALL_MARGIN = 15.0          # budget held back for the act, the requests and their spread
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
-LAYER_TOOLS = ("civilian_alert",)   # the deterministic layer owns these: the model's calls are refused locally
-CALM_WORKSHOPS = {      # refused while the layer keeps the fort from fishing and hunting (autolabor is on)
-    "Fishery": ("not run: this fortress keeps no Fishery. With one, a dwarf goes back to fishing at the river, where "
-                "predators have killed fishers on forts like this one. Food comes from the farms and, in the last "
-                "two weeks, from the animals."),
-    "Butchers": ("not run: the deterministic layer builds the Butchers itself when it is needed: just before the "
-                 "final slaughter, or earlier if food runs out or a mood asks for bones. While one stands a dwarf "
-                 "carries the hunting labour, so it is not built sooner.")}
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
-UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
 
 
 def log(kind, **kw):
@@ -96,8 +93,7 @@ def window(messages):
     out = []
     for i, x in enumerate(m):
         c = x.get("content")
-        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and (
-                c.startswith("OBSERVATION {") or c.startswith("STATUS")):
+        if i and x["role"] == "user" and i != last_user and isinstance(c, str) and c.startswith("OBSERVATION {"):
             x = {**x, "content": "OBSERVATION (older, omitted)"}
         elif x["role"] == "tool" and i != last_tool and isinstance(c, str) and len(c) > TOOL_RESULT_OLD:
             x = {**x, "content": c[:TOOL_RESULT_OLD] + " ...(trimmed)"}
@@ -113,27 +109,30 @@ class Plain:
     def __init__(self, task, game, model, seed=0):
         self.task, self.game, self.model, self.seed = task, game, model, seed
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
-                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
+                      "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0,
+                      "model_skips": 0, "quiet_days": 0, "recover_days": 0}
         self.stop_reason = None
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
-        self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
-        self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
+        self.guard = Overseer(game)
         self.guard_day = None
-        self.units = None     # the last `units` query result (citizens), for the digest's labor check
-        self.units_day = None
+        self.wall_frac = None     # wall_used_s / wall_s from /health, refreshed once per game day
+        self.quiet_gap = 0        # overseer-paced days since the model last got a turn
+        self.quiet_stalls = 0     # consecutive quiet advances that moved no game day
+        self.recover_streak = 0   # consecutive no-model days from a gateway melt's safe recovery advance
+        self.wall_s = None        # the server's wall cap in seconds, from /task limits
+        self.call_lat = []        # wall seconds of this run's model calls, oldest first
 
     def setup(self):
         t = self.game.task()
+        limits = t.get("limits") or {}
+        wall = limits.get("wall_s")
+        self.wall_s = float(wall) if isinstance(wall, (int, float)) and wall else None
         self.tools = prepare_tools(t.get("tools") or [])
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
-        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
-            self.guard.set_task(info)
-        except Exception as e:
-            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -142,43 +141,103 @@ class Plain:
         log("setup", task=info.get("name"), days=days, credits=self.task.credits,
             system_chars=len(self.messages[0]["content"]))
 
-    def quiet_days(self, resp):
-        obs = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
-        left = resp.get("hands_off_in_days")
-        if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
-            return 1
-        try:
-            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
-                return 1
-        except Exception:
-            pass
-        if self.open_play() or self.guard_holds():
-            return self.step_days()
-        return 2
-
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
 
-    def layer_only(self, reason):
-        """No model: run the deterministic layer alone to the horizon (the baseline exited here and left the fort
-        unmanaged). The layer runs once per game day; between its passes a day or two passes. False when the game is
-        over or the hands-off window has begun."""
-        self.stop_reason = reason
-        log("layer_only", reason=reason)
-        while True:
-            resp = self.game.observe()
-            if resp.get("game_over"):
-                self.stop_reason = "game_over"
-                return False
-            if resp.get("day") != self.guard_day:
-                self.guard_day = resp.get("day")
-                try:
-                    self.guard.step(resp)
-                except (HandsOff, GameOver) as e:
-                    self.stop_reason = type(e).__name__
-                    return False
-            if not self.advance(self.quiet_days(resp), reason):
-                return False
+    def refresh_wall_fraction(self):
+        """Read the server's clock once per game day: wall_used_s / wall_s from GET /health. None when the
+        server gives no wall fields, so pacing falls back to the model loop."""
+        try:
+            h = self.game.health()
+        except (GameAPIError, AttributeError):
+            return
+        used, cap = h.get("wall_used_s"), h.get("wall_s")
+        self.wall_frac = used / cap if isinstance(used, (int, float)) and isinstance(cap, (int, float)) and cap > 0 else None
+
+    def wall_left(self):
+        """Seconds of wall budget left, or None when there is nothing to trust.
+        wall_s comes from /task's limits; wall_used_s from /health (read-only, free).
+        The server's count excludes provider throttling and unmanaged time, so this
+        is the budget the cap actually runs on."""
+        if self.wall_s is None:
+            return None
+        try:
+            used = self.game.health().get("wall_used_s")
+        except Exception:
+            return None
+        if not isinstance(used, (int, float)):
+            return None
+        return self.wall_s - float(used)
+
+    def call_estimate(self):
+        """One model call's estimated wall cost: the slowest of this run's last
+        WALL_CALL_RECENT calls, or WALL_CALL_DEFAULT before the first result."""
+        return max(self.call_lat[-WALL_CALL_RECENT:], default=WALL_CALL_DEFAULT)
+
+    def quiet_turn(self):
+        """True when this day is quiet and the wall cap makes a model call too expensive: advance instead."""
+        if self.wall_frac is None or self.wall_frac < WALL_PACE_AFTER or not self.guard.quiet():
+            return False
+        if self.quiet_gap >= WALL_MODEL_EVERY:
+            return False          # the model gets a look every WALL_MODEL_EVERY quiet days
+        self.stats["model_skips"] += 1
+        self.stats["quiet_days"] += 1
+        days = self.guard.safe_days()
+        tick = (self.game.last or {}).get("tick")
+        try:
+            resp = self.game.act("advance_days", {"days": days, "stop_on": [
+                "citizen_died", "hostile_visible", "invasion", "water_rising"]})
+        except HandsOff:
+            self.stop_reason = "HandsOff"
+            return True
+        except GameOver:
+            self.stop_reason = "game_over"
+            return True
+        self.stats["advances"] += bool(resp.get("ok"))
+        moved = bool(resp.get("ok")) and ((self.game.last or {}).get("tick") or tick) != tick
+        log("quiet_advance", days=days, ok=resp.get("ok"), moved=moved,
+            stopped=self.guard.stopped_reason(resp) if moved else None)
+        if moved:
+            self.quiet_gap += 1
+            self.quiet_stalls = 0
+        else:
+            self.quiet_stalls += 1
+            if self.quiet_stalls >= 4:
+                self.quiet_gap = WALL_MODEL_EVERY   # not moving: let the model look at it
+        if resp.get("game_over"):
+            self.stop_reason = "game_over"
+        return True
+
+    def recover_turn(self):
+        """One safe recovery day while the model is down (gateway melts recover in
+        minutes; the saved melt abandoned at day 4 with wall 970/3600 to spare).
+
+        The deterministic layer — standing orders plus the guard pass the loop runs
+        per game day — carries a quiet fort without the model, so advance one day
+        with the quiet pacing's stop_on tripwires instead of giving up. The next
+        loop iteration's model call IS the gateway probe: any answer resets the
+        streak. Returns False when the game itself ended or the advance broke, so
+        the loop falls through to the ordinary give-up path.
+        """
+        days = min(self.guard.safe_days(), 1)
+        try:
+            resp = self.game.act("advance_days", {"days": days, "stop_on": [
+                "citizen_died", "hostile_visible", "invasion", "water_rising"]})
+        except HandsOff:
+            self.stop_reason = "HandsOff"
+            return False
+        except GameOver:
+            self.stop_reason = "game_over"
+            return False
+        self.stats["advances"] += bool(resp.get("ok"))
+        self.stats["recover_days"] += 1
+        self.recover_streak += 1
+        log("recover_advance", days=days, ok=resp.get("ok"),
+            stopped=self.guard.stopped_reason(resp))
+        if resp.get("game_over"):
+            self.stop_reason = "game_over"
+            return False
+        return True
 
     def run(self, max_turns=None):
         self.setup()
@@ -190,6 +249,7 @@ class Plain:
                 break
             if resp.get("day") != self.guard_day:   # the deterministic layer runs once per game day and costs no credits
                 self.guard_day = resp.get("day")
+                self.refresh_wall_fraction()
                 try:
                     if self.guard.step(resp):
                         resp = self.game.observe()
@@ -197,34 +257,57 @@ class Plain:
                     self.stop_reason = type(e).__name__
                     break
             if self.task.credits and self.spent() >= BUDGET_STOP * self.task.credits:
-                if not self.layer_only("budget"):   # no model left; the layer still runs
-                    break
+                self.stop_reason = "budget"
+                break
+            if self.quiet_turn():
                 continue
+            left = self.wall_left()
+            if left is not None and left <= self.call_estimate() + WALL_MARGIN:
+                # One more model call would be answered after the wall cap. The
+                # watchdog then ends the game at the cap tick with no run-out, while
+                # an early exit lets the runner's /finish run the fort on unmanaged
+                # to the horizon and score it there. Stop calling and exit now.
+                log("wall_budget_exit", wall_left_s=round(left, 1),
+                    call_estimate_s=round(self.call_estimate(), 1), margin_s=WALL_MARGIN)
+                self.stop_reason = "wall_budget"
+                break
             self.stats["turns"] += 1
+            self.quiet_gap = 0
+            self.quiet_stalls = 0
             obs = observation(resp, self.extra)
-            self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
+            self.messages.append({"role": "user", "content": "OBSERVATION " + json.dumps(
+                obs, separators=(",", ":"), ensure_ascii=False)})
             self.messages = window(self.messages)
             try:
                 msg = self.chat()
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
-                self.messages.pop()
-                if not self.layer_only("budget_exhausted"):   # the credits are gone; the layer plays on
-                    break
-                continue
+                self.stop_reason = "budget_exhausted"
+                break
             except ModelError as e:
                 self.stats["api_errors"] += 1
                 streak += 1
-                log("model_error", error=str(e)[:300], streak=streak)
+                log("model_error", error=str(e)[:300], streak=streak,
+                    recover_days=self.recover_streak)
                 self.messages.pop()
-                if streak >= MAX_API_STREAK:
-                    if not self.layer_only("model_failing"):   # the model is unusable; the layer plays on
+                safe = self.guard.quiet()
+                if self.recover_streak >= RECOVER_MAX or (streak >= MAX_API_STREAK and not safe):
+                    self.stop_reason = "model_failing"
+                    break
+                if streak >= 3 and safe:
+                    # gateway melt: the deterministic layer carries a quiet fort, so creep
+                    # forward instead of giving up; the next loop iteration's chat is the
+                    # probe and the wall gate at the top of the loop still bounds the cost.
+                    if not self.recover_turn():
                         break
+                    idle = 0
                     continue
                 if not self.advance(1, "model_error"):
                     break
+                idle = 0
                 continue
             streak = 0
+            self.recover_streak = 0
             calls = msg.get("tool_calls") or []
             if not calls:
                 self.stats["no_tool_call"] += 1
@@ -248,37 +331,9 @@ class Plain:
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
 
-    def user_message(self, resp, obs):
-        """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
-        observation as JSON. Any failure in the digest falls back to the raw observation alone."""
-        raw = "OBSERVATION " + json.dumps(obs, separators=(",", ":"), ensure_ascii=False)
-        try:
-            env = {k: resp.get(k) for k in ENVELOPE if k in resp}
-            day = env.get("day")
-            if isinstance(day, int) and (self.units_day is None or day - self.units_day >= UNITS_EVERY):
-                try:
-                    q = self.game.query("units", kind="citizens")
-                    self.units = q.get("result", q)
-                    self.units_day = day
-                except GameAPIError as e:
-                    log("query_error", query="units", error=str(e)[:200])
-                    self.units_day = day   # don't retry every turn
-            layer = {"report": self.guard.report, "owned": self.guard.owned, "calm": self.guard_calm()}
-            try:     # the open-play rules' facts: predators in sight, the lockdown and who is shut out, the felling
-                layer.update(self.guard.status())
-            except Exception as e:
-                log("guard_status_error", error=repr(e)[:200])
-            status = digest.digest(obs, env, self.memory, units=self.units, layer=layer)
-            self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
-            compact = digest.compact_observation(obs)
-            return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
-        except Exception as e:   # never let the digest cost a turn
-            self.stats["digest_errors"] = self.stats.get("digest_errors", 0) + 1
-            log("digest_error", error=repr(e)[:300])
-            return raw
-
     def chat(self):
         params = {**CHAT, "seed": self.seed}
+        t0 = time.monotonic()
         try:
             resp = self.model.chat(self.messages, tools=self.tools, **params)
         except ContextTooLong as e:   # over the context window: keep the system prompt and this observation
@@ -288,6 +343,9 @@ class Plain:
             self.stats["context_trims"] += 1
             log("context_trim", error=str(e)[:200])
             resp = self.model.chat(self.messages, tools=self.tools, **params)
+        finally:
+            # what one call really costs on this run, for the wall-budget gate
+            self.call_lat.append(time.monotonic() - t0)
         return resp["choices"][0].get("message") or {}
 
     def run_call(self, call):
@@ -300,8 +358,6 @@ class Plain:
             args = None
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
-        # name must be a string before the set lookup, and only hashable cancel ids reach the cache (peer
-        # f577e8a7's failure cases, idea credited: validate before cache access; the API rejects the rest)
         if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -315,18 +371,8 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
-                try:
-                    if self.guard.beds_unmet():   # a surrogate goal the layer is still catching up on: advance
-                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
-                except Exception:
-                    pass
-                left = (self.game.last or {}).get("hands_off_in_days")
-                if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
-                    args["days"] = 1
             try:
-                resp = self.open_advance(args) if name == "advance_days" and (self.open_play()
-                                                                              or self.guard_holds()) \
-                    else self.game.act(name, args)
+                resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
@@ -337,143 +383,12 @@ class Plain:
         self.stats["advances"] += moved
         return moved
 
-    def open_play(self):
-        try:
-            return self.guard.open_play()
-        except Exception:
-            return False
-
-    def guard_owns_lock(self, args):
-        try:
-            return self.guard.owns_lock(args)
-        except Exception:
-            return False
-
-    def guard_felling_waits(self):
-        try:
-            return isinstance(self.guard.fell, dict)
-        except Exception:
-            return False
-
-    def guard_seals_stair(self, args):
-        try:
-            return self.guard.seals_stair(args)
-        except Exception:
-            return False
-
-    def guard_calm(self):
-        """The layer keeps the fort from fishing and hunting, or on an open task has yet to decide whether it does."""
-        try:
-            return self.guard.calm is True or (self.guard.calm is None and self.guard.open_task())
-        except Exception:
-            return False
-
-    def guard_holds(self):
-        try:
-            return self.guard.lock is not None or bool(self.guard.own_locks)
-        except Exception:
-            return False
-
-    def step_days(self):
-        try:
-            return 1 if self.guard.step_days() == 1 else 2
-        except Exception:
-            return 2
-
-    def open_advance(self, args):
-        """Open play: however far the model advances, the layer gets a pass every two game days (its slaughter
-        schedule is timed in days, and one pass a fortnight would miss it). One model call still decides the advance;
-        the layer's passes cost no credits. A tripwire stop ends the advance as it would have. The API measures two
-        tripwires against the start of a call (a hostile 25 tiles closer, indoor water half as much again): those
-        are checked here against the start of the whole advance, from the observation, and end it the same way with
-        a `harness_stop` note (not an API field). The steps' interruptions and ignored tripwires are passed on."""
-        total, done, ticks, resp = args["days"], 0, 0, None
-        notes, ignored = [], []
-        first = self.alarm_state(self.game.observe()) if total > 1 else None   # a free read; no time passes
-        while done < total:
-            step = min(self.step_days(), total - done)
-            resp = self.game.act("advance_days", {**args, "days": step})
-            res = resp.get("result") if isinstance(resp.get("result"), dict) else {}
-            if isinstance(res.get("stopped"), dict) and isinstance(res["stopped"].get("after_ticks"), int):
-                res["stopped"]["after_ticks"] += ticks      # counted from the start of the whole advance
-            done += step
-            ticks += res.get("advanced_ticks") or 0
-            notes += res.get("interruptions") if isinstance(res.get("interruptions"), list) else []
-            ignored += res.get("tripwires_ignored") if isinstance(res.get("tripwires_ignored"), list) else []
-            if not resp.get("ok") or resp.get("game_over") or res.get("stopped") or done >= total:
-                break
-            obs = self.game.observe()
-            if obs.get("game_over"):
-                break
-            if obs.get("day") != self.guard_day:
-                self.guard_day = obs.get("day")
-                self.guard.step(obs)
-            why = self.alarm(first, self.alarm_state(obs))
-            if why:
-                res["harness_stop"] = why
-                break
-        if isinstance(resp.get("result"), dict):
-            if ticks:
-                resp["result"]["advanced_ticks"] = ticks
-                resp["result"]["advanced_days"] = round(ticks / DAY, 2)
-            if notes:
-                resp["result"]["interruptions"] = notes
-            if ignored:
-                resp["result"]["tripwires_ignored"] = ignored
-        return resp
-
-    @staticmethod
-    def alarm_state(resp):
-        """(nearest visible hostile's distance to the wagon or None, indoor water depth units) from an observation."""
-        o = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
-        th = o.get("threats") if isinstance(o.get("threats"), dict) else {}
-        water = o.get("water_on_fort_levels") if isinstance(o.get("water_on_fort_levels"), dict) else {}
-        near = th.get("nearest_hostile_dist_to_wagon") if th.get("visible_hostiles") else None
-        return (near if isinstance(near, (int, float)) else None,
-                water.get("total_depth") if isinstance(water.get("total_depth"), (int, float)) else 0)
-
-    @staticmethod
-    def alarm(first, now):
-        if first[0] is not None and now[0] is not None and first[0] - now[0] >= 25:
-            return f"a visible hostile is {first[0] - now[0]:.0f} tiles closer to the wagon than when this advance began"
-        if now[1] - first[1] >= 50 and now[1] >= 1.5 * first[1]:
-            return f"indoor water rose from {first[1]} to {now[1]} depth units during this advance"
-        return None
-
     def refuse(self, name, args, tick):
-        """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
-        if name == "slaughter" and self.open_play():
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: the deterministic layer schedules slaughter on this task. Food rots in about 17 days here, "
-                "so it keeps the animals for the last two weeks and slaughters one earlier only if food runs short.")}
-        if name == "lock_door" and self.guard_owns_lock(args):      # true only while a lockdown stands
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: the deterministic layer has the stair hatches locked while dangerous wildlife is near and "
-                "the civilians are inside. It opens them itself when the wildlife has gone. Other doors are yours: "
-                "give their door_id.")}
-        if name == "lock_door" and self.guard_seals_stair(args):    # open play, no lockdown standing
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: this would lock the hatch on a surface stair. The deterministic layer keeps those hatches: "
-                "it locks them itself when hostiles come near, once the civilians are below, and opens them again. "
-                "Locked at any other time they cut the dwarves off from the food and drink on the surface. A door of "
-                "your own that is not on a surface stair can be locked by its door_id.")}
-        if name == "enable_automation" and args.get("name") == "autochop" and self.guard_felling_waits():
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: tree felling is waiting. A large predator is in sight near the river, the felling plugin "
-                "sends dwarves across the whole map and cannot be turned off again. The deterministic layer enables "
-                "it itself when the animal has left, or when drink, food or time runs short.")}
-        if name == "build_workshop" and isinstance(args, dict) and args.get("type") in CALM_WORKSHOPS \
-                and self.guard_calm():
-            return {"ok": False, "error_code": "layer_owned", "error": CALM_WORKSHOPS[args["type"]]}
-        if name in LAYER_TOOLS:
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
-                "alert keeps civilians from drink and food).")}
-        oid = args.get("order_id") if isinstance(args, dict) else None
-        if name == "cancel_order" and isinstance(oid, int) and oid in self.guard.owned:
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                f"not run: order {oid} is a standing order of the deterministic layer; it keeps "
-                "drink, food, barrels and furniture coming, inside hands-off windows too.")}
+        """The order-churn guard: a local refusal (no API call), or None."""
+        order_id = args.get("order_id")
+        if name == "cancel_order" and type(order_id) is int and order_id in self.guard.brew_orders:
+            return {"ok": False, "error_code": "order_churn", "error": (
+                f"not run: order {order_id} is the controller's daily brew order and stays in place.")}
         if not isinstance(tick, int):
             return None
         if name in ORDER_TOOLS:
@@ -508,10 +423,6 @@ class Plain:
         self.stats["rejected"] += not ok
         text = json.dumps(resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]
         self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": text})
-        try:
-            self.memory.record((self.game.last or {}).get("day"), name, args, resp)
-        except Exception as e:
-            log("memory_error", error=repr(e)[:200])
         log("act", tool=name, args=args, ok=ok, error_code=resp.get("error_code"))
 
     def advance(self, days, reason):
@@ -537,17 +448,11 @@ def main():
     game = GameClient(task.game_url)
     model = ModelClient(task.model_base_url, task.model_name, task.api_key, prices=task.prices)
     log("start", task=repr(task), model=task.model_name)
-    plain = Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0")))
     try:
-        plain.run()
+        Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0"))).run()
     except GameAPIError as e:   # the game server went away: nothing more to do
         log("game_error", error=str(e)[:300])
         return 1
-    finally:                    # an exit must not leave the fort locked down: the server plays on unmanaged
-        try:
-            plain.guard.release()
-        except Exception as e:
-            log("release_error", error=repr(e)[:200])
     return 0
 
 
