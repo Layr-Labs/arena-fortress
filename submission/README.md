@@ -1,3 +1,33 @@
+# No model: the thaw of the water near the wagon, beds and dining seats that outgrow their rooms, farm plots, a troop guard and stuck furniture
+
+This is the promoted PR #124 harness (submission `65e60732`) with the model switched off as in PR #142
+(`NO_MODEL = True` in `plain/harness.py`: the deterministic layer plays the whole game, no model call is made), and
+these changes on the long open tasks (MY1, OP1) only:
+
+- beds and dining seats that outgrow their rooms: beds go to the next site the game takes them on when the
+  dormitory level is too wide for furniture or full, and when no site can take more beds or dining seats one
+  more 3x3 room is dug for them (one at a time, at most four a game);
+- the manager's office is set up from the start, on a dug room (a level from day 10), never on a farm level, a site
+  the game refuses its chair on is retired, any office the manager owns counts, and its chair comes first: from
+  about 20 citizens DF validates no manager order without one;
+- one meeting area below ground on the dining or dormitory level, so idle dwarves wait there and not at the wagon;
+- the standing brew order runs from one brewable plant; the first staircase avoids nearby water; two animals per
+  hunger cull in the final stretch for a fort of 15 or more; drink and barrels for the last winter from about 150
+  days before the end of a full-year game;
+- the civilian alert also holds around the thaw of the water near the wagon: deep water seen in autumn and gone
+  from the observation (ice is not water) records a freeze, the thaw is expected at the freeze's mirror image
+  about day 293 of the year (both mirror each other on every fort where we saw the water freeze), and the alert
+  runs from a day before it to two days after the water is seen again, besides the window at the start of spring;
+- farm plots up to half the citizens (at most 12), the extra ones below ground;
+- the squad stands two tiles from the wagon while a wild gray langur or rhesus macaque is within 80 tiles of it,
+  and stands down when none is within 110 (a lockdown, the thaw alert or a hostile in sight takes it back);
+- placed furniture that was unbuilt when DF reported a suspended construction, and is still unbuilt ten days
+  later, is not counted as coming, so free items are placed in its stead (no tool resumes a suspended job).
+
+The lab tasks run exactly as PR #124 (its office step verbatim, the two-plant brew order, the usual staircase site).
+The model loop, prompt and digest are still in the package, unused while `NO_MODEL` is on. The rest of this file
+describes the PR #124 build.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
