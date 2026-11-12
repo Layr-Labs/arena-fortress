@@ -139,9 +139,13 @@ class Overseer(OpenPlayRules):
         self.drink_growth = bool(t.get("hands_off")) and "drink must not end lower" in goal
         self.beds_first = bool(t.get("hands_off")) and "every dwarf must have a placed bed" in goal
 
+    def installed(self, kind):
+        """Furniture of this kind a dwarf has installed (the count the score reads), not merely placed."""
+        return self.built.get(kind) or 0
+
     def beds_unmet(self):
         """True while the bed goal still has a shortfall on the last observation the layer saw."""
-        return self.beds_first and self.cit > 0 and (self.placed.get("bed") or 0) < self.cit
+        return self.beds_first and self.cit > 0 and self.installed("bed") < self.cit
 
     # ---- the action gate
     def may(self, key, retry=2, limit=6):
@@ -196,10 +200,21 @@ class Overseer(OpenPlayRules):
             self.craft_ids.intersection_update(present)
         self.zones = [z for z in lst(self.o.get("zones")) if isinstance(z, dict)]
         self.free = d(self.st.get("furniture_free"))
-        self.placed = {}
+        # `placed` counts every furniture row, `built` only the installed ones. The score reads installed beds
+        # (outcome.lua counts bed buildings whose build stage is complete), and a bed placed on a tile waits for a
+        # dwarf to install it: counting the uninstalled ones as housing hides the shortfall the horizon is scored
+        # on. Where the observation has no `built` flag at all, every row is taken as installed (the old count).
+        self.placed, self.built = {}, {}
+        flagged = False
         for f in lst(self.o.get("furniture")):
             if isinstance(f, dict):
                 self.placed[f.get("kind")] = self.placed.get(f.get("kind"), 0) + 1
+                if "built" in f:
+                    flagged = True
+                    if f.get("built"):
+                        self.built[f.get("kind")] = self.built.get(f.get("kind"), 0) + 1
+        if not flagged:
+            self.built = dict(self.placed)
         if isinstance(self.o.get("workshops"), list):
             seen = set()
             for w in lst(self.o.get("workshops")):
@@ -599,7 +614,7 @@ class Overseer(OpenPlayRules):
         """Housing is read at the horizon: placed (built) beds per citizen and seats inside dining zones per two
         citizens. Near the end, order the shortfall at once (a built bed needs the item, a carpenter and an installer)
         and place whatever is free; the regular furnish step then zones it."""
-        beds_short = self.cit - (self.placed.get("bed") or 0)
+        beds_short = self.cit - self.installed("bed")
         if beds_short > 0 and (self.st.get("beds") or 0) < self.cit + 2 and self.logs() >= 2 \
                 and not self.pending("make_bed") and not self.ordered_now("o_make_bed"):
             self.act("o_bed_close", "add_order", {"recipe": "make_bed", "amount": min(30, max(2, beds_short + 2))},
@@ -620,12 +635,13 @@ class Overseer(OpenPlayRules):
                              retry=2, limit=10)
 
     def seats(self):
-        """Seats as the score counts them: tables and chairs inside dining zones."""
-        n = 0
-        for z in self.zone("dining"):
-            f = d(z.get("furniture"))
-            n += min(f.get("table") or 0, f.get("chair") or 0)
-        return n
+        """Seats as the score counts them: one minimum over the fort, not one per zone. `outcome.lua` adds up every
+        DiningHall zone's built tables and chairs and takes min(tables, chairs) once, so five tables in one zone and
+        five chairs in another are five seats. Summing a per-zone minimum counted those as none, and the endgame step
+        kept ordering furniture that could not raise the number the score reads."""
+        tables = sum((d(z.get("furniture")).get("table") or 0) for z in self.zone("dining"))
+        chairs = sum((d(z.get("furniture")).get("chair") or 0) for z in self.zone("dining"))
+        return min(tables, chairs)
 
     # ---- dining seats on the long open tasks (MY1, OP1), where housing is scored; lab tasks keep the steps above
     def real_seats(self):
@@ -832,7 +848,7 @@ class Overseer(OpenPlayRules):
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
-            short = self.cit + 2 - (self.placed.get("bed") or 0)
+            short = self.cit + 2 - self.installed("bed")
             n = min(self.free.get("bed") or 0, short, 30)
             if n > 0:
                 r = self.act("beds", "place_furniture", {"kind": "bed", "site": dorm["id"], "count": n},
