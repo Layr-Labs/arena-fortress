@@ -35,21 +35,16 @@ from . import digest, prompt
 HISTORY = 12                # messages kept after the system prompt
 TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (the latest is whole)
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
+SHORT_DAYS = 3              # advance cap while citizens outnumber placed beds
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
-STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
+STALL_AFTER = 4             # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
+NO_MODEL = True             # current operator-rule layer, measured without model calls
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
 LAYER_TOOLS = ("civilian_alert",)   # the deterministic layer owns these: the model's calls are refused locally
-CALM_WORKSHOPS = {      # refused while the layer keeps the fort from fishing and hunting (autolabor is on)
-    "Fishery": ("not run: this fortress keeps no Fishery. With one, a dwarf goes back to fishing at the river, where "
-                "predators have killed fishers on forts like this one. Food comes from the farms and, in the last "
-                "two weeks, from the animals."),
-    "Butchers": ("not run: the deterministic layer builds the Butchers itself when it is needed: just before the "
-                 "final slaughter, or earlier if food runs out or a mood asks for bones. While one stands a dwarf "
-                 "carries the hunting labour, so it is not built sooner.")}
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
@@ -70,6 +65,21 @@ def prepare_tools(tools):
             if isinstance(days, dict):
                 days["maximum"] = min(days.get("maximum", MAX_DAYS), MAX_DAYS)
     return out
+
+
+def query_tool(queries):
+    """The /task's read-only queries as one model tool. Queries never move time and never count as actions."""
+    qs = [q for q in queries or [] if isinstance(q, dict) and q.get("name")]
+    if not qs:
+        return None
+    sig = "; ".join(f"{q['name']}({', '.join(q.get('params') or {})})" for q in qs)
+    return {"type": "function", "function": {
+        "name": "query",
+        "description": ("Run one of the game's read-only queries. Never moves time, never counts as an action. "
+                        "Queries and their args: " + sig),
+        "parameters": {"type": "object", "required": ["name"], "properties": {
+            "name": {"type": "string", "enum": [q["name"] for q in qs]},
+            "args": {"type": "object", "description": "the query's args, e.g. {\"kind\": \"citizens\"} for units"}}}}}
 
 
 def observation(resp, extra):
@@ -122,18 +132,24 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.queries = {}         # /task query name -> its schema
+        self.local_tools = set()  # tools the harness answers itself (query)
+        self.events_tick = 0      # /events is polled from here each turn
 
     def setup(self):
         t = self.game.task()
+        self.guard.configure_tools(t.get("tools") or [])
         self.tools = prepare_tools(t.get("tools") or [])
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
+        self.queries = {q["name"]: q for q in t.get("queries") or [] if isinstance(q, dict) and q.get("name")}
+        qt = query_tool(list(self.queries.values()))
+        if qt and "query" not in self.tool_names:
+            self.tools.append(qt)
+            self.tool_names.add("query")
+            self.local_tools.add("query")
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
-        try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
-            self.guard.set_task(info)
-        except Exception as e:
-            log("guard_set_task_error", error=repr(e)[:200])
         self.extra = {}
         if info.get("goal"):
             self.extra["goal"] = str(info["goal"]).replace("{days}", str(days))
@@ -147,13 +163,6 @@ class Plain:
         left = resp.get("hands_off_in_days")
         if (isinstance(left, int) and left <= 4) or (resp.get("day") or 0) < 14 or obs.get("dig_designations_pending"):
             return 1
-        try:
-            if self.guard.beds_unmet():   # the unmet bed goal keeps the pacing on the layer's schedule
-                return 1
-        except Exception:
-            pass
-        if self.open_play() or self.guard_holds():
-            return self.step_days()
         return 2
 
     def spent(self):
@@ -182,6 +191,10 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
+        if NO_MODEL:
+            self.layer_only("no_model")
+            log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            return self.stats
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
@@ -201,6 +214,7 @@ class Plain:
                     break
                 continue
             self.stats["turns"] += 1
+            self.poll_events()
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
@@ -223,6 +237,7 @@ class Plain:
                     continue
                 if not self.advance(1, "model_error"):
                     break
+                idle = 0
                 continue
             streak = 0
             calls = msg.get("tool_calls") or []
@@ -263,12 +278,9 @@ class Plain:
                 except GameAPIError as e:
                     log("query_error", query="units", error=str(e)[:200])
                     self.units_day = day   # don't retry every turn
-            layer = {"report": self.guard.report, "owned": self.guard.owned, "calm": self.guard_calm()}
-            try:     # the open-play rules' facts: predators in sight, the lockdown and who is shut out, the felling
-                layer.update(self.guard.status())
-            except Exception as e:
-                log("guard_status_error", error=repr(e)[:200])
-            status = digest.digest(obs, env, self.memory, units=self.units, layer=layer)
+            status = digest.digest(obs, env, self.memory, units=self.units,
+                                   layer={"report": self.guard.report, "owned": self.guard.owned,
+                                          "findings": self.guard.findings})
             self.units = None   # the digest keeps the labor line; the query runs again in UNITS_EVERY days
             compact = digest.compact_observation(obs)
             return status + "\n\nOBSERVATION " + json.dumps(compact, separators=(",", ":"), ensure_ascii=False)
@@ -298,10 +310,16 @@ class Plain:
             args = json.loads(fn.get("arguments") or "{}")
         except ValueError:
             args = None
+        if isinstance(name, str) and name in self.local_tools:   # answered by the harness: no /act, no action spent, no time moved
+            resp = self.run_query(args)
+            self.stats["queries"] = self.stats.get("queries", 0) + 1
+            self.messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": json.dumps(
+                resp, separators=(",", ":"), ensure_ascii=False, default=str)[:TOOL_RESULT_MAX]})
+            log("query", name=(args or {}).get("name") if isinstance(args, dict) else None, ok=resp.get("ok"),
+                error_code=resp.get("error_code"))
+            return False
         tick = self.tick()
         refused = self.refuse(name, args, tick) if isinstance(args, dict) else None
-        # name must be a string before the set lookup, and only hashable cancel ids reach the cache (peer
-        # f577e8a7's failure cases, idea credited: validate before cache access; the API rejects the rest)
         if not isinstance(name, str) or name not in self.tool_names:
             resp = {"ok": False, "error_code": "unknown_tool", "error": f"no tool named {name!r}"}
         elif not isinstance(args, dict):
@@ -315,18 +333,13 @@ class Plain:
                     args = {**args, "days": max(1, min(MAX_DAYS, int(args.get("days") or 1)))}
                 except (TypeError, ValueError):
                     args = {**args, "days": 1}
-                try:
-                    if self.guard.beds_unmet():   # a surrogate goal the layer is still catching up on: advance
-                        args["days"] = min(args["days"], 2)   # slowly, so it can place the beds between steps
-                except Exception:
-                    pass
+                if self.guard.housing_short():   # beds short: let the layer place them every few days (LT08 iter23:
+                    args["days"] = min(args["days"], SHORT_DAYS)   # one 14-day jump left 15 migrants bedless to the end)
                 left = (self.game.last or {}).get("hands_off_in_days")
                 if isinstance(left, int) and left <= 4:   # one day at a time into a window: last chance to act
                     args["days"] = 1
             try:
-                resp = self.open_advance(args) if name == "advance_days" and (self.open_play()
-                                                                              or self.guard_holds()) \
-                    else self.game.act(name, args)
+                resp = self.game.act(name, args)
             except ActionLimit as e:   # K actions used today: say so, and let a day pass
                 self.result(call, name, args, {"ok": False, "error_code": "action_limit", "error": str(e)})
                 self.advance(1, "action_limit")
@@ -337,142 +350,49 @@ class Plain:
         self.stats["advances"] += moved
         return moved
 
-    def open_play(self):
+    def run_query(self, args):
+        """The model's query tool: validated against the /task query list, then GET /query/<name>."""
+        if not isinstance(args, dict):
+            return {"ok": False, "error_code": "bad_arguments", "error": "arguments must be a JSON object"}
+        name, params = args.get("name"), args.get("args") if args.get("args") is not None else {}
+        if name not in self.queries:
+            return {"ok": False, "error_code": "unknown_query", "error": f"no query {name!r}; queries: {sorted(self.queries)}"}
+        if not isinstance(params, dict):
+            return {"ok": False, "error_code": "bad_arguments", "error": "args must be a JSON object"}
+        allowed = self.queries[name].get("params") or {}
+        dropped = sorted(k for k in params if k not in allowed)
+        params = {k: v for k, v in params.items() if k in allowed}
         try:
-            return self.guard.open_play()
-        except Exception:
-            return False
+            r = self.game.query(name, **params)
+        except GameAPIError as e:
+            return {"ok": False, "error_code": "query_error", "error": str(e)[:300]}
+        out = {"ok": True, "query": name, "result": r.get("result", r) if isinstance(r, dict) else r}
+        if dropped:
+            out["ignored_args"] = dropped
+        return out
 
-    def guard_owns_lock(self, args):
+    def poll_events(self):
+        """GET /events since the last event seen; the digest reports what is new. Never costs a turn."""
         try:
-            return self.guard.owns_lock(args)
-        except Exception:
-            return False
-
-    def guard_felling_waits(self):
-        try:
-            return isinstance(self.guard.fell, dict)
-        except Exception:
-            return False
-
-    def guard_seals_stair(self, args):
-        try:
-            return self.guard.seals_stair(args)
-        except Exception:
-            return False
-
-    def guard_calm(self):
-        """The layer keeps the fort from fishing and hunting, or on an open task has yet to decide whether it does."""
-        try:
-            return self.guard.calm is True or (self.guard.calm is None and self.guard.open_task())
-        except Exception:
-            return False
-
-    def guard_holds(self):
-        try:
-            return self.guard.lock is not None or bool(self.guard.own_locks)
-        except Exception:
-            return False
-
-    def step_days(self):
-        try:
-            return 1 if self.guard.step_days() == 1 else 2
-        except Exception:
-            return 2
-
-    def open_advance(self, args):
-        """Open play: however far the model advances, the layer gets a pass every two game days (its slaughter
-        schedule is timed in days, and one pass a fortnight would miss it). One model call still decides the advance;
-        the layer's passes cost no credits. A tripwire stop ends the advance as it would have. The API measures two
-        tripwires against the start of a call (a hostile 25 tiles closer, indoor water half as much again): those
-        are checked here against the start of the whole advance, from the observation, and end it the same way with
-        a `harness_stop` note (not an API field). The steps' interruptions and ignored tripwires are passed on."""
-        total, done, ticks, resp = args["days"], 0, 0, None
-        notes, ignored = [], []
-        first = self.alarm_state(self.game.observe()) if total > 1 else None   # a free read; no time passes
-        while done < total:
-            step = min(self.step_days(), total - done)
-            resp = self.game.act("advance_days", {**args, "days": step})
-            res = resp.get("result") if isinstance(resp.get("result"), dict) else {}
-            if isinstance(res.get("stopped"), dict) and isinstance(res["stopped"].get("after_ticks"), int):
-                res["stopped"]["after_ticks"] += ticks      # counted from the start of the whole advance
-            done += step
-            ticks += res.get("advanced_ticks") or 0
-            notes += res.get("interruptions") if isinstance(res.get("interruptions"), list) else []
-            ignored += res.get("tripwires_ignored") if isinstance(res.get("tripwires_ignored"), list) else []
-            if not resp.get("ok") or resp.get("game_over") or res.get("stopped") or done >= total:
-                break
-            obs = self.game.observe()
-            if obs.get("game_over"):
-                break
-            if obs.get("day") != self.guard_day:
-                self.guard_day = obs.get("day")
-                self.guard.step(obs)
-            why = self.alarm(first, self.alarm_state(obs))
-            if why:
-                res["harness_stop"] = why
-                break
-        if isinstance(resp.get("result"), dict):
+            r = self.game.events(since_tick=self.events_tick)
+            evs = [e for e in (r or {}).get("events") or [] if isinstance(e, dict)]
+            ticks = [e.get("tick") for e in evs if isinstance(e.get("tick"), int)]
             if ticks:
-                resp["result"]["advanced_ticks"] = ticks
-                resp["result"]["advanced_days"] = round(ticks / DAY, 2)
-            if notes:
-                resp["result"]["interruptions"] = notes
-            if ignored:
-                resp["result"]["tripwires_ignored"] = ignored
-        return resp
-
-    @staticmethod
-    def alarm_state(resp):
-        """(nearest visible hostile's distance to the wagon or None, indoor water depth units) from an observation."""
-        o = resp.get("observation") if isinstance(resp.get("observation"), dict) else {}
-        th = o.get("threats") if isinstance(o.get("threats"), dict) else {}
-        water = o.get("water_on_fort_levels") if isinstance(o.get("water_on_fort_levels"), dict) else {}
-        near = th.get("nearest_hostile_dist_to_wagon") if th.get("visible_hostiles") else None
-        return (near if isinstance(near, (int, float)) else None,
-                water.get("total_depth") if isinstance(water.get("total_depth"), (int, float)) else 0)
-
-    @staticmethod
-    def alarm(first, now):
-        if first[0] is not None and now[0] is not None and first[0] - now[0] >= 25:
-            return f"a visible hostile is {first[0] - now[0]:.0f} tiles closer to the wagon than when this advance began"
-        if now[1] - first[1] >= 50 and now[1] >= 1.5 * first[1]:
-            return f"indoor water rose from {first[1]} to {now[1]} depth units during this advance"
-        return None
+                self.events_tick = max(self.events_tick, max(ticks))
+            self.memory.note_events(evs, (self.game.last or {}).get("day"), (r or {}).get("dropped"))
+        except Exception as e:   # events are advisory: never let them cost a turn
+            log("events_error", error=repr(e)[:200])
 
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
-        if name == "slaughter" and self.open_play():
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: the deterministic layer schedules slaughter on this task. Food rots in about 17 days here, "
-                "so it keeps the animals for the last two weeks and slaughters one earlier only if food runs short.")}
-        if name == "lock_door" and self.guard_owns_lock(args):      # true only while a lockdown stands
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: the deterministic layer has the stair hatches locked while dangerous wildlife is near and "
-                "the civilians are inside. It opens them itself when the wildlife has gone. Other doors are yours: "
-                "give their door_id.")}
-        if name == "lock_door" and self.guard_seals_stair(args):    # open play, no lockdown standing
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: this would lock the hatch on a surface stair. The deterministic layer keeps those hatches: "
-                "it locks them itself when hostiles come near, once the civilians are below, and opens them again. "
-                "Locked at any other time they cut the dwarves off from the food and drink on the surface. A door of "
-                "your own that is not on a surface stair can be locked by its door_id.")}
-        if name == "enable_automation" and args.get("name") == "autochop" and self.guard_felling_waits():
-            return {"ok": False, "error_code": "layer_owned", "error": (
-                "not run: tree felling is waiting. A large predator is in sight near the river, the felling plugin "
-                "sends dwarves across the whole map and cannot be turned off again. The deterministic layer enables "
-                "it itself when the animal has left, or when drink, food or time runs short.")}
-        if name == "build_workshop" and isinstance(args, dict) and args.get("type") in CALM_WORKSHOPS \
-                and self.guard_calm():
-            return {"ok": False, "error_code": "layer_owned", "error": CALM_WORKSHOPS[args["type"]]}
         if name in LAYER_TOOLS:
             return {"ok": False, "error_code": "layer_owned", "error": (
                 f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
                 "alert keeps civilians from drink and food).")}
-        oid = args.get("order_id") if isinstance(args, dict) else None
-        if name == "cancel_order" and isinstance(oid, int) and oid in self.guard.owned:
+        oid = args.get("order_id")
+        if name == "cancel_order" and type(oid) is int and oid in self.guard.owned:
             return {"ok": False, "error_code": "layer_owned", "error": (
-                f"not run: order {oid} is a standing order of the deterministic layer; it keeps "
+                f"not run: order {args.get('order_id')} is a standing order of the deterministic layer; it keeps "
                 "drink, food, barrels and furniture coming, inside hands-off windows too.")}
         if not isinstance(tick, int):
             return None
@@ -537,17 +457,11 @@ def main():
     game = GameClient(task.game_url)
     model = ModelClient(task.model_base_url, task.model_name, task.api_key, prices=task.prices)
     log("start", task=repr(task), model=task.model_name)
-    plain = Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0")))
     try:
-        plain.run()
+        Plain(task, game, model, seed=int(os.environ.get("DFBENCH_SEED", "0"))).run()
     except GameAPIError as e:   # the game server went away: nothing more to do
         log("game_error", error=str(e)[:300])
         return 1
-    finally:                    # an exit must not leave the fort locked down: the server plays on unmanaged
-        try:
-            plain.guard.release()
-        except Exception as e:
-            log("release_error", error=repr(e)[:200])
     return 0
 
 
