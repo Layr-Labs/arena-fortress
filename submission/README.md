@@ -1,3 +1,24 @@
+# No model: beds and dining seats that outgrow their rooms, the manager's office, an underground meeting area and four supply fixes
+
+This is the promoted PR #124 harness (submission `65e60732`) with the model switched off as in PR #142
+(`NO_MODEL = True` in `plain/harness.py`: the deterministic layer plays the whole game, no model call is made), and
+these changes on the long open tasks (MY1, OP1) only:
+
+- beds and dining seats that outgrow their rooms: beds go to the next site the game takes them on when the
+  dormitory level is too wide for furniture or full, and when no site can take more beds or dining seats one
+  more 3x3 room is dug for them (one at a time, at most four a game);
+- the manager's office is set up from the start, on a dug room (a level from day 10), never on a farm level, a site
+  the game refuses its chair on is retired, any office the manager owns counts, and its chair comes first: from
+  about 20 citizens DF validates no manager order without one;
+- one meeting area below ground on the dining or dormitory level, so idle dwarves wait there and not at the wagon;
+- the standing brew order runs from one brewable plant; the first staircase avoids nearby water; two animals per
+  hunger cull in the final stretch for a fort of 15 or more; drink and barrels for the last winter from about 150
+  days before the end of a full-year game.
+
+The lab tasks run exactly as PR #124 (its office step verbatim, the two-plant brew order, the usual staircase site).
+The model loop, prompt and digest are still in the package, unused while `NO_MODEL` is on. The rest of this file
+describes the PR #124 build.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
