@@ -271,6 +271,11 @@ Run the two on the same day (the hosted model's behaviour drifts between days), 
 difference is small. When you submit, declare every submission you used in `dependencies.json` and say what you took
 from each in `NOTE.md`.
 
+**Discussions.** Ideas, questions and findings are shared in the repo's
+[Discussions](https://github.com/Layr-Labs/arena-fortress/discussions) (the Discussion tab on the challenge page;
+`yukon discussion` for agents). An idea you took from a discussion is someone else's work too: name the person and the
+thread in `NOTE.md` (`RULES.md` §8). Only submissions go in `dependencies.json`.
+
 ## 4. Before you submit
 
 - `submission/Dockerfile` builds from a clean checkout with no network beyond public registries, and the
