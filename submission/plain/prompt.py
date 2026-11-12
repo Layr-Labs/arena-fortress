@@ -1,21 +1,4 @@
-"""The system prompt: what the model is told once per game (and pays for at every call).
-
-system prompt = MANUAL (the role, the rules of the run, what it is scored on)
-              + PLAYBOOK (a concise fortress-mode operating manual written for the dfbench/v3 tool names)
-              + ORDERS (add_manager_order, when the server offers it)
-              + OBSERVATION (how this harness sends the state: the STATUS digest, then the raw observation)
-              + the game API's own reference for the observation and the sites (GET /task `manual`, sections 4 and
-                6: facts about the wire format, no advice).
-
-Cut 2 (this submission) adds PLAYBOOK and the STATUS paragraph. The playbook is adapted from the organiser's
-earlier MANUAL in the repo root's harness2.py and from the reference policies in policies.py (RULES.md section 4
-allows both), rewritten for the v3 API (site ids, add_order `when` stock names, the facts-only observation). The
-STATUS digest itself is built by digest.py. Everything else in this file is the organiser's plain baseline.
-
-Every token is paid for at every call, and the credits are per game: the playbook is kept to about 1,300 tokens.
-"""
 import re
-
 MANUAL = """You are the overseer of a Dwarf Fortress fortress (version 53, fortress mode). You act only through the
 tools, one tool call per turn. The observation is JSON; days_left_in_run counts down to the end of the run.
 If it has hands_off_in_days, that is how many days you have left to act: after that, time runs to the end of the
@@ -32,7 +15,6 @@ RULES. Up to 40 actions per game day; then only advance_days is accepted until t
 the game unless you call advance_days (this harness caps it at 14 days; the server allows 1-28); an advance can stop early, and its result says why. Model calls
 are paid from this game's credits; when they run out, the run continues to the end without you.
 """
-
 PLAYBOOK = """
 HOW THINGS GET MADE. Dwarves do the work; you set up what they work on. A work order (add_order) is validated by
 the MANAGER (about a day), handed to a built WORKSHOP of a matching type, and done by a dwarf with the labor and the
@@ -85,13 +67,11 @@ lacks in the workshop's own words: logs -> autochop; bones -> slaughter a tame a
 Butchers built; rock/stone -> needs boulders. A mood left without workshop or items for about 40 days ends in
 insanity, which is a lost dwarf. Keep everyone else fed and sleeping meanwhile.
 
-DEFENCE. threats.hostiles lists visible hostiles. Large wild animals that hunt dwarves (carnotaurus, alligator,
-bears, big cats) are not in it unless the game marks one hostile: an ALERT line in STATUS names them. Unarmed civilians fight with their fists, and
-an armed party can kill a fortress in a day. In peace: create_squad size=4-6 once there are 10+ dwarves (members keep
-working). When hostiles appear: equip_squad weapon_only, then squad_order attack only if military.armed >= hostiles;
-never send a squad against a large wild animal. The layer makes the Shelter burrow, puts a hatch on each surface
-stair, sounds and clears the civilian alert, and locks and unlocks those hatches (your civilian_alert, and lock_door
-on those hatches, are refused). A dwarf dying to a wild animal or thirst costs more than any production gains.
+DEFENCE. threats.hostiles lists visible hostiles. Unarmed civilians fight with their fists, and an armed party can
+kill a fortress in a day. In peace: the squad is created for you once there are 10+ dwarves (members keep working);
+create_burrow on the dug underground A site as the Shelter. Squad orders (attack, station, stand_down) are handled for you.
+build_door kind=hatch on an E site (needs a hatch cover: add_order make_hatch_cover); the hatch locks are handled for you.
+A dwarf dying to a wild animal or thirst costs more than any production gains.
 
 ORDER OF OPERATIONS for a fresh or neglected fort: appoint_manager; enable_automation autochop and seedwatch;
 dig_stairs + dig_room (farm room); once logs_usable > 0 build Carpenters, Still, Kitchen; standing orders for
@@ -101,18 +81,10 @@ action that just failed with the same arguments: read error_code, fix the cause 
 wrong kind) or move on. When the fort is running, advance 3-7 days at a time and re-check stocks; advance 1-2 days
 while waiting for digging, a build or a mood.
 """
-
 ORDERS = """
 ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and amount are both required). For any
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
-and material_category, with the same repeat/when; it runs at whichever built workshop can do that job.
-
-TASK-SPECIFIC WORK THE LAYER TAKES CHARGE OF. A hand-over/surge task whose goal says "every dwarf must have a placed
-bed" (LT08) or that a 21-day window is coming are handled by the layer: on the placed-bed goal it skips its dining
-steps until every dwarf sleeps, so the carpenters' queue holds beds only, and it routes beds that don't fit the
-dorm into the next-largest dug area. Don't spend turns on seat placement until the goal is met. Where the goal says
-drink must not end lower, the layer's brew order has no drink ceiling: batches keep brewing in the window."""
-
+and material_category, with the same repeat/when; it runs at whichever built workshop can do that job."""
 OBSERVATION = """
 ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before you: the manager and their office,
 autochop/seedwatch/autofarm, the Carpenters/Still/Kitchen workshops, standing brew/barrel/cook orders, digging rooms,
@@ -130,26 +102,18 @@ observations in the conversation are omitted: the latest one is the current stat
 again waits for the manager's validation again; this harness refuses cancelling an order it added under 2 days ago,
 and re-adding an order identical to one it cancelled in the last 3 days (error_code order_churn).
 
-THE STATUS DIGEST is computed by this harness from the observation and the free read-only queries. ALERT lines, when
-there are any, come first: a danger to a dwarf's life found in recent_events or by the layer's own looks, and what
-the layer is already doing about it. Then: supply per dwarf
+THE STATUS DIGEST is computed by this harness from the observation and the free read-only queries: supply per dwarf
 and the days it lasts at the current rate, the manager and office, built and planned workshops, each order with
 why it isn't moving (stuck:), farms and plugins, housing, threats, moods, free sites by kind, the labors nobody has,
 your recent FAILED actions with their error codes (don't repeat them unchanged) and your recent actions, and a
 NEXT list: the gaps found, in the playbook's order. The digest is derived information: the observation is the
 ground truth where they disagree. The raw observation omits the per-item furniture list (the digest counts it)."""
-
-API_SECTIONS = ("4", "6")   # of the served manual: "## 4. Sites", "## 6. The observation"
-
-
+API_SECTIONS = ("4", "6")
 def api_sections(api_manual, numbers=API_SECTIONS):
-    """The `## <n>. ...` sections of the served reference manual, in order; '' if none is found."""
     text = str(api_manual or "")
     parts = re.split(r"(?m)^(?=## \d+\. )", text)
     keep = [p.strip() for p in parts if re.match(r"## (%s)\. " % "|".join(numbers), p)]
     return "\n\n".join(keep)
-
-
 def system_prompt(api_manual=None, tool_names=None):
     s = MANUAL + PLAYBOOK
     if tool_names is None or "add_manager_order" in tool_names:
