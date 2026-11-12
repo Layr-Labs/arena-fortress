@@ -1,0 +1,117 @@
+[
+  {
+    "evidence": "submission/overseer/harness.py endgame_supply, against that note's 'Changes since the previous archive' section.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): mpjunior92's note: raising the brewing target during the final stretch of a long game because drink declined through the scored interval after production paused. The endgame supply mode is a reimplementation of that idea; no code was taken.",
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02"
+  },
+  {
+    "evidence": "submission/plain/digest.py, prompt.py, harness.py share lines with the same files in 0e977ac9 through their common cut-2 ancestor.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): kshitij-hash's later submission on the same digest lineage. Nothing was taken from it, but its digest, prompt and loop share most of their lines with the cut-2 files this tree carries, so it is declared as an overlapping archive.",
+    "submissionId": "0e977ac9-e067-4c40-9955-be65f3fcc2e4"
+  },
+  {
+    "evidence": "submission/overseer/harness.py (the result checks after dig_room and build_workshop) and submission/plain/harness.py (STALL_AFTER, idle reset), against 41cfa9eb.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): GordoAR's first candidate: the room-role, workshop-site and stall-pacing repairs that 5dfdcf15 carried forward and this submission inherits through it.",
+    "submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701"
+  },
+  {
+    "evidence": "submission/overseer/harness.py: seats and rezone share lines with 44352f28.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): e-man07's earlier archive of the efac22bf revision (never scored). The pieces credited to efac22bf first appeared there, so it is declared as an overlapping archive.",
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639"
+  },
+  {
+    "evidence": "submission/plain/digest.py, prompt.py, harness.py, against 514f4ac8.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): kshitij-hash's earlier archive of cut 2, the same files as 9b597a76; declared because its lines overlap this tree's digest, prompt and loop.",
+    "submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c"
+  },
+  {
+    "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 56a42567.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): ryan48's submission. Nothing was taken from it, but it builds on the same e-man07 layer and the same cut-2 digest lineage, so its overseer, loop and prompt share lines with this tree; declared as an overlapping archive.",
+    "submissionId": "56a42567-54de-4238-8e7b-8be1081d134c"
+  },
+  {
+    "evidence": "submission/overseer/harness.py (covers, needs_zone, place, the alert timer, the Fishery rule, the office chair), submission/plain/harness.py (STALL_AFTER, the idle reset, the isinstance checks), submission/Dockerfile, submission/.dockerignore, submission/tests/, against 5dfdcf15.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): GordoAR's promoted submission, the main this starts from: e-man07's layer with its repairs (room roles and workshop sites kept only after a successful call, the civilian-alert timer read from the game state, zone coverage checked from the placed coordinates, a Fishery for an active fisher, the office chair placed with the office, the four-turn stall advance, the typed argument checks) and the pinned Dockerfile. All of it is kept; its tests are kept except the brew-only ownership test, which this harness's wider ownership guard replaces.",
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412"
+  },
+  {
+    "evidence": "submission/overseer/harness.py (the Overseer class and its regular steps) and the Overseer.step call in submission/plain/harness.py, against 6e775ed2.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): e-man07's deterministic layer (the overseer package) and the hybrid architecture: run once per game day before the model loop. Every regular step of that layer is here, as repaired by GordoAR; this submission adds the closer, progression, bed-target, report and ownership pieces around it.",
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa"
+  },
+  {
+    "evidence": "submission/plain/digest.py (_layer, the [layer] tag), submission/plain/prompt.py (the handled-for-you paragraph), submission/plain/harness.py (layer_only, refuse, the Overseer.step call) and the closer methods of submission/overseer/harness.py, against the same files in 7662723d.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): Our own previous submission (v4): the digest loop with the deterministic layer underneath, the layer-aware digest, the closer steps, the layer-only fallback and the ownership guard. This submission is that design rebuilt on the new main, with a progression step and a migrant bed target added.",
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261"
+  },
+  {
+    "evidence": "submission/overseer/harness.py and submission/plain/harness.py share inherited lines with 7d23a133.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): ryan48's earlier archive of 56a42567 (not scored). Same overlap, same reason.",
+    "submissionId": "7d23a133-1e48-4825-b42a-d7e664e2c1e2"
+  },
+  {
+    "evidence": "submission/dfbench_client/ (the baseline client in both) and a few lines of submission/overseer/harness.py.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): akhilc08's playbook-first harness. Nothing was taken from it beyond what both inherit from the organiser's baseline (dfbench_client) and a few layer lines of common ancestry; declared because the attribution check flagged the overlap.",
+    "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e"
+  },
+  {
+    "evidence": "submission/plain/digest.py, submission/plain/prompt.py and user_message in submission/plain/harness.py, against 9b597a76.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): kshitij-hash's cut 2: the STATUS digest (plain/digest.py), the failed-action memory, the compacted observation and the PLAYBOOK prompt. This submission's model side is that code, with the LAYER section added to the digest.",
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9"
+  },
+  {
+    "evidence": "submission/plain/prompt.py PLAYBOOK, against d74e941b.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): kshitij-hash's cut 1: the PLAYBOOK operating manual in the system prompt, inherited through cut 2.",
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8"
+  },
+  {
+    "evidence": "submission/overseer/harness.py: seats, rezone, the Carpenters branch of closer; submission/plain/harness.py: quiet_days and the one-day advance, against efac22bf.",
+    "rationale": "Current-base upstream declaration retained. Quoted rationale from the author of fa9c13cc (not a claim about this submitter): e-man07's revision of the layer: two pieces are taken, the seat count inside dining zones and the re-zoning of loose built furniture (merged with its dining zone over un-zoned seats), plus the second Carpenters for a migrant wave, the one-day advance into a window and the idea of playing on after the credit stop. Its other changes are not taken.",
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e"
+  },
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "Directly inherits the promoted fa9c13cc hybrid runtime at source 2f3abb30f6291e05a8d37a8c40c34a29732000b4: deterministic overseer, digest, prompt, client and bounded fallback. All 13 current Python runtime files are restored byte-for-byte to that source. Earlier pacing, livestock, brewing-gate, floor and craft-stop experiments are retired. No experimental runtime change or official improvement is claimed.",
+    "evidence": "Compare submission/dfbench_client/*.py, submission/overseer/*.py and submission/plain/*.py with the same paths at promoted source 2f3abb30f6291e05a8d37a8c40c34a29732000b4. Historical experiment snapshots and negative results remain in reports/iteration10-food through reports/iteration15-evidence-audit; those measured edits are not the current runtime."
+  },
+  {
+    "submissionId": "6ad71ca7-3685-4d4b-8117-1bd6f63624df",
+    "rationale": "Retained for earlier branch research/design history, not as a claim that its code is present now. Earlier public-facts advisor work used this submission's published recommendation to expose public jobs/stocks/orders context and diagnose production bottlenecks. Current runtime is the restored fa9c13cc runtime, not that earlier advisor branch.",
+    "evidence": "The published note for 6ad71ca7-3685-4d4b-8117-1bd6f63624df describes periodic jobs/orders/stocks diagnostics and future bottleneck investigation. The earlier advisor/inspection implementation and reports remain in local branch history, including work leading to d8164ec2 and 7d62bc3f. submission/plain/advisor.py and submission/plain/inspect.py are absent from the current upload; no direct runtime reuse from 6ad71ca7 is asserted."
+  },
+  {
+    "submissionId": "d8164ec2-7202-4383-8dcf-caa164ef70fd",
+    "rationale": "Retained for our earlier branch's research and comparison history, not current runtime inheritance. This published submission contained the public-facts advisor, failure memory, allowlisted inspection and standing-guard work on which later retired advisor candidates built. Its official 75.84 result is ours, but was rejected and never became the frontier.",
+    "evidence": "Official submission d8164ec2-7202-4383-8dcf-caa164ef70fd scored 75.84 over 48 games and was rejected against 77.10. Earlier advisor, batching, catalogue, placement and packing source remains in local history and archived reports. Those modules and associated batch tests are not in the restored current fa9c13cc runtime; no current Plain.run_batch, advisor.py or inspect.py implementation is claimed."
+  },
+  {
+    "submissionId": "7d62bc3f-9ee2-417d-886c-9267863a97dc",
+    "rationale": "Retained for our earlier branch's research/provenance history, not current runtime inheritance or evidence of gameplay performance. This held upload contained our retired advisor, packing, catalogue, partial-placement and zone-schema work. It received an early size-limit hold before any game; the attempt counted.",
+    "evidence": "Uploaded local candidate 497a753a6240eb8bc97fd5e9779718d5462bbfd4 was recorded as submission commit 3e3b3782f08780a3af39be1742a6c781c39ffb70. https://github.com/Layr-Labs/arena-fortress/pull/31 records the exact reason: note 64509 characters, limit 40000, zero model-review calls and zero games. Current runtime instead comes from fa9c13cc; advisor.py, inspect.py and packing.py are absent. The hold establishes neither a gameplay loss nor an attribution/plagiarism verdict."
+  },
+  {
+    "submissionId": "68c69f40-9edf-45d0-a644-fdc39fc74cde",
+    "rationale": "Direct continuation of our published operator-rules and need-sized-dorm archive. Reuses its runtime, prompt, sizing and production rules; this submission adds public read-interface coverage, office recovery and live placement reservations.",
+    "evidence": "Compare submission/overseer/harness.py, submission/plain/harness.py and submission/plain/digest.py with the same files in the predecessor archive at commit 893210714ffab89ec8e7b3ab4c1de099d3a0272f. The new runtime retains their earlier policies and adds the methods described in NOTE.md."
+  },
+  {
+    "submissionId": "b2c46c0b-e931-43d2-9c80-8c150b029250",
+    "rationale": "Direct continuation of our most recent published natural-brewing/office-soil archive and its common office-repair runtime. Retains the public-API and supply-loop lineage; replaces the subsequently developed housing excavation, reservation and capacity paths described in the current note. Rejected local experiments after c9e7555 are not included.",
+    "evidence": "Compare submission/overseer/harness.py digging(), bedroom_size(), dining(), farm reservations and window_supply(), plus plain model-loop runtime; current note identifies the retained c9e7555 checkpoint and limits of the public-seed measurements."
+  },
+  {
+    "submissionId": "4dc4bba3-68f1-41f9-b658-bcd10868f009",
+    "rationale": "Direct retained operator-rule base, previously scored86.51 and rejected. Iter78 changes Plain to zero-model scheduling and adds open-play final-food behavior. Not byte-identical to this parent.",
+    "evidence": "submission/plain/harness.py NO_MODEL/run, submission/overseer/harness.py finish_food versus source b3cfe9a269d737d3969a2f8e356cbc024e1615f2. Inherited full dependency declaration retained in dependency-lineage.json."
+  },
+  {
+    "submissionId": "d1febd13-b50c-4bec-84cd-e078d68a4156",
+    "rationale": "Directly adapted zero-model control and bounded final-food feast/cull concept from deterministic source b8437e037382273cf7a7ac4beb08afea8f85bc13; exact source used as local comparator.",
+    "evidence": "submission/plain/harness.py NO_MODEL and submission/overseer/harness.py finish_food; measured source controls and summary in reports/iter78-current-zero-model."
+  },
+  {
+    "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+    "rationale": "Hybrid parent ab1668c0575c85ae1971d528b88bdaeb14b94b53 of the deterministic source; prior final-food policy lineage, not a current performance claim.",
+    "evidence": "submission/plain/harness.py NO_MODEL and submission/overseer/harness.py finish_food; measured source controls and summary in reports/iter78-current-zero-model."
+  }
+]

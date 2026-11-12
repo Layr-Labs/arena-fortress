@@ -15,7 +15,6 @@ Design rule: a digest bug must never cost a game. digest() catches every excepti
 section out; the harness falls back to the raw observation alone if the whole digest fails.
 """
 import json
-import re
 
 DAY = 1200
 DRINK_PER_DWARF_PER_DAY = 20 / 336     # about 5 drinks a season (docs/SUCCESS.md section 1.2)
@@ -52,28 +51,12 @@ CANCEL_KEYS = [("brew", ("brew_drink", "brew_drink_from_fruit")), ("barrel", ("m
 LABORS = [("MINE", "nobody digs"), ("CUTWOOD", "nobody fells trees (autochop needs a woodcutter)"),
           ("CARPENTER", "nobody builds wood furniture or barrels"), ("BREWER", "nobody brews"),
           ("COOK", "nobody cooks"), ("PLANT", "nobody farms")]
-# Event text: recent_events holds the game's latest reports, with no day. Large predators by the words its reports
-# use (overseer/beasts.py lists them by race id, plus the river's sea lamprey and two smaller hunters).
-PREDATOR_WORDS = ("carnotaurus", "alligator", "crocodile", "bear", "tiger", "lion", "jaguar", "anaconda",
-                  "tyrannosaurus", "spinosaurus", "utahraptor", "deinonychus", "quetzalcoatlus", "torvosaurus",
-                  "allosaurus", "afrovenator", "ceratosaurus", "dilophosaurus", "andrewsarchus", "megalania",
-                  "smilodon", "kelenken", "anteosaurus", "dimetrodon", "ogre", "yeti", "sasquatch", "blizzard man",
-                  "beak dog", "nightwing", "grimeling", "lamprey", "cougar", "wolf", "lioness", "tigress")
-PREDATOR = re.compile(r"\b(?:%s)\b" % "|".join(PREDATOR_WORDS))
-NOT_PREDATOR = re.compile(r"alligator snapping turtle|tiger shark|wolf spider|sea lion|lion tamarin")
-PREDATOR_REACH = 100    # tiles from the wagon within which one in sight is an ALERT (the layer's lockdown distance)
-EVENT_DAYS = 3          # an event report is quoted in ALERT for this many days after the digest first saw it
-REPORT_DAYS = 7         # recent_events holds reports of the last seven days: a line still there after that is new
-ATTACK = re.compile(r"^The ([a-z' -]+?) (?:bites|strikes|kicks|punches|gores|charges|scratches|attacks|latches|grabs|"
-                    r"shakes|rams|slams|tears|lashes|bashes|stabs|slashes|hacks|pushes)\b", re.I)
-DEATH = re.compile(r"has been found dead|has died|has bled to death|has drowned|has been struck down|has been killed",
-                   re.I)
-SPEECH = re.compile(r"^[^:]{1,60}, [^:]{1,40}: ")    # "<name>, <profession>: <a thought>", not a report
-ERAS = ("cretaceous ", "jurassic ", "cenozoic ", "permian ")
-CALM_WORKSHOPS = ("Fishery", "Butchers")       # the layer keeps these unbuilt on a calm fort (the model is refused)
 MOOD_WORKSHOP = {"CARPENTRY": "Carpenters", "MASONRY": "Masons", "BONECARVE": "Craftsdwarfs",
                  "STONECRAFT": "Craftsdwarfs", "WOODCRAFT": "Craftsdwarfs", "COOK": "Kitchen", "BREWING": "Still",
                  "BUTCHER": "Butchers", "FISH": "Fishery", "PROCESSPLANTS": "Farmers"}
+
+
+WINDOW_WARN_DAYS = 20   # how far ahead of a hands-off window the drink check starts
 
 
 def _d(x):
@@ -82,11 +65,6 @@ def _d(x):
 
 def _l(x):
     return [i for i in x if isinstance(i, dict)] if isinstance(x, list) else []
-
-
-def _seq(x):
-    """A list of anything (_l keeps only dicts)."""
-    return list(x) if isinstance(x, (list, tuple)) else []
 
 
 def _n(x, default=0):
@@ -144,8 +122,24 @@ class Memory:
         self.prev = None          # (tick, drink, food) of the previous digest, for the trend
         self.labors_missing = None    # from the last units query
         self.last_units_tick = None
-        self.first_seen = {}      # event text -> the day the digest first saw it (recent_events carry no day)
-        self.last_events = set()  # ... the lines of the previous digest: one that comes back is a new report
+        self.event_ids = set()        # /events ids already reported
+        self.events_new = []          # events first seen at this turn's poll
+        self.events_dropped = 0
+        self.event_log = []           # (day, type, text) of the last announcements, kept across turns
+
+    def note_events(self, events, day=None, dropped=None):
+        new = []
+        for e in events or []:
+            i = e.get("id")
+            if i is not None and i in self.event_ids:
+                continue
+            if i is not None:
+                self.event_ids.add(i)
+            new.append(e)
+        self.events_new, self.events_dropped = new, _n(dropped)
+        for e in new:
+            if e.get("announcement"):
+                self.event_log = (self.event_log + [(day, e.get("type"), str(e.get("text") or "")[:140])])[-8:]
 
     @staticmethod
     def short_args(args):
@@ -190,8 +184,8 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_alert, _clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats,
-                _moods, _sites, _labors, _memory, _layer)
+    sections = (_clock, _events, _population, _wealth, _supply, _manager, _workshops, _orders, _farms, _housing, _threats, _moods,
+                _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
            "next": [], "citizens": len(_l(obs.get("dwarves"))) or _n(_d(obs.get("administrators")).get("citizens"), 0)}
@@ -205,8 +199,7 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     try:
         if ctx["next"]:
             nxt = list(dict.fromkeys(ctx["next"]))   # deduplicated, order kept
-            lines.append("NEXT (" + ("routine gaps, after the ALERT above; " if ctx.get("alerts") else "gaps found, ")
-                         + "in playbook order; skip what the observation shows is already under way"
+            lines.append("NEXT (gaps found, in playbook order; skip what the observation shows is already under way"
                          + (", and what the LAYER line shows it is doing" if ctx.get("layer") else "") + "): "
                          + "; ".join(nxt[:6]))
     except Exception:
@@ -214,160 +207,7 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     return "STATUS (derived by the harness from the observation and read-only queries; the observation is the ground truth)\n" + "\n".join(lines)
 
 
-def _person(e):
-    """A death report names a person ("<name>, Mason has been found dead."), not an animal ("The Stray Dog (Tame)
-    has...", "Lolor Udisterith, Dog (Tame) has...")."""
-    who = e.split(" has ", 1)[0]
-    return not who.startswith("The ") and "(" not in who
-
-
-def _lockdown(c):
-    """The layer's lockdown as this observation shows it, or None: the layer's status plus `states` (each of its
-    hatch ids: locked True/False, or None when the door list doesn't show it), `outside` (citizens on the hatches'
-    level or above, as (id, profession)) and `inside` (the shelter's citizens_inside)."""
-    lock = _d(c["layer"].get("lockdown"))
-    if not lock:
-        return None
-    obs = c["obs"]
-    doors = {x.get("id"): x for x in _l(_d(obs.get("doors")).get("list"))}
-    ids = [i for i in _seq(lock.get("hatches")) if isinstance(i, int) and not isinstance(i, bool)]
-    states = {i: _d(doors.get(i)).get("locked") if i in doors else None for i in ids}
-    zs = [_d(doors.get(i)).get("z") for i in ids]
-    zs = [z for z in zs if isinstance(z, int) and not isinstance(z, bool)]
-    outside = [(p.get("id"), p.get("profession")) for p in _l(obs.get("dwarves"))
-               if zs and isinstance(p.get("z"), int) and p["z"] >= min(zs)]
-    shelter = next((b for b in _l(_d(obs.get("burrows")).get("list")) if b.get("civ_alert_burrow")), {})
-    return {**lock, "opening": [i for i in _seq(lock.get("opening")) if isinstance(i, int)], "states": states,
-            "outside": outside, "inside": shelter.get("citizens_inside"), "cit": c["citizens"]}
-
-
-def _lockdown_text(v):
-    """One sentence on the layer's lockdown, from what the observation shows."""
-    inside = v.get("inside")
-    inside = (f"{inside} of {v.get('cit')} citizens in the shelter" if isinstance(inside, int)
-              else "the shelter's count not readable")
-    if v.get("phase") != "hold":
-        return f"The layer is ending its lockdown of day {v.get('since_day')}"
-    if v.get("gathering"):
-        return (f"The layer's lockdown began day {v.get('since_day')}: the alert sends the citizens to the shelter "
-                f"({inside}), and it locks the hatches once they are in or after a day")
-    parts = []
-    for word, test in (("locked", lambda x: x is True), ("open", lambda x: x is False), ("not shown", lambda x: x is None)):
-        ids = [str(i) for i, x in v["states"].items() if test(x)]
-        if ids:
-            parts.append(f"hatch {', '.join(ids)} {word}")
-    return (f"The layer's lockdown holds since day {v.get('since_day')}: {inside}; "
-            + ("; ".join(parts) or "no hatch shown") + "; it opens the fort when the danger has gone")
-
-
-def _fell_wait(c):
-    """The predators the layer's first-felling wait is for (a list, maybe empty), or None when it doesn't wait."""
-    v = c["layer"].get("fell_wait")
-    return list(v) if isinstance(v, (list, tuple)) else None
-
-
-def _name(race):
-    r = str(race).lower().replace("_", " ")
-    for era in ERAS:
-        r = r[len(era):] if r.startswith(era) else r
-    return r
-
-
-def _beast_rows(c):
-    """[(tiles from the wagon or None, race)] from the layer's last look for large predators, if it is recent (the
-    layer looks on each of its passes while the fort can be shut)."""
-    view = _d(c["layer"].get("beasts"))
-    if not isinstance(view.get("day"), int) or not isinstance(c["day"], int) or c["day"] - view["day"] > 2:
-        return []
-    return [tuple(x) for x in _seq(view.get("seen")) if isinstance(x, (list, tuple)) and len(x) == 2
-            and (x[0] is None or isinstance(x[0], int))]
-
-
-def _beasts(c):
-    """'carnotaurus 58 tiles from the wagon', ... for the first three of _beast_rows."""
-    return [f"{_name(r)} " + (f"{t} tiles from the wagon" if t is not None else "(place unknown)")
-            for t, r in _beast_rows(c)[:3]]
-
-
 # --- sections ---------------------------------------------------------------------------------------------------
-def _alert(c):
-    """ALERT lines, first in the digest: dangers to a citizen's life. From recent_events (a citizen's death, a citizen
-    fighting a large predator, a large predator attacking anything: reports the digest first saw in the last
-    EVENT_DAYS, with that day, since a report carries none), the layer's look for large predators (never listed as
-    hostiles) when one is within reach of the wagon, and the citizens shut out of the layer's lockdown."""
-    obs, mem, lay = c["obs"], c["mem"], c["layer"]
-    events = [e for e in _seq(obs.get("recent_events")) if isinstance(e, str)]
-    day = c["day"] if isinstance(c["day"], int) else None
-    for e in events:                 # a line absent last time, or older than the list's own window, is a new report
-        f = mem.first_seen.get(e)
-        if e not in mem.last_events or not isinstance(f, int) or (day is not None and day - f > REPORT_DAYS):
-            mem.first_seen.pop(e, None)
-            mem.first_seen[e] = day
-    mem.last_events = set(events)
-    if len(mem.first_seen) > 400:
-        mem.first_seen = dict(list(mem.first_seen.items())[-200:])
-    fresh = [e for e in events if day is None or not isinstance(mem.first_seen.get(e), int)
-             or day - mem.first_seen[e] <= EVENT_DAYS]
-    words = {"dwarf"}
-    for p in _l(obs.get("dwarves")):
-        for w in (p.get("profession"), str(p.get("name") or "").split(" ")[0]):
-            if isinstance(w, str) and len(w) > 2:
-                words.add(w.lower())
-
-    def quote(e):
-        return f'"{e[:150]}" (first seen day {mem.first_seen.get(e)})'
-    out = []
-    deaths = [e for e in fresh if DEATH.search(e) and not SPEECH.match(e) and _person(e)]
-    if deaths:
-        out.append("ALERT death: " + " | ".join(quote(e) for e in deaths[:2]))
-    fights, hunting = [], []
-    for e in fresh:
-        m = ATTACK.match(e)
-        low = NOT_PREDATOR.sub("", e.lower())
-        if not m or not PREDATOR.search(low):
-            continue
-        who = m.group(1).lower()
-        if who in words or any(f"the {w} " in low or f"the {w}'s" in low for w in words):
-            fights.append(e)
-        else:
-            hunting.append(e)
-    if fights:
-        out.append("ALERT a citizen is fighting a large predator: " + " | ".join(quote(e) for e in fights[:2]))
-    rows, v = _beast_rows(c), _lockdown(c)
-    near = [r for r in rows if r[0] is None or r[0] <= PREDATOR_REACH]
-    if near or hunting:
-        what = ("ALERT large predator " + ("in sight: " + ", ".join(_beasts(c)) if near else "near the fort")
-                + " (ordinary wild animals, large predators included, are not in threats)")
-        if hunting:
-            what += "; " + quote(hunting[0])
-        if v:
-            what += ". " + _lockdown_text(v)
-        out.append(what + ". The layer runs the civilian alert and the hatches. Don't send a squad: dwarves who fight "
-                   "it die.")
-    if v and v["phase"] == "hold" and not v.get("gathering") and v["outside"]:
-        who = ", ".join(f"{x[1] or 'citizen'} {x[0]}" for x in v["outside"][:6])
-        shown = [i for i in v["opening"] if v["states"].get(i) is False]
-        loose = [i for i, x in v["states"].items() if x is False and i not in v["opening"]]
-        if shown:
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}): hatch "
-                       f"{', '.join(str(i) for i in shown)} is open for them; the layer locks it when they are below")
-        elif loose:
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}): hatch "
-                       f"{', '.join(str(i) for i in loose)} shows open, and the layer is locking it again")
-        elif not v["states"] or not all(x is True for x in v["states"].values()):
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}); the hatch's state is not shown")
-        else:
-            far, lurk = v.get("far"), v.get("lurk")
-            out.append(f"ALERT {len(v['outside'])} citizen(s) outside the shelter ({who}), whose hatch is shut: the layer "
-                       "opens one for them while every predator in sight is far enough from it"
-                       + (f" (more than {far} tiles; an alligator more than {far // lurk})"
-                          if isinstance(far, int) and isinstance(lurk, int) and lurk else "")
-                       + (f"; {v['openings_left']} openings left in this lockdown"
-                          if isinstance(v.get("openings_left"), int) else ""))
-    c["alerts"] = out
-    return out or None
-
-
 def _clock(c):
     env, obs = c["env"], c["obs"]
     date = _d(obs.get("date"))
@@ -376,6 +216,34 @@ def _clock(c):
     if ho is not None:
         s += f"; HANDS-OFF in {ho} days: everything must be self-running (repeating orders with when, farms, autofarm) by then"
     return s
+
+
+def _events(c):
+    """DF's reports since the last turn: announcements in full (short), everything else counted by type."""
+    mem = c["mem"]
+    new = _l(getattr(mem, "events_new", []))
+    if not new and not getattr(mem, "events_dropped", 0):
+        return None
+    ann = [e for e in new if e.get("announcement")]
+    other = {}
+    for e in new:
+        if not e.get("announcement"):
+            other[str(e.get("type"))] = other.get(str(e.get("type")), 0) + 1
+    s = "events since your last turn: " + ("; ".join(f"{e.get('type')}: {str(e.get('text') or '')[:140]}"
+                                                      for e in ann[-6:]) or "no announcements")
+    if len(ann) > 6:
+        s += f" (+{len(ann) - 6} older announcements)"
+    if other:
+        s += "; other reports: " + ", ".join(f"{k} x{v}" for k, v in sorted(other.items(), key=lambda x: -x[1])[:6])
+    if mem.events_dropped:
+        s += f"; {mem.events_dropped} older reports dropped by /events"
+    return s
+
+
+def _wealth(c):
+    w = _d(c["obs"].get("wealth"))
+    nums = [(k, v) for k, v in w.items() if isinstance(v, (int, float))]
+    return ("wealth: " + ", ".join(f"{k} {v}" for k, v in nums[:8])) if nums else None
 
 
 def _population(c):
@@ -409,6 +277,7 @@ def _supply(c):
         dd = (tick - mem.prev[0]) / DAY
         if dd >= 1:
             trend = f"; trend over the last {dd:.0f} d: drink {(drink - mem.prev[1]) / dd:+.1f}/d, food {(food - mem.prev[2]) / dd:+.1f}/d"
+            c["drink_rate"] = (drink - mem.prev[1]) / dd
     if tick is not None:
         mem.prev = (tick, drink, food)
     s = (f"supply: drink {drink} ({drink / n:.1f} per dwarf, ~{fmt_days(d_days)} d at the usual rate); "
@@ -423,6 +292,14 @@ def _supply(c):
     c["stocks"] = st
     if drink / n < 3 or (d_days is not None and d_days < 30):
         c["next"].append(f"DRINK LOW ({drink} for {n}): brew (needs Still + plants_brewable + barrels_empty); standing order brew_drink repeat=daily when drink below {8 * n}")
+    ho = c["env"].get("hands_off_in_days")
+    rate, brewable = c.get("drink_rate"), _n(st.get("plants_brewable"))
+    if isinstance(ho, int) and 0 < ho <= WINDOW_WARN_DAYS and ((rate is not None and rate <= 0) or not brewable):
+        c["next"].append(
+            f"DRINK BEFORE HANDS-OFF (in {ho} d): drink {drink}" + (f", trend {rate:+.1f}/d" if rate is not None else "")
+            + f", plants_brewable {brewable}, barrels_empty {_n(st.get('barrels_empty'))}. Drink should end the window "
+            f"above where it starts: a repeating brew_drink order (when drink below {drink + 10 * n}, plants_brewable "
+            f"at_least 1), harvested brewable plants (underground plump helmets) and empty barrels must all exist by then")
     if food / n < 2 or (f_days is not None and f_days < 30):
         c["next"].append(f"FOOD LOW ({food} for {n}): cook_meal needs Kitchen + 2 cookable; farms for the long run")
     return s
@@ -474,10 +351,7 @@ def _workshops(c):
     if missing:
         s += "; MISSING core: " + ", ".join(missing)
         plugins = _d(obs.get("plugins"))
-        if _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0 and _fell_wait(c) is not None:
-            s += ("; no usable log or boulder: the layer holds the first tree felling while a large predator is in "
-                  "sight and starts it itself")
-        elif _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
+        if _n(st.get("logs_usable")) == 0 and _n(st.get("boulders_usable")) == 0:
             c["next"].append("no usable log or boulder, so no workshop can be built: enable_automation autochop"
                              + ("" if plugins.get("autochop") != "on" else " is on; advance a few days for logs") )
         else:
@@ -565,16 +439,25 @@ def _farms(c):
     off = [k for k, v in plugins.items() if v != "on"]
     s = f"farms: {len(plots)} plots" + (f" ({sum(1 for p in plots if p.get('built'))} built, {sum(1 for p in plots if p.get('subterranean'))} underground)" if plots else "")
     if plots:
-        crops = [str(p.get("crop_this_season") or "none") for p in plots[:4]]
-        s += "; crops now: " + ", ".join(crops)
+        counts = {}
+        for p in plots:
+            k = str(p.get("crop_this_season") or "none")
+            counts[k] = counts.get(k, 0) + 1
+        s += "; crops now: " + ", ".join(f"{k} x{v}" for k, v in sorted(counts.items()))
+        seeds = {k: _n(_d(v).get("n")) for k, v in _d(_d(obs.get("stocks")).get("seeds_by_kind")).items()
+                 if _d(v).get("underground") and _n(_d(v).get("n"))}
+        idle = [p for p in plots if p.get("built") and p.get("subterranean")
+                and str(p.get("crop_this_season") or "none") == "none"]
+        if idle and seeds:
+            c["next"].append(f"{len(idle)} built underground plots show no crop this season while underground seeds are "
+                             f"in stock ({', '.join(f'{k} {v}' for k, v in sorted(seeds.items(), key=lambda x: -x[1]))}): "
+                             f"autofarm picks crops and farmers plant them; plots with no crop yield no plants to eat or brew")
     s += f"; plugins on: {', '.join(on) or 'none'}; off: {', '.join(off) or 'none'}"
     pend = _n(obs.get("dig_designations_pending"))
     if pend:
         s += f"; digging pending: {pend} tiles"
     for p in ("autochop", "seedwatch"):
-        if p == "autochop" and _fell_wait(c) is not None:
-            s += "; autochop: held by the layer while a large predator is in sight (it enables it itself)"
-        elif plugins.get(p) != "on" and not any(p in x for x in c["next"]):
+        if plugins.get(p) != "on" and not any(p in x for x in c["next"]):
             c["next"].append(f"enable_automation {p}")
     if plots and plugins.get("autofarm") != "on":
         c["next"].append("enable_automation autofarm (plots have no crop choice without it)")
@@ -643,10 +526,7 @@ def _threats(c):
     hostiles = _n(th.get("visible_hostiles"))
     squads = _l(mil.get("squads"))
     sq = squads[0] if squads else None
-    lay = c["layer"]
-    lock = _d(lay.get("lockdown"))
-    s = (f"threats (the hostiles the API lists; ordinary wild animals, large predators included, are not listed): "
-         f"{hostiles} visible hostiles")
+    s = f"threats: {hostiles} visible hostiles"
     if hostiles:
         s += f", nearest {th.get('nearest_hostile_dist_to_wagon')} tiles from the wagon"
         by = _d(th.get("by_race"))
@@ -656,29 +536,13 @@ def _threats(c):
         s += f"; squad '{sq.get('name')}' {len(_l(sq.get('members')))} members, {_n(sq.get('armed'))} armed, uniform {sq.get('uniform')}, orders {len(_l(sq.get('orders')))}"
     else:
         s += "; no squad"
-    seen, fell = _beasts(c), _fell_wait(c)
-    if seen:
-        s += f"; large predators in sight (the layer's look, day {_d(lay.get('beasts')).get('day')}): " + ", ".join(seen)
-    elif fell:
-        s += "; large predators in sight: " + ", ".join(_name(r) for r in fell[:3])
-    if fell is not None:
-        s += " (the layer holds the first tree felling until they leave)"
     shelter = any(b.get("civ_alert_burrow") for b in _l(bur.get("list")))
-    s += f"; shelter burrow {'yes' if shelter else 'no'}; civilian_alert {'ON' if bur.get('civilian_alert') else 'off'}"
-    v = _lockdown(c)
-    if v:
-        s += f" ({_lockdown_text(v)})"
-    elif bur.get("civilian_alert") and lay.get("thaw"):
-        s += (" (the layer's, for the spring thaw: ice melts at the start of spring and a dwarf on it drowns; it "
-              "clears it after the first three days of spring)")
+    s += f"; shelter burrow {'yes' if shelter else 'no'}; civilian_alert {'ON' if bur.get('civilian_alert') else 'off'}; weapons_free {_n(mil.get('weapons_free'))}"
+    if hostiles:
+        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles, else " if sq else "")
+                         + ("civilian_alert on (shelter exists)" if shelter else "create_burrow on an A site, then civilian_alert on"))
     elif bur.get("civilian_alert"):
-        s += " (the layer's; it clears it itself)"
-    s += f"; weapons_free {_n(mil.get('weapons_free'))}"
-    # the civilian alert and the stair hatches are the layer's (the model's calls are refused): never suggested here
-    if hostiles and not lock:
-        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles; " if sq else "")
-                         + ("the layer sounds the civilian alert itself" if shelter
-                            else "create_burrow on an A site (the shelter); the layer sounds the civilian alert itself"))
+        c["next"].insert(0, "no hostiles but civilian_alert is ON: civilians aren't working: civilian_alert on=false")
     return s
 
 
@@ -697,7 +561,7 @@ def _moods(c):
             line += "; WAITING for: " + ", ".join(f"{x.get('demand') or x.get('item')} ({_n(x.get('collected'))} collected)" for x in needs[:4])
         out.append(line)
         if not m.get("claimed_workshop") and str(m.get("mood")) in ("Fey", "Secretive", "Possessed", "Macabre", "Fell"):
-            if ws and ws not in (c.get("built") or {}) and not (ws in CALM_WORKSHOPS and c["layer"].get("calm")):
+            if ws and ws not in (c.get("built") or {}):
                 c["next"].insert(0, f"MOOD: build_workshop {ws} (the {skill} mood needs it) before the dwarf goes insane")
     return ["moods:"] + out
 
@@ -763,8 +627,14 @@ def _layer(c):
     work), so the model neither repeats nor fights it. Orders marked [layer] above are its standing orders."""
     lay = c.get("layer") or {}
     rep = _l(lay.get("report"))
+    raw = lay.get("findings")
+    found = [f for f in (raw if isinstance(raw, (list, tuple)) else []) if isinstance(f, (list, tuple)) and len(f) == 2]
+    out = []
+    if found:
+        out.append("LAYER FOUND (its daily events check and read-only query sweep; diagnose with the query tool): "
+                   + " | ".join(f"d{dy} {t}" for dy, t in found[-6:]))
     if not rep:
-        return None
+        return out or None
     today = [r for r in rep if _d(r).get("day") == c["day"]] or rep[-6:]
     parts = []
     for r in today[-10:]:
@@ -773,7 +643,7 @@ def _layer(c):
         parts.append(f"d{r.get('day')} {r.get('tool')} {a} -> " + ("ok" if r.get("ok") else
                      f"FAILED {r.get('error_code')}: {str(r.get('error') or '')[:50]}"))
     failed = sum(1 for r in today if not _d(r).get("ok"))
-    return ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
+    return out + ["LAYER (deterministic, runs once a day before you: manager/office, plugins, workshops, rooms, farms, standing "
             "orders, beds/seats, zones, shelter, mood workshop; don't redo or cancel its work): " + " | ".join(parts)
             + (f" -- {failed} refused: those are yours to solve" if failed else "")]
 
