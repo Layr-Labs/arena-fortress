@@ -37,6 +37,7 @@ HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a 
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
 HUNGER_GAP_FINAL = 5    # ... from FINAL_STRETCH days out
+HUNGER_BIG = 15         # ... where a fort this size culls two animals a pass (d34: OP1 1016-p had 20 citizens at 0 food)
 COOK_RAW = 6            # meat, fish, cheese and eggs in stock (food that is neither a plant nor a meal) from which the
                         #   feast cooks: with less, a cook would only take the plants the still needs
 DRINK_SAFE = 28         # drink per citizen at which brewing stops for the feast, so the plants harvested in those
@@ -73,6 +74,16 @@ THAW_AFTER = 3          # ... to this many days into it. Ice thaws at the start 
                         #   the fort with frozen water in reach (1016-p) the thaw came between spring days 1 and 2 in
                         #   all eight full-year games, and in one a woodcrafter idle in the frozen river bed drowned
 THAW_FROM_DAY = 30      # not in a game's first month (an embark has no shelter yet, and its first days matter most)
+MIDWINTER = 293.4       # d53: the deep water near the wagon freezes and thaws at days of the year that mirror each
+                        #   other about this one: on all eight forts where it froze in the recorded games (150 games),
+                        #   the thaw fell within a day of the freeze's mirror image. Most thaw in winter, outside the
+                        #   spring window above; on 1000-p it thaws on spring day 11 or 12 and a dwarf drowned there on
+                        #   day 12 in two games, both about half a day after the water was first seen again
+FREEZE_FROM = 200       # d53: a freeze is deep water gone between this day of the year and MIDWINTER, ...
+FREEZE_SPAN = 4         # ... seen last at most this many days before the reading without it (else no prediction)
+THAW_EARLY = 1          # d53: the alert starts this many days before the predicted thaw's earliest tick, ...
+THAW_SLACK = 1.5        # ... and ends this many days after its latest, or sooner once the water is seen again ...
+THAW_HOLD = 2           # ... and this many days have passed since
 YEAR = 336 * DAY        # ticks in a year; a year starts with spring (the API: abs_tick = year * YEAR + tick of the year)
 ADMIT_MAX = 3           # openings a lockdown may make
 STAIR_CAP = 8           # the API lists at most this many surface stairs: at the cap the list may be incomplete
@@ -129,8 +140,8 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
-            if food < max(8, HUNGER_FINAL * self.cit):
-                self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
+            if food < max(8, HUNGER_FINAL * self.cit):     # a big fort eats one small animal in a day or two: two a pass
+                self.cull("hunger", 2 if self.cit >= HUNGER_BIG else 1, smallest=True, retry=HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
             self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP)
 
@@ -331,6 +342,7 @@ class OpenPlayRules:
             if not isinstance(q.get("units"), list):
                 raise ValueError("no unit list in the answer")
             found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"))
+            self.others, self.others_at = q.get("units"), self.now     # d49: the troop guard reads the same look
             told = sorted({b["race"] for b in found})
             if told != self.beast_told:
                 log("beasts", day=self.day, seen=told, nearest=min((b["dist"] for b in found), default=None))
@@ -572,13 +584,54 @@ class OpenPlayRules:
         return alert
 
     def thaw_window(self, lead=0):
-        """True from THAW_BEFORE (plus `lead`) days before a spring to THAW_AFTER days into it, from the game's day
-        THAW_FROM_DAY on."""
+        """True from THAW_BEFORE (plus `lead`) days before a spring to THAW_AFTER days into it, or around the predicted
+        thaw of the water near the wagon (thaw_due), from the game's day THAW_FROM_DAY on."""
         if not all(isinstance(v, int) and not isinstance(v, bool) for v in (self.now, self.day)) \
                 or self.day < THAW_FROM_DAY:
             return False
         t = self.now % YEAR
-        return t >= YEAR - (THAW_BEFORE + lead) * DAY or t < THAW_AFTER * DAY
+        return t >= YEAR - (THAW_BEFORE + lead) * DAY or t < THAW_AFTER * DAY or self.thaw_due(lead)
+
+    def see_water(self):
+        """d53: follow the deep water near the wagon (`water_on_fort_levels`, deep_tiles: depth 4 of 7 or more). Ice
+        is not water: the field goes away while it is frozen (it is left out when there is none). A full reading
+        (burrows read) without it after one with it records a freeze when the last sighting fell between
+        FREEZE_FROM and MIDWINTER at most FREEZE_SPAN days before; the next sighting ends it, and is the thaw when
+        it falls in the alert's window (thaw_due). An 'ERR: ...' section or a partial reading changes nothing."""
+        water, now = self.o.get("water_on_fort_levels"), self.now
+        if not isinstance(now, int) or isinstance(now, bool) or isinstance(water, str):
+            return
+        deep = water.get("deep_tiles") if isinstance(water, dict) else 0
+        if not isinstance(deep, int) or isinstance(deep, bool):
+            return
+        if deep > 0:
+            if self.freeze is not None and self.thaw_due():
+                self.thawed_at = now     # the thaw: the alert holds THAW_HOLD days more
+            self.freeze, self.deep_seen = None, now
+            return
+        if not isinstance(self.o.get("burrows"), dict) or not isinstance(self.deep_seen, int):
+            return
+        t = self.deep_seen % YEAR
+        if self.freeze is None and FREEZE_FROM * DAY <= t < MIDWINTER * DAY and now - self.deep_seen <= FREEZE_SPAN * DAY:
+            self.freeze = (self.deep_seen, now)
+        self.deep_seen = None            # one reading without it per sighting: the first one brackets the freeze
+
+    def thaw_range(self):
+        """d53: the earliest and latest tick of the predicted thaw: the freeze's bracket mirrored about MIDWINTER."""
+        lo, hi = self.freeze
+        mid = (lo // YEAR) * YEAR + int(MIDWINTER * DAY)
+        return 2 * mid - hi, 2 * mid - lo
+
+    def thaw_due(self, lead=0):
+        """d53: True from THAW_EARLY (plus `lead`) days before the predicted thaw to THAW_SLACK days after it, and
+        until THAW_HOLD days after the water near the wagon is seen again."""
+        now = self.now
+        if isinstance(self.thawed_at, int) and self.thawed_at <= now < self.thawed_at + THAW_HOLD * DAY:
+            return True
+        if self.freeze is None:
+            return False
+        a, b = self.thaw_range()
+        return a - (THAW_EARLY + lead) * DAY <= now <= b + THAW_SLACK * DAY
 
     def thaw(self, alert, bur):
         """Open play: keep the civilians in the shelter while the ice thaws. In thaw_window(), with no lockdown
