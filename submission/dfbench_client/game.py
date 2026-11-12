@@ -39,9 +39,9 @@ class GameClient:
         self.retries = retries
         self.backoff_s = backoff_s
         self.log = log
-        self.last = None   # the last response's envelope: {day, tick, days_left, game_over, ...}
+        self.last = None
 
-    # --- endpoints ----------------------------------------------------------------------------------------------
+
     def task(self):
         return self._request("GET", "/task")
 
@@ -88,7 +88,7 @@ class GameClient:
                     raise
                 time.sleep(1.0)
 
-    # --- transport ----------------------------------------------------------------------------------------------
+
     def _request(self, method, path, body=None, timeout=None, accept_error_body=False, retries=None):
         url = self.base_url + path
         data = json.dumps(body).encode() if body is not None else None
@@ -103,7 +103,7 @@ class GameClient:
             try:
                 with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
                     raw, status = resp.read(), resp.status
-            except urllib.error.HTTPError as e:   # the server answered: never retried
+            except urllib.error.HTTPError as e:
                 raw, status = e.read(), e.code
                 e.close()
             except (urllib.error.URLError, ConnectionError, socket.timeout, http.client.HTTPException, OSError) as e:
@@ -120,7 +120,7 @@ class GameClient:
             if not isinstance(parsed, dict):
                 raise GameAPIError(f"{method} {path}: HTTP {status}, body is not a JSON object: {raw[:200]!r}", status)
             if status >= 400:
-                # the API puts rule rejections and tool failures in a JSON body; /act's caller wants them as results
+
                 if accept_error_body and ("error_code" in parsed or "ok" in parsed):
                     parsed.setdefault("ok", False)
                 else:

@@ -5,7 +5,7 @@ class DfbenchError(Exception):
     """Base class for everything this client raises."""
 
 
-# --- game API -----------------------------------------------------------------------------------------------------
+
 class GameAPIError(DfbenchError):
     """The game server answered with an HTTP error, or with a body that isn't JSON.
 
@@ -42,7 +42,7 @@ class GameOver(ActionRejected):
 RULE_ERRORS = {"action_limit": ActionLimit, "hands_off": HandsOff, "game_over": GameOver}
 
 
-# --- model gateway --------------------------------------------------------------------------------------------------
+
 class ModelError(DfbenchError):
     """The gateway (or the provider behind it) failed the call. `status` is the HTTP status, if any."""
 

@@ -37,8 +37,8 @@ class ModelClient:
         self.api_key = api_key
         self.timeout = timeout
         self.max_retries = max_retries
-        self.rate_limit_base_s = rate_limit_base_s   # minimum wait after a 429 (doubles per attempt, capped at 120 s)
-        self.retry_sleep_s = retry_sleep_s           # base wait after a connection error or 5xx
+        self.rate_limit_base_s = rate_limit_base_s
+        self.retry_sleep_s = retry_sleep_s
         self.prices = prices
         self.log = log
         self.usage = {"calls": 0, "failed_calls": 0, "prompt_tokens": 0, "cached_tokens": 0, "completion_tokens": 0,
@@ -56,7 +56,7 @@ class ModelClient:
             t0 = time.time()
             try:
                 resp = self._post("/chat/completions", body)
-                if not resp.get("choices"):   # an error inside a 200 body
+                if not resp.get("choices"):
                     raise ModelError("no choices: " + json.dumps(resp.get("error") or resp)[:400], 200, resp)
                 self._count(resp)
                 if self.log:
@@ -111,7 +111,7 @@ class ModelClient:
                 continue
         return None
 
-    # --- internals ----------------------------------------------------------------------------------------------
+
     def _headers(self):
         h = {"Content-Type": "application/json"}
         if self.api_key:

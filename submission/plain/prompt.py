@@ -85,13 +85,11 @@ lacks in the workshop's own words: logs -> autochop; bones -> slaughter a tame a
 Butchers built; rock/stone -> needs boulders. A mood left without workshop or items for about 40 days ends in
 insanity, which is a lost dwarf. Keep everyone else fed and sleeping meanwhile.
 
-DEFENCE. threats.hostiles lists visible hostiles. Large wild animals that hunt dwarves (carnotaurus, alligator,
-bears, big cats) are not in it unless the game marks one hostile: an ALERT line in STATUS names them. Unarmed civilians fight with their fists, and
-an armed party can kill a fortress in a day. In peace: create_squad size=4-6 once there are 10+ dwarves (members keep
-working). When hostiles appear: equip_squad weapon_only, then squad_order attack only if military.armed >= hostiles;
-never send a squad against a large wild animal. The layer makes the Shelter burrow, puts a hatch on each surface
-stair, sounds and clears the civilian alert, and locks and unlocks those hatches (your civilian_alert, and lock_door
-on those hatches, are refused). A dwarf dying to a wild animal or thirst costs more than any production gains.
+DEFENCE. threats.hostiles lists visible hostiles. Unarmed civilians fight with their fists, and an armed party can
+kill a fortress in a day. In peace: the squad is created for you once there are 10+ dwarves (members keep working);
+create_burrow on the dug underground A site as the Shelter. Squad orders (attack, station, stand_down) are handled for you.
+build_door kind=hatch on an E site (needs a hatch cover: add_order make_hatch_cover); the hatch locks are handled for you.
+A dwarf dying to a wild animal or thirst costs more than any production gains.
 
 ORDER OF OPERATIONS for a fresh or neglected fort: appoint_manager; enable_automation autochop and seedwatch;
 dig_stairs + dig_room (farm room); once logs_usable > 0 build Carpenters, Still, Kitchen; standing orders for
@@ -105,13 +103,7 @@ while waiting for digging, a build or a mood.
 ORDERS = """
 ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and amount are both required). For any
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
-and material_category, with the same repeat/when; it runs at whichever built workshop can do that job.
-
-TASK-SPECIFIC WORK THE LAYER TAKES CHARGE OF. A hand-over/surge task whose goal says "every dwarf must have a placed
-bed" (LT08) or that a 21-day window is coming are handled by the layer: on the placed-bed goal it skips its dining
-steps until every dwarf sleeps, so the carpenters' queue holds beds only, and it routes beds that don't fit the
-dorm into the next-largest dug area. Don't spend turns on seat placement until the goal is met. Where the goal says
-drink must not end lower, the layer's brew order has no drink ceiling: batches keep brewing in the window."""
+and material_category, with the same repeat/when; it runs at whichever built workshop can do that job."""
 
 OBSERVATION = """
 ALREADY HANDLED FOR YOU. A deterministic layer runs once per game day, before you: the manager and their office,
@@ -130,16 +122,14 @@ observations in the conversation are omitted: the latest one is the current stat
 again waits for the manager's validation again; this harness refuses cancelling an order it added under 2 days ago,
 and re-adding an order identical to one it cancelled in the last 3 days (error_code order_churn).
 
-THE STATUS DIGEST is computed by this harness from the observation and the free read-only queries. ALERT lines, when
-there are any, come first: a danger to a dwarf's life found in recent_events or by the layer's own looks, and what
-the layer is already doing about it. Then: supply per dwarf
+THE STATUS DIGEST is computed by this harness from the observation and the free read-only queries: supply per dwarf
 and the days it lasts at the current rate, the manager and office, built and planned workshops, each order with
 why it isn't moving (stuck:), farms and plugins, housing, threats, moods, free sites by kind, the labors nobody has,
 your recent FAILED actions with their error codes (don't repeat them unchanged) and your recent actions, and a
 NEXT list: the gaps found, in the playbook's order. The digest is derived information: the observation is the
 ground truth where they disagree. The raw observation omits the per-item furniture list (the digest counts it)."""
 
-API_SECTIONS = ("4", "6")   # of the served manual: "## 4. Sites", "## 6. The observation"
+API_SECTIONS = ("4", "6")
 
 
 def api_sections(api_manual, numbers=API_SECTIONS):

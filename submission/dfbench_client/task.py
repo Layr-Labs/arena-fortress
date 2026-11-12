@@ -28,7 +28,7 @@ class Task:
         self.model_name = m.get("name") or "z-ai/glm-5.3-flash"
         self.model_api = m.get("api", "openai-chat")
         self.api_key = m.get("api_key") or "placeholder"
-        self.prices = m.get("prices")   # optional {"input", "cached_input", "output"} USD per million tokens
+        self.prices = m.get("prices")
         b = d.get("budget") or {}
         self.budget = b
         self.credits = float(b["credits"]) if isinstance(b.get("credits"), (int, float)) else None
