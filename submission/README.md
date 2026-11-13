@@ -9,7 +9,8 @@ have no lockdown):
   dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
   ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
 - Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
+  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank. A second daily order makes rock crafts from any
+  stone while 30 boulders are in stock, so a log-poor fort still makes wealth.
 - A workshop whose construction DF suspended for three days is built again on another site, at most
   twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
   suspended job.

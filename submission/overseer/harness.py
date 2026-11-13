@@ -46,6 +46,7 @@ MOOD_WORKSHOP = {
 PROG_FROM_DAY = 40      # wealth for the Hamlet rank (20 citizens and 5000 created wealth), full-year games only:
 PROG_WEALTH = 5500      #   from this day, until created wealth reaches this, a Craftsdwarfs and one daily order of
 PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress())
+PROG_BOULDERS = 30
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -97,6 +98,7 @@ class Overseer(OpenPlayRules):
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.brew_own = set()    # of `owned`: its daily brew orders (the ceiling-less goal policy reads this)
         self.craft_ids = set()   # of `owned`: its repeating wood-crafts orders (the growth push reads this)
+        self.stone_ids = set()
         self.dine_full = {}      # site id -> (box, open tiles) when it had no room for dining furniture
         self.zoned = {}          # site id -> {mark, at, n}: when this layer last made a dining zone over it
         self.dine_placed = {}    # site id -> tiles this layer placed dining tables and chairs on
@@ -169,7 +171,7 @@ class Overseer(OpenPlayRules):
                 self.brew_own.add(oid)
             if oid is not None and isinstance(args, dict) and args.get("job") == "MakeCrafts" \
                     and args.get("repeat") == "daily":
-                self.craft_ids.add(oid)
+                (self.stone_ids if args.get("material") == "INORGANIC" else self.craft_ids).add(oid)
             if args.get("repeat") and key.startswith("o_") and key.endswith(("_end", "_win")):
                 self.done.add(key)   # a standing closer order is added once per game
         self.report = (self.report + [{"day": self.day, "tool": tool, "args": args, "ok": bool(r.get("ok")),
@@ -194,6 +196,7 @@ class Overseer(OpenPlayRules):
             present = {x.get("id") for x in self.orders}
             self.brew_own.intersection_update(present)
             self.craft_ids.intersection_update(present)
+            self.stone_ids.intersection_update(present)
         self.zones = [z for z in lst(self.o.get("zones")) if isinstance(z, dict)]
         self.free = d(self.st.get("furniture_free"))
         self.placed = {}
@@ -513,7 +516,9 @@ class Overseer(OpenPlayRules):
         """Full-year games: the Hamlet rank needs 20 citizens and 5000 created wealth. Our wealth passed 5000 on days
         186-322 or never, after the second migrant wave (days 174-207). i34-9's rule (fa9c13cc progress()): from
         PROG_FROM_DAY until PROG_WEALTH, a Craftsdwarfs and one standing daily order of wood crafts while at least
-        PROG_LOGS logs are in stock."""
+        PROG_LOGS logs are in stock. Logs are what beds, barrels and furniture take, so the wood order idles on a
+        log-poor fort: a second standing daily order of rock crafts (any stone, material INORGANIC) runs while at least
+        PROG_BOULDERS boulders are in stock, which digging makes and little else here uses."""
         if self.hands_off is not None or self.lab or self.beds_first or (self.days or 0) < 336:
             return
         if not isinstance(self.day, int) or self.day < PROG_FROM_DAY or self.cit < 7:
@@ -528,6 +533,10 @@ class Overseer(OpenPlayRules):
             self.act("o_crafts", "add_manager_order",
                      {"job": "MakeCrafts", "amount": 3, "repeat": "daily", "material_category": ["wood"],
                       "when": [{"item_type": "WOOD", "at_least": PROG_LOGS}]}, retry=4, limit=6)
+        if not any(o.get("id") in self.stone_ids for o in self.orders):
+            self.act("o_crafts_stone", "add_manager_order",
+                     {"job": "MakeCrafts", "amount": 3, "repeat": "daily", "material": "INORGANIC",
+                      "when": [{"item_type": "BOULDER", "at_least": PROG_BOULDERS}]}, retry=4, limit=6)
 
     def craft_standing(self):
         """A repeating wood-crafts order the layer added is still standing: its recipe is None, so `standing()` can
