@@ -22,6 +22,7 @@ Run: python -m plain   (reads DFBENCH_TASK)
 import copy
 import json
 import os
+import re
 import sys
 import time
 
@@ -37,7 +38,20 @@ TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
-MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+MAX_API_STREAK = 8          # consecutive failed model turns before the harness exits (recorded runs lost the model
+                            # through 5 quick connection failures; 8 keeps the layer-only switch minutes later)
+MAX_BACKOFF_S = 30.0        # backoff before retrying a connection-class model error: exponential in the streak,
+BACKOFF_BUDGET_S = 120.0    #   capped per sleep and within this whole-game budget (a harness sleep burns the
+                            #   game's wall cap - unlike the gateway's own throttle waits, which it waives)
+# connection-class model errors (model.py's gateway-unreachable raise): name resolution, refused, timed out
+CONNECT_RE = re.compile(r"gateway unreachable|name resolution|connectio|refused|timed out", re.I)
+# wall guard: when the wall cap (task.limits.wall_s) leaves less than the estimated cost of finishing the year
+#   by model calls, stop calling the model and let the layer play the rest - a wall-capped year loses its last
+#   weeks' supply and weeks of score (a run like that scored O 65.8 instead of 87.5 on OP1)
+WALL_GUARD_BASE_S = 540     # seconds reserved beyond the calls: the sim, the throttle waits, the endgame itself
+WALL_GUARD_STRIDE = 6       # days assumed per model call near the end (recorded runs: 2.2-4.5, so this is lenient)
+WALL_GUARD_EMA0_S = 30.0    # seconds per call assumed before any measured one (recorded runs: 13-30)
+WALL_GUARD_EMA_A = 0.5      # chat-latency EMA weight of the newest call, so slow model days are caught fast
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
@@ -120,6 +134,10 @@ class Plain:
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
         self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
         self.guard_day = None
+        self.backoff_left = BACKOFF_BUDGET_S   # wall seconds still owed to connection-error backoff, this game
+        self.t0 = None         # run() start: the wall cap is measured from here, like the runner's timer
+        self.call_ema = None   # seconds per model call, EMA: the wall guard's cost model of finishing the year
+        self.days_total = None # task horizon in days, captured at setup
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
 
@@ -130,6 +148,8 @@ class Plain:
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
         info = {**(self.task.task or {}), **(t.get("task") or {})}
         days = info.get("days") or self.task.days
+        self.days_total = days
+        self.t0 = time.monotonic()
         try:   # the layer's goal policies read the task's own goal text (its failure leaves them off, not the run)
             self.guard.set_task(info)
         except Exception as e:
@@ -200,12 +220,22 @@ class Plain:
                 if not self.layer_only("budget"):   # no model left; the layer still runs
                     break
                 continue
+            left = self.wall_left()
+            needed = self.wall_needed(resp.get("day"))
+            if left is not None and left < needed:   # the model can no longer finish the year within the cap
+                log("wall_guard", left_s=round(left, 1), needed_s=round(needed, 1), day=resp.get("day"))
+                if not self.layer_only("wall"):      # the layer plays the rest, at no wall cost
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
+            t_chat = time.monotonic()
             try:
                 msg = self.chat()
+                dt = time.monotonic() - t_chat    # the wall guard's cost model: a fresh sample of a model call
+                self.call_ema = dt if self.call_ema is None else WALL_GUARD_EMA_A * dt + (1 - WALL_GUARD_EMA_A) * self.call_ema
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
                 self.messages.pop()
@@ -221,6 +251,7 @@ class Plain:
                     if not self.layer_only("model_failing"):   # the model is unusable; the layer plays on
                         break
                     continue
+                self.model_backoff(streak, e)   # a bounded sleep before the next try; see model_backoff
                 if not self.advance(1, "model_error"):
                     break
                 continue
@@ -247,6 +278,43 @@ class Plain:
                     break
         log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
         return self.stats
+
+    def model_backoff(self, streak, e):
+        """A sleep between retries of a connection-class model error (gateway unreachable, name resolution,
+        refused, timed out: model.py re-raises those with no status after its own bounded retries). Context and
+        budget errors and plain HTTP failures are not slept on: the gateway already retries the 5xx and 429s, and
+        its throttle waits are waived against the game's wall cap while a sleep here is not, so the cap per sleep
+        and the whole-game budget are conservative, and the wall guard's reserve is never slept into. Returns the
+        seconds slept (0: no connection-class error, or no wall seconds to spare)."""
+        if not CONNECT_RE.search(str(e)):
+            return 0.0
+        wait = round(min(MAX_BACKOFF_S, 2 ** max(1, streak), self.backoff_left), 2)
+        left = self.wall_left()
+        if left is not None:   # a sleep that the game cannot afford is not slept on: the layer plays on
+            wait = min(wait, round(max(0.0, left - WALL_GUARD_BASE_S), 2))
+        if wait <= 0:
+            return 0.0
+        self.backoff_left -= wait
+        log("backoff", wait=wait, streak=streak, budget_left=max(0.0, round(self.backoff_left, 2)))
+        time.sleep(wait)
+        return wait
+
+    def wall_left(self):
+        """Wall seconds this game still has, or None when the task says no cap (the runner's own timer disagrees
+        by a second or two with the game server's; the guard's generous base covers that)."""
+        if not getattr(self.task, "wall_s", None) or self.t0 is None:
+            return None
+        return self.task.wall_s - (time.monotonic() - self.t0)
+
+    def wall_needed(self, day):
+        """The wall guard's threshold: an estimate of the wall seconds still needed to finish the year by model
+        calls - one call per WALL_GUARD_STRIDE days at the measured per-call latency, plus the sim reserve.
+        Split into several calls? The stride and latency are averages; the reserve under them absorbs that.
+        Returns the estimate in seconds."""
+        rem_days = max(0, (self.days_total or 0) - (day or 0))
+        ema = self.call_ema if self.call_ema is not None else WALL_GUARD_EMA0_S
+        return WALL_GUARD_BASE_S + rem_days * ema / WALL_GUARD_STRIDE
+
 
     def user_message(self, resp, obs):
         """Cut 2: the STATUS digest (from the observation, the envelope and the free queries), then the compacted
