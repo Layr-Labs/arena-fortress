@@ -22,6 +22,8 @@ DRINK_PER_DWARF_PER_DAY = 20 / 336     # about 5 drinks a season (docs/SUCCESS.m
 FOOD_PER_DWARF_PER_DAY = 8 / 336       # about 2 units a season
 CORE_WORKSHOPS = ("Carpenters", "Still", "Kitchen")
 OFFICE_FROM = 20                       # citizens from which the manager validates only from an office
+POP_TARGET = 20                        # PROGRESSION: the Hamlet rank's citizens
+PROG_WEALTH = 5500                     # ... and the created wealth the layer pushes toward (its buffer over 5000)
 
 # recipe -> (workshop, inputs); job/reaction -> recipe for orders the observation doesn't name
 RECIPES = {
@@ -190,8 +192,8 @@ def digest(obs, env, memory=None, units=None, animals=None, layer=None):
     lines = []
     tick = _n(env.get("tick"), None) if isinstance(env, dict) else None
     day = _n(env.get("day"), None) if isinstance(env, dict) else None
-    sections = (_alert, _clock, _population, _supply, _manager, _workshops, _orders, _farms, _housing, _threats,
-                _moods, _sites, _labors, _memory, _layer)
+    sections = (_alert, _progression, _clock, _population, _supply, _manager, _workshops, _orders, _farms,
+                _housing, _threats, _moods, _sites, _labors, _memory, _layer)
     ctx = {"obs": obs, "env": _d(env), "mem": mem, "tick": tick, "day": day, "units": units, "animals": animals,
            "layer": _d(layer),
            "next": [], "citizens": len(_l(obs.get("dwarves"))) or _n(_d(obs.get("administrators")).get("citizens"), 0)}
@@ -366,6 +368,26 @@ def _alert(c):
                           if isinstance(v.get("openings_left"), int) else ""))
     c["alerts"] = out
     return out or None
+
+
+def _progression(c):
+    """One PROGRESSION line, first after the ALERT lines: the Hamlet rank's two gates (obs schema 8's
+    wealth.created and the citizen count) and the beds placed. Numbers come from scalars already in the
+    observation the digest is handed - wealth is read only while it is still there (compact_observation deletes
+    it), and nothing is printed when it is not: a wrong number is worth less than no line."""
+    created = _n(_d(c["obs"].get("wealth")).get("created"), None)
+    if created is None:
+        return None
+    pop, beds = c["citizens"], sum(1 for f in _l(c["obs"].get("furniture"))
+                                   if str(f.get("kind")).lower() == "bed" and f.get("built"))
+    pop_gap, wealth_gap = POP_TARGET - pop, PROG_WEALTH - created
+    if pop_gap <= 0 and wealth_gap <= 0:
+        gap = "Hamlet met"
+    else:
+        gap = ", ".join(x for x in (f"{pop_gap} citizen(s) short" if pop_gap > 0 else "",
+                                    f"{wealth_gap} created short" if wealth_gap > 0 else "") if x) + " of Hamlet"
+    return (f"PROGRESSION: pop {pop}/{POP_TARGET}, beds {beds}, wealth {created}/{PROG_WEALTH} (created), "
+            f"rank {gap}")
 
 
 def _clock(c):
