@@ -20,6 +20,8 @@ don't fit the dorm go to the next-largest dug area, and the model's advances are
 """
 import json
 import math
+import re
+from collections import Counter
 import sys
 import time
 
@@ -31,6 +33,8 @@ MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
 MEAL_CAP = 200
+WINTER_PREP_DAYS = 150  # full-year open play: the endgame brew and barrel orders from this many days out (about day
+                        #   186, autumn), so drink builds up before the frozen winter that holds the scored stretch (d35)
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
@@ -51,9 +55,42 @@ PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller tha
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
 ZONE_TRIES = 3          #   outside every dining zone, at most this many times a site
 ZONE_FAILS = 3          # refusals of a site's dining make_zone after which it is not asked again
+HOUSE_ROOMS = 4         # open tasks (d42): extra 3x3 rooms dug for beds or dining seats when no site can take them
+FURN_STUCK_DAYS = 10    # open tasks (d52): furniture unbuilt when DF reported a suspended construction and still
+                        #   unbuilt this many days later is not counted (no tool resumes a suspended construction)
+SUSPENDED = re.compile(r"suspended the construction of .*\b(Table|Chair|Throne|Bed)\.")
+HOUSE_FROM_DAY = 10     # ... not before this task day (the layer's own rooms are designated first)
+BED_TRIES = 3           # open tasks (d42): bed sites tried in one pass
+BED_REFUSED = ("no_space", "bad_arguments", "site_used", "unknown_site", "wrong_site_kind")
+BED_LIMIT = 99          # place_furniture bed calls one site's key may make (d44: a spent key is no bed site)
 STUCK_DAYS = 3          # a workshop construction suspended this long is built again elsewhere (no tool resumes it;
 STUCK_REBUILDS = 2      #   a stuck Carpenters left a full-year fort with no bed, table or chair), this many times
+BREW_MIN = 1            # brewable plants the standing brew order needs (2 before d33: one plant waited unbrewed;
+                        #   ryan48's 6954125a brews from one)
+OFFICE_ZONES = 3        # new office zones this layer makes at most in a game (d36)
+OFFICE_ZONE_GAP = 2     # days after a new office zone before another may be made: the zone list may lag a pass
+OFFICE_LEVEL_DAY = 10   # d39: a level is an office site only from this task day (a room before): a level being dug
+                        #   changes its A site's id and box, and an office zoned over it early was lost track of
+OFFICE_EARLY = True     # open tasks: the manager's office and its chair before anything else wants the chairs, at any
+                        #   population (d34; before, from 14 citizens)
+WATER_STAIRS = True     # the first staircase avoids water (mpjunior92's 58eec0ff water-aware stair site):
+STAIR_WATER = 8         #   a default S site with water this near, on the surface or the level below, is replaced
+                        #   by the listed S site farthest from water
+DRY_ROOMS = True        # d56, open tasks: a room is dug only where its box and the tiles around it on its level show no
+                        #   revealed water, ice or magma (map query); else the next smaller box from the same corner,
+                        #   else not at all. dig_room measures w,h from the R site's top-left corner: a 9x7 dormitory ran
+                        #   into a river one level down and drowned a dwarf on day 3 (MY1 1025-p, both games there)
+ROOM_SIZES = {(9, 7): ((9, 7), (7, 5), (5, 5), (5, 3), (3, 3)), (7, 5): ((7, 5), (5, 5), (5, 3), (3, 3))}
+SITE_ANY_TYPE = True    # d59, open tasks: a W site a workshop was placed on is not offered to any other type (build)
+WET_MATERIAL = "iRkoM"  # map query material layer: frozen liquid, river, brook, pool, magma
+WET_SHAPE = "_~"        # ... shape layer: brook bed, brook top
 
+MEETING = True          # d37, open tasks: idle dwarves gather at the wagon on the surface while no meeting area exists
+                        #   (d32 games: 91% of idle sightings on the surface, median 2 tiles from the wagon; no game
+                        #   made one). One meeting_area zone over the dug dining or dormitory level keeps them below
+MEETING_TRIES = 3       #   ground. make_zone answers that may be asked for it in a game
+MEETING_SITE_TRIES = 2  #   ... of them a site, before the next site is asked
+MEETING_ANY_DAY = 40    #   before this day only a site a dining or dormitory zone overlaps; from it any fitting site
 SURGE_BEDS = 50
 SURGE_CARPENTERS = 3
 SURGE_DORM_DEPTH = 3
@@ -68,6 +105,20 @@ def d(v):
 
 def lst(v):
     return v if isinstance(v, list) else []
+
+
+def num(v):
+    """An int field of the observation, or None when it is missing or unreadable (a section can read 'ERR: ...')."""
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def overlap(a, b):
+    """The boxes `a` and `b` (top-left x, y, z, w, h) share a tile."""
+    try:
+        return (a["z"] == b["z"] and a["x"] < b["x"] + (b.get("w") or 1) and b["x"] < a["x"] + (a.get("w") or 1)
+                and a["y"] < b["y"] + (b.get("h") or 1) and b["y"] < a["y"] + (a.get("h") or 1))
+    except (KeyError, TypeError):
+        return False
 
 
 def covers(area, item):
@@ -101,6 +152,7 @@ class Overseer(OpenPlayRules):
         self.zoned = {}          # site id -> {mark, at, n}: when this layer last made a dining zone over it
         self.dine_placed = {}    # site id -> tiles this layer placed dining tables and chairs on
         self.dine_retired = set()   # site ids no longer used for dining (retired_site)
+        self.bed_full = {}       # open tasks (d42): site id -> (box, open tiles) when it refused beds for size or room
         self.report = []         # the layer's recent actions (day, tool, args, outcome), for the model loop
         self.done = set()        # closer keys whose order was accepted once: never re-added
         self.full_sites = set()  # W site ids a workshop was built on, so the next build takes another site
@@ -112,6 +164,21 @@ class Overseer(OpenPlayRules):
         self.brew_stopped = False
         self.sheltered = {}      # A site id -> its open tiles when it was last added to the shelter burrow
         self.stairs = {}         # E site id -> (x, y, z): every surface stair ever listed
+        self.office_tried = set()   # site ids a new office zone has used (OFFICE_ZONES)
+        self.stair_pick = None   # the S site id chosen for the first staircase (stair_site), decided once
+        self.room_fit = {}       # d56: (room id, w, h) -> the dry box size dug there, or None (wet), decided once
+        self.wet_rooms = set()   # d56: R site ids whose 3x3 box has water, ice or magma in or beside it: never dug
+        self.office_made_at = -10 ** 9   # tick of the last office zone this layer made (OFFICE_ZONE_GAP)
+        self.office_bad = set()  # site ids where the game refused the office chair (d38): never an office site again
+        self.office_zoned = set()   # d45: site ids an office zone was made on (the observation lags this pass)
+        self.furn_suspects = {}  # d52: furniture id -> tick of a suspension report it was still unbuilt at
+        self.prev_events = Counter()  # d52: the last observation's recent_events, by text (d54: with their counts)
+        self.deep_seen = None    # d53: tick of the last reading with deep water near the wagon (openplay.see_water)
+        self.freeze = None       # d53: (last tick with it, first tick without) when it froze, until it is seen again
+        self.thawed_at = None    # d53: tick it was seen again after a freeze, near the predicted thaw
+        self.winter_brew_id = None   # order id of winter_supply's brew order, until endgame_supply replaces it
+        self.meeting_made = None   # the site id of the meeting area this layer made (MEETING)
+        self.meeting_tries = 0     # ... make_zone answers for it this game
         self.surface_seen = None   # the surface level (the wagon's z) as last reported: kept through a reply without it
         self.lock = None         # the standing wildlife lockdown: {since, phase: hold|release, why, alert_off, ...}
         self.wild_off = False    # a lockdown could not protect once: no more of them this game
@@ -200,6 +267,19 @@ class Overseer(OpenPlayRules):
         for f in lst(self.o.get("furniture")):
             if isinstance(f, dict):
                 self.placed[f.get("kind")] = self.placed.get(f.get("kind"), 0) + 1
+        if isinstance(self.o.get("furniture"), list):     # d52: which unbuilt items a suspension report may concern
+            waiting = {f.get("id") for f in self.o["furniture"] if isinstance(f, dict) and f.get("built") is False
+                       and f.get("id") is not None}
+            self.furn_suspects = {i: t for i, t in self.furn_suspects.items() if i in waiting}
+            # d54: reports carry no id or tick, and two suspensions of the same kind and wood read the same: a report is
+            # new when its line shows more often than on the last observation (one that replaces an identical line
+            # leaving the 7-day window on the same pass goes unseen)
+            events = Counter(t for t in (e if isinstance(e, str) else d(e).get("text")
+                                         for e in lst(self.o.get("recent_events"))) if isinstance(t, str))
+            if any(n > self.prev_events.get(t, 0) and SUSPENDED.search(t) for t, n in events.items()):
+                for i in waiting:      # the report names no building: every item waiting then is a suspect
+                    self.furn_suspects.setdefault(i, self.now)
+            self.prev_events = events
         if isinstance(self.o.get("workshops"), list):
             seen = set()
             for w in lst(self.o.get("workshops")):
@@ -215,6 +295,7 @@ class Overseer(OpenPlayRules):
         self.surface = self.map.get("surface_z")
         if isinstance(self.surface, int) and not isinstance(self.surface, bool):
             self.surface_seen = self.surface
+        self.see_water()         # d53: the water near the wagon, for the thaw (openplay.thaw_due)
 
     def kind(self, k):
         return [s for s in self.sites if s.get("kind") == k]
@@ -248,11 +329,13 @@ class Overseer(OpenPlayRules):
         self.management()
         self.workshops()
         self.digging()
+        self.house_rooms()
         self.farms()
         self.supply()
         if self.open_play():
             self.provision()
         self.furnish()
+        self.meeting()
         self.rezone()
         self.closer()
         self.progression_push()
@@ -275,7 +358,13 @@ class Overseer(OpenPlayRules):
         self.office()
 
     def office(self):
-        """DF stops validating orders around 20 citizens unless the manager has an office with a chair."""
+        if not self.open_task():
+            return self.office_lab()
+        return self.office_open()
+
+    def office_lab(self):
+        """Lab tasks: d32's office step unchanged (labs replay identically to the promoted harness). DF stops
+        validating orders around 20 citizens unless the manager has an office with a chair."""
         if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
             return
         mo = self.adm.get("manager_office")
@@ -304,11 +393,133 @@ class Overseer(OpenPlayRules):
             if room:
                 self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
 
+
+    def office_open(self):
+        """DF validates orders from about 20 citizens only while the manager has an office with a built chair. Any office
+        zone assigned to the manager counts (in game, 2026-11-11: orders validated at 30 citizens with the first of
+        three offices chairless), though the observation's manager_office names only the first one, so the layer
+        reads every office zone the manager owns. While none holds a chair, the office gets the first free chair, on
+        a site where one fits: a dug room, else a level with open floor, never a one-tile stair landing. On the long
+        open tasks this starts at once (OFFICE_EARLY): one wave can take a fort from 10 citizens to 20, and an office
+        made then finds every chair placed for dining while the chair order itself is no longer validated."""
+        early = OFFICE_EARLY and self.open_task()
+        if (self.cit < 14 and not early) or not self.adm.get("manager_active_for_orders"):
+            return
+        mgr = self.adm.get("MANAGER_id")
+        if mgr is None:
+            return
+        offices = self.zone("office")
+        mine = [z for z in offices if z.get("owner") == mgr]
+        mo = self.adm.get("manager_office")
+        if any(self.office_has_chair(z) for z in mine) or (isinstance(mo, dict) and mo.get("chair")):
+            return
+        free = (self.free.get("chair") or 0) > 0
+        fit = [(z, st) for z in mine for st in [self.zone_site(z)] if st is not None]
+        if fit:
+            if free:
+                self.office_chair(fit[0][1]["id"], retry=2, limit=4)
+            return            # else the chair is ordered (supply: office_chair_needed) and placed when it is made
+        spare = [(z, st) for z in offices if z.get("owner") is None
+                 for st in [self.zone_site(z)] if st is not None]
+        if spare:
+            self.act("office_assign", "assign_zone", {"zone_id": spare[0][0]["id"], "dwarf_id": mgr})
+            return
+        if len(self.office_tried) >= OFFICE_ZONES or self.now - self.office_made_at < OFFICE_ZONE_GAP * DAY:
+            return
+        site = self.office_site()
+        if site is None:
+            return
+        self.office_tried.add(site["id"])
+        r = self.act("office_zone_%s" % site["id"], "make_zone", {"kind": "office", "site": site["id"]}, retry=0, limit=1)
+        res = d(r.get("result")) if isinstance(r, dict) else {}
+        zid = res.get("zone_id", (r or {}).get("zone_id") if isinstance(r, dict) else None)
+        if not (r and r.get("ok")):
+            return
+        self.office_made_at = self.now
+        self.office_zoned.add(site["id"])
+        if site.get("kind") == "R":
+            self.roles[site["id"]] = "office"
+        if zid is not None:         # without the id the next pass assigns it (a spare office where a chair fits)
+            self.act("office_assign_%s" % zid, "assign_zone", {"zone_id": zid, "dwarf_id": mgr}, retry=0, limit=2)
+        if free and (self.surge or self.open_task()):    # other labs keep the zone, assign, chair sequence
+            self.office_chair(site["id"], retry=0, limit=2)
+        log("office_made", site=site["id"], zone=zid, day=self.day)
+
+    def office_chair(self, site_id, retry, limit):
+        """Place the office's chair. A refusal (no free floor there: d36 games zoned the office over a farm level whose
+        plots cover every tile, and asked for its chair there all game) retires the site for offices (office_bad)."""
+        key = "office_chair_%s" % site_id
+        if self.tries.get(key, 0) >= limit:          # refused `limit` times for any reason (no_material while a chair
+            self.office_bad.add(site_id)              #   reads free, internal_error): give the site up, not the office
+            log("office_site_retired", site=site_id, code="tries", day=self.day)
+            return None
+        r = self.act(key, "place_furniture", {"kind": "chair", "site": site_id}, retry=retry, limit=limit)
+        if r is not None and not r.get("ok") and r.get("error_code") in ("no_space", "site_used", "unknown_site", "wrong_site_kind"):
+            self.office_bad.add(site_id)
+            log("office_site_retired", site=site_id, code=r.get("error_code"), day=self.day)
+        return r
+
+    def office_fits(self, st):
+        """An office site where a chair can stand: a chair fits it, the game has not refused a chair there, and it is
+        not a farm level (a level with a farm room or plot) or a farm room."""
+        if not self.chair_fits(st) or st.get("id") in self.office_bad:
+            return False
+        if st.get("kind") == "A":
+            return st.get("z") not in self.farm_levels()
+        return not self.farm_room(st)
+
+    def farm_room(self, r):
+        """A room a farm plot uses, or one this layer designated as a farm that nothing else uses yet (a soil room
+        given the farm role at designation can become a dining room instead: then it is no farm)."""
+        used = [str(u) for u in lst(r.get("used_by"))]
+        if any(u.startswith("farm") for u in used):
+            return True
+        return str(self.roles.get(r.get("id"), "")).startswith("farm") and not used
+
+    def farm_levels(self):
+        """z of every level with a farm room (this layer's farm role, given when its digging is designated), a room a
+        farm plot uses, or a farm plot (a handed-over fort's own, or one built on an F site)."""
+        return ({r.get("z") for r in self.kind("R") if self.farm_room(r)}
+                | {p.get("z") for p in lst(self.o.get("farm_plots")) if isinstance(p, dict)})
+
+    @staticmethod
+    def office_has_chair(z):
+        return bool(d(z.get("furniture")).get("chair") or d(z.get("furniture_planned")).get("chair"))
+
+    def zone_site(self, z):
+        """A site inside the office zone `z` where its chair can go (office_fits): the site make_zone zoned (same corner)
+        if the zone still covers it whole, else a dug room, then a level, the zone holds whole. A level's A site
+        changes id and box as its digging grows (d38 game: the office zoned over A8, 9x6, on day 3; A9, 13x7, on day
+        5): a chair placed on the grown site could land outside the zone, so only sites the zone covers count."""
+        cands = [st for st in self.sites if st.get("kind") in ("R", "A") and st.get("z") == z.get("z")
+                 and st.get("x") == z.get("x") and st.get("y") == z.get("y")]
+        cands += [st for st in self.kind("R") if st.get("dug")] + self.kind("A")
+        return next((st for st in cands if covers(z, st) and self.office_fits(st)), None)
+
+    @staticmethod
+    def chair_fits(st):
+        if st.get("kind") == "R":
+            return bool(st.get("dug"))
+        return (num(st.get("open_tiles")) or 0) >= 2 and (num(st.get("w")) or 1) * (num(st.get("h")) or 1) > 1
+
+    def office_site(self):
+        """A site for a new office zone where a chair fits: a dug room with the office role, then a dug room with no
+        role, then a level with open floor in a box make_zone accepts; never a one-tile site, never one tried before."""
+        rooms = self.dug_rooms("office") + [r for r in self.dug_rooms() if self.roles.get(r.get("id")) is None]
+        levels = [a for a in self.kind("A") if (num(a.get("w")) or 99) <= ZONE_SIDE and (num(a.get("h")) or 99) <= ZONE_SIDE
+                  and (not self.open_task() or (self.day or 0) >= OFFICE_LEVEL_DAY)]
+        return next((st for st in rooms + levels if st.get("id") is not None and st["id"] not in self.office_tried
+                     and self.office_fits(st)), None)
+
     def build(self, wtype, retry=3):
         """One workshop of `wtype`: the first W site this run has not built this type on yet (the site the last
-        build consumed is unusable, and moving on keeps a second Carpenters from retrying the first)."""
+        build consumed is unusable, and moving on keeps a second Carpenters from retrying the first). d59, open
+        tasks: nor any type, since the observation is a pass old: after Carpenters went on W1, the Still and Kitchen
+        were sent to W1 in the same pass, refused (site_used) and held back by the key's retry, so OP1's Still stood
+        on day 4-5 and its Kitchen on day 7-8 (yukonautominer's bbbb6c26 reserves the site the same way)."""
+        used = {sid for sid, _ in self.full_sites} if SITE_ANY_TYPE and self.open_task() else set()
         for s in self.kind("W"):
-            if (s.get("id"), wtype) in self.full_sites:
+            if (s.get("id"), wtype) in self.full_sites or s.get("id") in used:
                 continue
             if not self.material():
                 return None
@@ -367,7 +578,7 @@ class Overseer(OpenPlayRules):
                 self.build("Carpenters")
 
     def office_chair_needed(self):
-        if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
+        if (self.cit < 14 and not (OFFICE_EARLY and self.open_task())) or not self.adm.get("manager_active_for_orders"):
             return False
         if d(self.adm.get("manager_office")).get("chair") or (self.free.get("chair") or 0):
             return False
@@ -407,6 +618,92 @@ class Overseer(OpenPlayRules):
     def farm_target(self):
         return max(4, min(10, math.ceil(self.cit / 5)))
 
+    def stair_site(self, stairs):
+        """The S site for a staircase: the default (the last listed) unless water lies within STAIR_WATER tiles of it on
+        the surface or the level below; then the listed S site farthest from water. Decided once a game; a failed map
+        query, or no water in it, keeps the default."""
+        default = stairs[-1]
+        if not WATER_STAIRS or not self.open_task() or len(stairs) < 2 or not isinstance(self.surface, int):
+            return default
+        by_id = {s.get("id"): s for s in stairs}
+        if self.stair_pick is not None:
+            return by_id.get(self.stair_pick, default)
+        pick = default
+        try:
+            q = self.game.query("map", x=default["x"], y=default["y"], z=self.surface, radius=20, z2=self.surface - 1)
+            res = d(q.get("result", q))
+            wet = [(w["x"], w["y"]) for w in lst(res.get("liquid")) if isinstance(w, dict) and not w.get("magma")
+                   and (w.get("depth") or 0) >= 1 and w.get("x") is not None and w.get("y") is not None]
+            if wet:
+                near = lambda s: min(max(abs(s["x"] - x), abs(s["y"] - y)) for x, y in wet)
+                if near(default) <= STAIR_WATER:
+                    pick = max(stairs, key=near)
+                log("stair_site", default=default.get("id"), pick=pick.get("id"), water=len(wet),
+                    near_default=near(default), near_pick=near(pick))
+        except Exception as e:   # the map query is optional: the default site stays
+            log("stair_site_error", error=repr(e)[:200])
+        self.stair_pick = pick.get("id")
+        return pick
+
+    def wet_box(self, x, y, z, w, h):
+        """d56: True when the map shows water, ice or magma in the box (top-left x,y on level z, w by h) or on a tile
+        next to it on that level; False when it shows none (hidden tiles show nothing); None when the query fails or
+        answers neither liquid nor levels."""
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in (x, y, z, w, h)):
+            return None
+        try:
+            q = self.game.query("map", x=x + w // 2, y=y + h // 2, z=z, radius=min(20, max(w, h) // 2 + 2))
+        except Exception as e:   # the map query is optional: the room is dug as before
+            log("room_water_error", error=repr(e)[:200])
+            return None
+        res = d(d(q).get("result", q))
+        if res.get("ok") is False or ("liquid" not in res and "levels" not in res):
+            return None
+        near = lambda px, py: x - 1 <= px <= x + w and y - 1 <= py <= y + h   # noqa: E731
+        for t in lst(res.get("liquid")):
+            t = d(t)
+            if t.get("z", z) == z and isinstance(t.get("x"), int) and isinstance(t.get("y"), int) \
+                    and (t.get("depth") or 0) >= 1 and near(t["x"], t["y"]):
+                return True
+        x1, y1 = res.get("x1"), res.get("y1")
+        if isinstance(x1, int) and isinstance(y1, int):
+            for lv in lst(res.get("levels")):
+                lv = d(lv)
+                if lv.get("z") != z:
+                    continue
+                for layer, wet in (("material", WET_MATERIAL), ("shape", WET_SHAPE)):
+                    for i, row in enumerate(lst(lv.get(layer))):
+                        if isinstance(row, str) and any(ch in wet and near(x1 + j, y1 + i) for j, ch in enumerate(row)):
+                            return True
+        return False
+
+    def room_size(self, room, w, h):
+        """d56, open tasks: the box to dig at an R site for a room of w by h: (w, h) when it is dry, else the first
+        dry smaller box (ROOM_SIZES), else None (no room here). Anything else, and a failed query: (w, h) as before.
+        Decided once per room and size."""
+        if not DRY_ROOMS or not self.open_task():
+            return (w, h)
+        key = (room.get("id"), w, h)
+        if room.get("id") in self.wet_rooms:
+            return None               # every size holds the 3x3 box, which is wet
+        if key in self.room_fit:
+            return self.room_fit[key]
+        fit = None
+        for bw, bh in ROOM_SIZES.get((w, h), ((w, h),)):
+            wet = self.wet_box(room.get("x"), room.get("y"), room.get("z"), bw, bh)
+            if wet is None and (bw, bh) == (w, h):
+                fit = (w, h)          # no map: as before
+                break
+            if wet is False:
+                fit = (bw, bh)
+                break
+        if fit != (w, h):
+            log("room_wet", site=room.get("id"), want=[w, h], dig=list(fit) if fit else None, day=self.day)
+        if fit is None:
+            self.wet_rooms.add(room.get("id"))
+        self.room_fit[key] = fit
+        return fit
+
     def digging(self):
         rooms = self.kind("R")
         pending = self.o.get("dig_designations_pending") or 0
@@ -415,7 +712,8 @@ class Overseer(OpenPlayRules):
             self.dorm_depth_ok(r) for r in self.undug_rooms() if r["id"] not in self.roles)
         if stairs and self.surface is not None and (len(rooms) < 2 or (not any(r.get("soil") for r in rooms)
                                                                        and not self.o.get("farm_plots")) or need_dorm_access):
-            self.act("stairs", "dig_stairs", {"site": stairs[-1]["id"], "z_bottom": self.surface - 4}, retry=12, limit=3)
+            self.act("stairs", "dig_stairs", {"site": self.stair_site(stairs)["id"], "z_bottom": self.surface - 4},
+                     retry=12, limit=3)
         if pending > 90:
             return
         farms = len(lst(self.o.get("farm_plots"))) + sum(1 for r, v in self.roles.items() if v == "farm" and not any(z.get("id") == r and z.get("used_by") for z in self.kind("R")))
@@ -430,6 +728,8 @@ class Overseer(OpenPlayRules):
                     self.roles[rid] = "dorm"
                     self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), 9, 7)
             elif r.get("soil") and farms < self.farm_target():
+                if self.room_size(r, 3, 3) is None:     # d56: water, ice or magma at the box: not this room
+                    continue
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and (not self.surge or result.get("ok")):
                     self.roles[rid] = "farm"
@@ -439,6 +739,11 @@ class Overseer(OpenPlayRules):
                 if self.surge and role == "dorm" and not self.dorm_depth_ok(r):
                     continue
                 size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
+                fit = self.room_size(r, size.get("w", 3), size.get("h", 3))
+                if fit is None:                         # d56: the next room takes the role
+                    continue
+                if fit != (size.get("w", 3), size.get("h", 3)):
+                    size = {} if fit == (3, 3) else {"w": fit[0], "h": fit[1]}
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
                 if result and (not self.surge or result.get("ok")):
                     self.roles[rid] = role
@@ -465,7 +770,8 @@ class Overseer(OpenPlayRules):
         must see batches brewed); with the placed-bed goal the carpenters' queue holds beds only."""
         brew = self.standing("brew_drink") or (self.drink_growth and bool(self.brew_own)) or self.brew_stopped
         if not brew:
-            when = [{"stock": "plants_brewable", "at_least": 2}, {"stock": "barrels_empty", "at_least": 1}]
+            when = [{"stock": "plants_brewable", "at_least": BREW_MIN if self.open_task() else 2},
+                    {"stock": "barrels_empty", "at_least": 1}]
             if not self.drink_growth:
                 when.insert(0, {"stock": "drink", "below": DRINK_CAP})
             key = "o_brew_growth" if self.drink_growth else "o_brew"
@@ -494,6 +800,8 @@ class Overseer(OpenPlayRules):
             wants = wants[:1]
             if self.surge and self.office_chair_needed():
                 wants += (("make_chair", self.free.get("chair") or 0, 1),)
+        elif self.open_task() and self.office_chair_needed():   # d36: one chair for the office before dining wants it
+            wants += (("make_chair", self.free.get("chair") or 0, 1),)
         for recipe, have, want in wants:
             if have < want and not self.pending(recipe) and self.logs():
                 batch = 30 if self.surge and recipe == "make_bed" else 8
@@ -534,10 +842,33 @@ class Overseer(OpenPlayRules):
         not see it, and the confirmed ids are the record."""
         return any(o.get("id") in self.craft_ids for o in self.orders)
 
+    def winter_prep(self):
+        """Full-year open play, from WINTER_PREP_DAYS before the horizon until the endgame: drink doesn't rot, so it is
+        brewed up before winter instead of only from ENDGAME_DAYS out (food does rot, and comes from the herd)."""
+        return (WINTER_PREP_DAYS > ENDGAME_DAYS and self.open_play() and (self.days or 0) >= 336
+                and self.days_left <= WINTER_PREP_DAYS)
+
+    def winter_supply(self):
+        """The endgame's brew order, early, under its own key: endgame_supply cancels it and adds its own with the
+        population of that day (a wave between them would otherwise leave this cap and plant reserve in force)."""
+        cap = max(600, 30 * self.cit)
+        reserve = max(12, self.cit)
+        if not self.brew_stopped:
+            r = self.act("o_brewpre_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
+                {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
+                {"stock": "barrels_empty", "at_least": 1}]}, retry=3, limit=4)
+            res = d(r.get("result")) if isinstance(r, dict) and r.get("ok") else {}
+            if res.get("order_id") is not None:
+                self.winter_brew_id = res.get("order_id")
+        self.act("o_barrel_end", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
+            {"stock": "barrels_empty", "below": 8}, {"stock": "logs", "at_least": 4}]}, retry=3, limit=4)
+
     def closer(self):
         if self.in_endgame():
             self.endgame_supply()
             self.housing_check()
+        elif self.winter_prep():
+            self.winter_supply()
         elif self.in_window_prep():
             self.window_supply()
             self.housing_check()
@@ -550,6 +881,14 @@ class Overseer(OpenPlayRules):
         Meat is added when edible food is short of a few days per citizen."""
         cap = max(600, 30 * self.cit)
         reserve = max(12, self.cit)
+        wid = self.winter_brew_id
+        if wid is not None and isinstance(self.o.get("orders"), list):
+            if any(x.get("id") == wid for x in self.orders):
+                r = self.act("o_brewpre_cancel", "cancel_order", {"order_id": wid}, retry=1, limit=3)
+                if r is not None and (r.get("ok") or r.get("error_code") == "no_such_order"):
+                    self.winter_brew_id = None
+            else:
+                self.winter_brew_id = None
         if not self.brew_stopped:
             self.act("o_brew_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
                 {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
@@ -599,7 +938,9 @@ class Overseer(OpenPlayRules):
         """Housing is read at the horizon: placed (built) beds per citizen and seats inside dining zones per two
         citizens. Near the end, order the shortfall at once (a built bed needs the item, a carpenter and an installer)
         and place whatever is free; the regular furnish step then zones it."""
-        beds_short = self.cit - (self.placed.get("bed") or 0)
+        # d59, open tasks: less the beds whose construction DF suspended (beds_counted), so their replacements are
+        # ordered too; the labs keep the placed count
+        beds_short = self.cit - (self.beds_counted() if self.open_task() else (self.placed.get("bed") or 0))
         if beds_short > 0 and (self.st.get("beds") or 0) < self.cit + 2 and self.logs() >= 2 \
                 and not self.pending("make_bed") and not self.ordered_now("o_make_bed"):
             self.act("o_bed_close", "add_order", {"recipe": "make_bed", "amount": min(30, max(2, beds_short + 2))},
@@ -641,6 +982,24 @@ class Overseer(OpenPlayRules):
         """What a site looked like when it had no room: its box and its open area (a dug level grows)."""
         return self.box(s), s.get("open_tiles")
 
+    def stuck(self, f):
+        """d52, open tasks: a placed item that was unbuilt when DF reported a suspended construction ("The dwarves
+        suspended the construction of ... Table.": a kea that keeps interrupting the builders does it) and is still
+        unbuilt FURN_STUCK_DAYS later. No tool resumes a suspended construction: it is not counted as coming, and
+        free items are placed in its stead. A slow backlog with no such report is never counted out."""
+        if not self.open_task() or f.get("built") is not False:
+            return False
+        since = self.furn_suspects.get(f.get("id"))
+        return since is not None and self.now - since >= FURN_STUCK_DAYS * DAY
+
+    def beds_counted(self):
+        """Placed beds, built or coming; on open tasks less the stuck ones (d50)."""
+        n = self.placed.get("bed") or 0
+        if self.open_task():
+            n -= sum(1 for f in lst(self.o.get("furniture")) if isinstance(f, dict) and f.get("kind") == "bed"
+                     and self.stuck(f))
+        return n
+
     def dining_kinds(self, built_only=False, site=None):
         """Tables and chairs in a dining zone by DF's membership (`zone_ids`: a zone's rectangle is not membership),
         once each, planned ones too unless built_only; plus non-members inside `site` while it may still be zoned
@@ -661,12 +1020,16 @@ class Overseer(OpenPlayRules):
             k = f.get("kind")
             if k not in n or (built_only and not f.get("built")):
                 continue
-            member = bool(dining & set(lst(f.get("zone_ids"))))
-            if member and not capped:
+            member_of = dining & set(lst(f.get("zone_ids")))
+            if self.stuck(f):
+                if capped and not built_only:
+                    n[k] -= len(member_of)      # d54: each of its zones' planned totals counted it
+                continue
+            if member_of and not capped:
                 n[k] += 1
-            elif not member and prospective and covers(site, f):
+            elif not member_of and prospective and covers(site, f):
                 n[k] += 1
-        return n
+        return {k: max(0, v) for k, v in n.items()}
 
     def dine_stock(self, kind, site):
         """Tables or chairs that are or will be dining seats (dining_kinds), plus the free ones."""
@@ -676,7 +1039,7 @@ class Overseer(OpenPlayRules):
         """make_zone takes `site` (no side over ZONE_SIDE; a room nothing touches) and this layer may zone it now:
         never yet, or its box or dug area changed, or ZONE_RECHECK days on, fewer than ZONE_TRIES times, and its
         make_zone refused fewer than ZONE_FAILS times."""
-        w, h = site.get("w") or 0, site.get("h") or 0
+        w, h = num(site.get("w")) or 0, num(site.get("h")) or 0
         if not (0 < w <= ZONE_SIDE and 0 < h <= ZONE_SIDE):
             return False
         if site.get("kind") == "R" and lst(site.get("used_by")):
@@ -709,7 +1072,7 @@ class Overseer(OpenPlayRules):
             return any(covers(z, s) for z in zones)
 
         def fits(s, alt):
-            w, h = s.get("w") or 0, s.get("h") or 0
+            w, h = num(s.get("w")) or 0, num(s.get("h")) or 0   # d42: an unreadable size skips the site only
             if not (0 < w <= PLACE_SIDE and 0 < h <= PLACE_SIDE) or self.dine_full.get(s.get("id")) == self.fill_mark(s):
                 return False
             if self.retired_site(s):
@@ -720,13 +1083,13 @@ class Overseer(OpenPlayRules):
                     return False
                 if used:
                     return zoned(s)
-                return not alt or self.roles.get(s.get("id")) in (None, "dine")
-            return (s.get("open_tiles") or 0) >= 6 and (zoned(s) or (w <= ZONE_SIDE and h <= ZONE_SIDE))
+                return not alt or self.roles.get(s.get("id")) in (None, "dine", "dine_more")
+            return (num(s.get("open_tiles")) or 0) >= 6 and (zoned(s) or (w <= ZONE_SIDE and h <= ZONE_SIDE))
 
         if fits(first, False):
             return first
         alts = [s for s in self.kind("A") + self.kind("R") if fits(s, True)]
-        alts.sort(key=lambda s: (not zoned(s), s.get("kind") != "A", -(s.get("open_tiles") or 0), str(s.get("id"))))
+        alts.sort(key=lambda s: (not zoned(s), s.get("kind") != "A", -(num(s.get("open_tiles")) or 0), str(s.get("id"))))
         return alts[0] if alts else None
 
     def needs_zone(self, site, placed=()):
@@ -807,7 +1170,7 @@ class Overseer(OpenPlayRules):
                 continue
             if kinds & {"table", "chair"} and not self.zoned_now(site):   # furnish zoned it on this observation
                 self.act("rz_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]}, retry=2, limit=3)
-            if "bed" in kinds:
+            if "bed" in kinds and not any(overlap(r, site) for r in self.pending_dine()):   # d46: as in beds_open
                 self.act("rz_dorm_%s" % site["id"], "make_zone", {"kind": "dormitory", "site": site["id"]}, retry=2, limit=3)
         for z, kinds in by_z.items():
             if kinds.get("table") and kinds.get("chair"):
@@ -815,6 +1178,62 @@ class Overseer(OpenPlayRules):
                              and (x.get("w") or 0) <= 20 and (x.get("h") or 0) <= 20), None)
                 if site and not self.zoned_now(site):
                     self.act("dx_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]}, retry=3, limit=2)
+
+    def meeting(self):
+        """Open tasks: one meeting area below ground (MEETING), once a dug level or room can take it. Never again
+        once a meeting area stands or this layer's own was accepted."""
+        if not (MEETING and self.open_task()) or self.meeting_made or self.meeting_tries >= MEETING_TRIES:
+            return
+        if self.zone("meeting"):
+            return
+        site = self.meeting_site()
+        if site is None:
+            return
+        r = self.act("meeting_%s" % site["id"], "make_zone", {"kind": "meeting_area", "site": site["id"]},
+                     retry=1, limit=MEETING_SITE_TRIES)
+        if r is None:
+            return
+        self.meeting_tries += 1
+        if r.get("ok"):
+            self.meeting_made = site["id"]
+            log("meeting_made", site=site["id"], day=self.day)
+
+    def meeting_site(self):
+        """Where the meeting area goes: an underground dug level (A) or dug room (R) make_zone takes (ZONE_SIDE), with
+        room to stand, off the levels that hold a farm plot. A site a dining zone overlaps first, then a dormitory's,
+        then levels before rooms and the most open tiles; before MEETING_ANY_DAY only sites one of those zones
+        overlaps. None if no site qualifies."""
+        surface = self.surface if isinstance(self.surface, int) and not isinstance(self.surface, bool) \
+            else self.surface_seen
+        farm_z = self.farm_levels()
+        dining, dorms = self.zone("dining"), self.zone("dormitor")
+        held = self.pending_dine() + [r for r in self.kind("R") if self.roles.get(r.get("id")) == "beds"
+                                      and self.bed_full.get(r.get("id")) != self.fill_mark(r)]
+
+        def fits(s):
+            w, h, z = num(s.get("w")) or 0, num(s.get("h")) or 0, num(s.get("z"))
+            if not (0 < w <= ZONE_SIDE and 0 < h <= ZONE_SIDE) or s.get("subterranean") is False or s.get("id") is None:
+                return False
+            if any(overlap(r, s) for r in held):   # d44: a zone over a housing room makes it `used` (site_used)
+                return False
+            if z is None or not isinstance(surface, int) or z >= surface or z in farm_z:
+                return False
+            if s.get("kind") == "A":
+                return (num(s.get("open_tiles")) or 0) >= 9
+            # a dug room a zone or farm plot already uses: make_zone answers site_used (manual, R rooms)
+            return bool(s.get("dug")) and w * h >= 9 and not lst(s.get("used_by")) and s.get("free") is not False
+
+        def touches(zones, s):
+            return any(overlap(z, s) for z in zones)
+
+        found = [s for s in self.kind("A") + self.kind("R") if fits(s)
+                 and self.tries.get("meeting_%s" % s.get("id"), 0) < MEETING_SITE_TRIES]   # refused twice: the next
+        if (self.day or 0) < MEETING_ANY_DAY:      # early on, only where the fort eats or sleeps: a level zoned before
+            found = [s for s in found if touches(dining, s) or touches(dorms, s)]   # its rooms are dug stays small
+        found.sort(key=lambda s: (not touches(dining, s), not touches(dorms, s), s.get("kind") != "A",
+                                  -(num(s.get("open_tiles")) or (num(s.get("w")) or 0) * (num(s.get("h")) or 0)),
+                                  str(s.get("id"))))
+        return found[0] if found else None
 
     def room_for(self, role):
         """The dug level of a role's big room (its A site covers the whole dig), else the room itself."""
@@ -829,9 +1248,138 @@ class Overseer(OpenPlayRules):
         taken = {r.get("z") for r in self.kind("R") if self.roles.get(r["id"], "").startswith("farm")}
         return next((s for s in self.kind("A") if s.get("z") not in taken), None)
 
+    # ---- d42, open tasks: housing that outgrows its rooms
+    def reserved(self):
+        """d44: boxes the bed fallback leaves alone. place_furniture fills a box row by row from its top-left,
+        whatever zone a tile is in, so beds placed over a whole level can take an office's or a dining room's floor:
+        office and dining zones, sites this layer gave the office or a dining role, and sites an office zone was made
+        on this game (the zone list is the observation's, from before this pass's own actions). A site that is only where
+        dining furniture would go next is not held: beds may need it as much."""
+        boxes = [z for z in self.zones if any(w in str(z.get("type")).lower() for w in ("office", "dining"))]
+        boxes += [st for st in self.sites if self.roles.get(st.get("id")) in ("office", "dine", "dine_more")
+                  or st.get("id") in self.office_zoned]
+        return boxes
+
+    def pending_dine(self):
+        """d45: rooms dug for more dining seats that no dining zone holds whole yet: any other zone over them makes
+        them `used`, and make_zone then refuses their dining zone (site_used)."""
+        dining = self.zone("dining")
+        return [r for r in self.kind("R") if self.roles.get(r.get("id")) == "dine_more"
+                and not any(covers(z, r) for z in dining)]
+
+    def bed_sites(self, dorm):
+        """Where beds can go, best first. The score counts placed beds wherever they stand, but place_furniture takes
+        a box of at most PLACE_SIDE a side (handed-over forts' dug levels can be wider) and answers no_space when it
+        is full. The dorm site, then other dug levels (no farm level, no office on them), most open first, then dug
+        rooms nothing uses that are not this layer's farm, office or dining rooms. A site that refused beds for its
+        size or for room is passed over until its box or open area changes."""
+        farm_z = self.farm_levels()
+        keep = self.reserved()
+
+        def ok(s):
+            w, h = num(s.get("w")), num(s.get("h"))
+            if s.get("id") is None or not (w and h and w <= PLACE_SIDE and h <= PLACE_SIDE):
+                return False
+            if self.tries.get("beds_%s" % s.get("id"), 0) >= BED_LIMIT:   # d44: its key is spent
+                return False
+            return self.bed_full.get(s.get("id")) != self.fill_mark(s)
+
+        out = [dorm] if dorm is not None and ok(dorm) else []
+        levels = [s for s in self.kind("A") if ok(s) and s not in out and s.get("z") not in farm_z
+                  and (num(s.get("open_tiles")) or 0) >= 3 and not any(overlap(b, s) for b in keep)]
+        levels.sort(key=lambda s: (-(num(s.get("open_tiles")) or 0), str(s.get("id"))))
+        def unused(r):   # a room only a dormitory zone uses still takes beds (d45)
+            used = [str(u) for u in lst(r.get("used_by"))]
+            return all(u.lower().startswith("dormitor") for u in used) if used else r.get("free") is not False
+
+        rooms = [r for r in self.kind("R") if ok(r) and r not in out and r.get("dug") and unused(r)
+                 and self.roles.get(r.get("id")) in (None, "dorm", "beds") and not any(overlap(b, r) for b in keep)]
+        rooms.sort(key=lambda r: (self.roles.get(r.get("id")) != "beds", str(r.get("id"))))
+        return out + levels + rooms
+
+    def beds_open(self, dorm):
+        """Open tasks: the beds a fort is short of go to the first site that takes them (bed_sites); a refusal for
+        size or room moves on to the next site in the same pass. The dorm site keeps its dormitory zone."""
+        n = min(self.free.get("bed") or 0, self.cit + 2 - self.beds_counted(), 30)
+        if n <= 0:
+            return
+        self.place_beds(dorm, n)
+        if dorm is not None and not self.zone("dorm") and not self.zone("bedroom") \
+                and not any(overlap(r, dorm) for r in self.pending_dine()):   # d45: it would make that room `used`
+            self.act("z_dorm", "make_zone", {"kind": "dormitory", "site": dorm["id"]}, retry=3)
+
+    def place_beds(self, dorm, n):
+        asked = 0
+        for site in self.bed_sites(dorm):
+            if asked >= BED_TRIES:
+                return
+            r = self.act("beds_%s" % site["id"], "place_furniture", {"kind": "bed", "site": site["id"], "count": n},
+                         retry=1, limit=BED_LIMIT)
+            if not isinstance(r, dict):
+                continue                     # this site's key rests: another site may still be asked
+            asked += 1
+            if r.get("ok"):
+                placed = self.placement_count(r)
+                if placed is None or placed >= n:
+                    return
+                n -= placed
+                self.bed_full[site["id"]] = self.fill_mark(site)   # took fewer than asked: no room left there
+                continue
+            if r.get("error_code") not in BED_REFUSED:
+                return
+            self.bed_full[site["id"]] = self.fill_mark(site)
+            log("bed_site_full", site=site["id"], code=r.get("error_code"), day=self.day)
+
+    def house_rooms(self):
+        """Open tasks: beds or dining seats are short and no site can take them (the dining room is full, the
+        levels are too big to zone or to furnish): dig one more 3x3 room for them, one at a time, at most HOUSE_ROOMS
+        a game, from task day HOUSE_FROM_DAY. A dug room's id keeps working for place_furniture and make_zone; a
+        level's box is the bounding box of everything dug on it, so a big level never fits."""
+        if not self.open_task() or not isinstance(self.day, int) or self.day < HOUSE_FROM_DAY:
+            return
+        if (num(self.o.get("dig_designations_pending")) or 0) > 90:
+            return
+        extra = [r for r in self.kind("R") if self.roles.get(r.get("id")) in ("dine_more", "beds")]
+        if len(extra) >= HOUSE_ROOMS or any(not r.get("dug") for r in extra):
+            return
+        role = None
+        if self.real_seats() < math.ceil(self.cit / 2) + 1 and \
+                (self.free.get("table") or 0) + (self.free.get("chair") or 0) > 0 and self.dine_site() is None:
+            role = "dine_more"
+        elif self.beds_counted() < self.cit and (self.free.get("bed") or 0) > 0 \
+                and not self.bed_sites(self.room_for("dorm")):
+            role = "beds"
+        if role is None:
+            return
+        keep, dining = self.reserved(), self.zone("dining")
+
+        def clear(r):
+            """d44: a zone over the room's box makes the dug room `used` (make_zone answers site_used, and bed_sites
+            passes a used room over): only a dining zone holding the whole box is welcome, for dining."""
+            if not self.may("dig_" + r["id"], 3, 2):      # a refused room's key rests or is spent: try the next room
+                return False
+            for z in self.zones:
+                if overlap(z, r) and not (role == "dine_more" and z in dining and covers(z, r)):
+                    return False
+            return not any(overlap(b, r) for b in keep if b not in self.zones)
+
+        rooms = [r for r in self.undug_rooms() if r.get("id") is not None and r["id"] not in self.roles and clear(r)]
+        if not rooms:
+            return
+        rooms.sort(key=lambda r: (bool(r.get("soil")), str(r.get("id"))))   # soil rooms are the farms' first choice
+        r = next((r for r in rooms if self.room_size(r, 3, 3) is not None), None)   # d56: a dry room
+        if r is None:
+            return
+        result = self.act("dig_" + r["id"], "dig_room", {"site": r["id"]}, retry=3, limit=2)
+        if isinstance(result, dict) and result.get("ok"):
+            self.roles[r["id"]] = role
+            log("house_room", site=r["id"], role=role, day=self.day)
+
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
-        if dorm:
+        if self.open_task():
+            self.beds_open(dorm)
+        elif dorm:
             short = self.cit + 2 - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             if n > 0:
@@ -909,6 +1457,7 @@ class Overseer(OpenPlayRules):
             if a.get("tame") and a.get("pet_owner_id") in (None, -1) and not a.get("marked_for_slaughter"):
                 self.act("slaughter", "slaughter", {"unit_id": a.get("id")}, retry=5, limit=3)
                 return
+
 
     def defend(self):
         th, mil = d(self.o.get("threats")), d(self.o.get("military"))

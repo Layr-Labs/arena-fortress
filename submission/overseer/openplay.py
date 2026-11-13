@@ -27,7 +27,12 @@ def lst(v):
 # perishable (raw meat, cleaned fish, plants, prepared meals too) rots 16-19 days after it is made. The food count is
 # therefore a moving sum of the last two and a half weeks' production, and an animal slaughtered a month before the
 # horizon becomes a drop inside the scored final stretch. Live animals are the one food store that can't rot.
-FEAST_DAYS = 14         # animals are slaughtered from this many days before the horizon: none of that meat can rot in time
+FEAST_DAYS = 15         # animals are slaughtered from this many days before the horizon: none of that meat can rot in time
+                        #   (d57: 15, was 14. Both open tasks end on spring day 14, so the spring alert turned on in the
+                        #   feast's first pass and kept the butcher, a civilian, from the surface Butchers for five days:
+                        #   food sat at 3 to 10 in OP1's scored stretch until the meat came on day 327. A pass earlier
+                        #   the first batch is butchered the day before the alert; meat made then rots 16-19 days
+                        #   later, after the horizon)
 FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
@@ -37,6 +42,16 @@ HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a 
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
 HUNGER_GAP_FINAL = 5    # ... from FINAL_STRETCH days out
+HUNGER_BIG = 15         # ... where a fort this size culls two animals a pass (d34: OP1 1016-p had 20 citizens at 0 food)
+FINAL_FLOOR = 3         # d60: from FINAL_STRETCH days out until the feast, a hunger cull may take one of the animals kept
+                        #   for the feast once nothing else is left and the food is at most this (or a fifth of the
+                        #   citizens). Before d60 a kept animal went only at 0 food, and a pass sees the food every two
+                        #   days: in 9 of the 10 games of d50-d59 whose food coverage fell short, the food stood at 0
+                        #   for one to seven scored days before the feast while one to three animals were kept (in 7 the
+                        #   pass before had read 1 food; the tenth game had no animal left). The start of the stretch
+                        #   is that low, so meat that rots inside it still leaves the stock higher at the horizon than
+                        #   there
+FEAST_MIN = 1           # ... but never the last this many: the feast's meat is what stands at the horizon
 COOK_RAW = 6            # meat, fish, cheese and eggs in stock (food that is neither a plant nor a meal) from which the
                         #   feast cooks: with less, a cook would only take the plants the still needs
 DRINK_SAFE = 28         # drink per citizen at which brewing stops for the feast, so the plants harvested in those
@@ -73,6 +88,16 @@ THAW_AFTER = 3          # ... to this many days into it. Ice thaws at the start 
                         #   the fort with frozen water in reach (1016-p) the thaw came between spring days 1 and 2 in
                         #   all eight full-year games, and in one a woodcrafter idle in the frozen river bed drowned
 THAW_FROM_DAY = 30      # not in a game's first month (an embark has no shelter yet, and its first days matter most)
+MIDWINTER = 293.4       # d53: the deep water near the wagon freezes and thaws at days of the year that mirror each
+                        #   other about this one: on all eight forts where it froze in the recorded games (150 games),
+                        #   the thaw fell within a day of the freeze's mirror image. Most thaw in winter, outside the
+                        #   spring window above; on 1000-p it thaws on spring day 11 or 12 and a dwarf drowned there on
+                        #   day 12 in two games, both about half a day after the water was first seen again
+FREEZE_FROM = 200       # d53: a freeze is deep water gone between this day of the year and MIDWINTER, ...
+FREEZE_SPAN = 4         # ... seen last at most this many days before the reading without it (else no prediction)
+THAW_EARLY = 1          # d53: the alert starts this many days before the predicted thaw's earliest tick, ...
+THAW_SLACK = 1.5        # ... and ends this many days after its latest, or sooner once the water is seen again ...
+THAW_HOLD = 2           # ... and this many days have passed since
 YEAR = 336 * DAY        # ticks in a year; a year starts with spring (the API: abs_tick = year * YEAR + tick of the year)
 ADMIT_MAX = 3           # openings a lockdown may make
 STAIR_CAP = 8           # the API lists at most this many surface stairs: at the cap the list may be incomplete
@@ -114,6 +139,20 @@ ANIMAL_RANK = {"WATER_BUFFALO": 100, "YAK": 70, "COW": 60, "HORSE": 50, "CAMEL_1
                "BIRD_DUCK": 0.6, "BIRD_GUINEAFOWL": 0.6, "RABBIT": 0.5, "CAVY": 0.2}
                         # relative adult size (unlisted: 1, a cat). Measured yields are flatter than size: a dog or a
                         #   cow gives 20-40 food, a turkey 10, a cat 7, a rabbit or cavy next to nothing
+GRAZERS = frozenset((   # d58: every [STANDARD_GRAZER] creature of the vanilla raws (49). No tool makes a pasture, so
+    "ALPACA", "CAMEL_1_HUMP", "CAMEL_2_HUMP", "CAPYBARA", "CAVY", "CENOZOIC_DEINOTHERIUM", "CENOZOIC_ENTELODON",
+    "CENOZOIC_MAMMOTH_PYGMY", "CENOZOIC_MAMMOTH_WOOLLY", "CENOZOIC_MEGACEROPS", "CENOZOIC_MEGATHERIUM",
+    "CENOZOIC_MIOHIPPUS", "CENOZOIC_PARACERATHERIUM", "CENOZOIC_PLATYBELODON", "CENOZOIC_RHINOCEROS_WOOLLY",
+    "COW", "DEER", "DONKEY", "DRALTHA", "ELEPHANT", "ELK", "ELK_BIRD", "GAZELLE", "GIRAFFE", "GOAT",
+    "GOAT_MOUNTAIN", "GROUNDHOG", "HARE", "HORSE", "IBEX", "IMPALA", "KANGAROO", "LLAMA", "MARMOT_HOARY", "MOOSE",
+    "MULE", "MUSKOX", "PANDA", "PERMIAN_DIADECTES", "RABBIT", "REINDEER", "RHINOCEROS", "SHEEP", "TAPIR",
+    "UNICORN", "WARTHOG", "WATER_BUFFALO", "WOMBAT", "YAK"))
+                        #   a grazer starves: every local OP1 game lost 3-9 tame animals to starvation, all of them
+                        #   grazers, the embark ones by about day 160. The hunger cull kept the three largest for the
+                        #   feast, which are grazers, and ate the cats, dogs and birds: two games came to the feast with
+                        #   no animal left and failed on supply. So a hunger cull takes grazers first, the oldest
+                        #   (lowest unit id, the first to starve) first, and keeps the largest non-grazers for the feast
+GRAZERS_FIRST = True
 
 
 class OpenPlayRules:
@@ -129,8 +168,8 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
-            if food < max(8, HUNGER_FINAL * self.cit):
-                self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
+            if food < max(8, HUNGER_FINAL * self.cit):     # a big fort eats one small animal in a day or two: two a pass
+                self.cull("hunger", 2 if self.cit >= HUNGER_BIG else 1, smallest=True, retry=HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
             self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP)
 
@@ -153,8 +192,10 @@ class OpenPlayRules:
 
     def cull(self, key, n, smallest, retry):
         """Mark up to n of the fortress's unowned tame animals for slaughter. The feast takes the largest first. A
-        hunger cull takes the smallest animal that is still a meal and leaves the FEAST_KEEP largest alone unless
-        the food is gone and nothing else is left. Returns how many were marked."""
+        hunger cull (d58) takes grazers first, the oldest first (they starve without a pasture), then the smallest
+        other animal that is still a meal, and leaves FEAST_KEEP animals alone for the feast (the largest
+        non-grazers, then the youngest grazers) unless the food is gone and nothing else is left, or (d60) the
+        smallest of them, one a pass, when final_floor() allows it. Returns how many were marked."""
         if self.now - self.culled.get(key, -10 ** 9) < retry * DAY:
             return 0
         if "Butchers" not in self.shops() and ("Butchers" not in self.listed() or not self.core_missing()):
@@ -170,10 +211,27 @@ class OpenPlayRules:
         size = lambda a: ANIMAL_RANK.get(str(a.get("race")), 1) * (1 if a.get("adult", True) else 0.3)   # noqa: E731
         herd.sort(key=lambda a: (-size(a), str(a.get("id"))))          # largest first
         pick = herd
-        if smallest:
+        if smallest and GRAZERS_FIRST:
+            uid = lambda a: a["id"] if isinstance(a.get("id"), int) and not isinstance(a.get("id"), bool) else 0   # noqa: E731
+            grazer = lambda a: str(a.get("race")) in GRAZERS                                                   # noqa: E731
+            # kept for the feast: the largest non-grazers, then the youngest grazers that are still a meal
+            keep = ([a for a in herd if not grazer(a)]
+                    + sorted((a for a in herd if grazer(a) and size(a) >= 1), key=lambda a: -uid(a)))[:FEAST_KEEP]
+            kept = {id(a) for a in keep}
+            spare = (sorted((a for a in herd if grazer(a) and id(a) not in kept), key=lambda a: (size(a) < 1, uid(a)))
+                     + sorted((a for a in herd if not grazer(a) and id(a) not in kept),
+                              key=lambda a: (size(a) < 1, size(a), str(a.get("id")))))
+            if not spare and (self.st.get("food_edible") or 0) <= 0:
+                spare = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            elif not spare and self.final_floor(len(herd)):
+                spare, n = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))[:1], 1
+            pick = spare
+        elif smallest:
             spare = herd[FEAST_KEEP:]
             if not spare and (self.st.get("food_edible") or 0) <= 0:
                 spare = herd
+            elif not spare and self.final_floor(len(herd)):
+                spare, n = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))[:1], 1
             pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
@@ -186,6 +244,14 @@ class OpenPlayRules:
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
         return marked
+
+    def final_floor(self, herd_n):
+        """d60: True when a hunger cull may take one of the animals kept for the feast although the food is not gone:
+        from FINAL_STRETCH days out until the feast, with the food at FINAL_FLOOR (or a fifth of the citizens) or
+        less, and more than FEAST_MIN animals left."""
+        food = self.st.get("food_edible") or 0
+        return (FEAST_DAYS < self.days_left <= FINAL_STRETCH and herd_n > FEAST_MIN
+                and food <= max(FINAL_FLOOR, (self.cit or 0) // 5))
 
     # ---- the first trees wait for the predators to leave
     def felling_waits(self):
@@ -572,13 +638,54 @@ class OpenPlayRules:
         return alert
 
     def thaw_window(self, lead=0):
-        """True from THAW_BEFORE (plus `lead`) days before a spring to THAW_AFTER days into it, from the game's day
-        THAW_FROM_DAY on."""
+        """True from THAW_BEFORE (plus `lead`) days before a spring to THAW_AFTER days into it, or around the predicted
+        thaw of the water near the wagon (thaw_due), from the game's day THAW_FROM_DAY on."""
         if not all(isinstance(v, int) and not isinstance(v, bool) for v in (self.now, self.day)) \
                 or self.day < THAW_FROM_DAY:
             return False
         t = self.now % YEAR
-        return t >= YEAR - (THAW_BEFORE + lead) * DAY or t < THAW_AFTER * DAY
+        return t >= YEAR - (THAW_BEFORE + lead) * DAY or t < THAW_AFTER * DAY or self.thaw_due(lead)
+
+    def see_water(self):
+        """d53: follow the deep water near the wagon (`water_on_fort_levels`, deep_tiles: depth 4 of 7 or more). Ice
+        is not water: the field goes away while it is frozen (it is left out when there is none). A full reading
+        (burrows read) without it after one with it records a freeze when the last sighting fell between
+        FREEZE_FROM and MIDWINTER at most FREEZE_SPAN days before; the next sighting ends it, and is the thaw when
+        it falls in the alert's window (thaw_due). An 'ERR: ...' section or a partial reading changes nothing."""
+        water, now = self.o.get("water_on_fort_levels"), self.now
+        if not isinstance(now, int) or isinstance(now, bool) or isinstance(water, str):
+            return
+        deep = water.get("deep_tiles") if isinstance(water, dict) else 0
+        if not isinstance(deep, int) or isinstance(deep, bool):
+            return
+        if deep > 0:
+            if self.freeze is not None and self.thaw_due():
+                self.thawed_at = now     # the thaw: the alert holds THAW_HOLD days more
+            self.freeze, self.deep_seen = None, now
+            return
+        if not isinstance(self.o.get("burrows"), dict) or not isinstance(self.deep_seen, int):
+            return
+        t = self.deep_seen % YEAR
+        if self.freeze is None and FREEZE_FROM * DAY <= t < MIDWINTER * DAY and now - self.deep_seen <= FREEZE_SPAN * DAY:
+            self.freeze = (self.deep_seen, now)
+        self.deep_seen = None            # one reading without it per sighting: the first one brackets the freeze
+
+    def thaw_range(self):
+        """d53: the earliest and latest tick of the predicted thaw: the freeze's bracket mirrored about MIDWINTER."""
+        lo, hi = self.freeze
+        mid = (lo // YEAR) * YEAR + int(MIDWINTER * DAY)
+        return 2 * mid - hi, 2 * mid - lo
+
+    def thaw_due(self, lead=0):
+        """d53: True from THAW_EARLY (plus `lead`) days before the predicted thaw to THAW_SLACK days after it, and
+        until THAW_HOLD days after the water near the wagon is seen again."""
+        now = self.now
+        if isinstance(self.thawed_at, int) and self.thawed_at <= now < self.thawed_at + THAW_HOLD * DAY:
+            return True
+        if self.freeze is None:
+            return False
+        a, b = self.thaw_range()
+        return a - (THAW_EARLY + lead) * DAY <= now <= b + THAW_SLACK * DAY
 
     def thaw(self, alert, bur):
         """Open play: keep the civilians in the shelter while the ice thaws. In thaw_window(), with no lockdown
