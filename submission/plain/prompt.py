@@ -105,7 +105,9 @@ while waiting for digging, a build or a mood.
 ORDERS = """
 ORDERS BEYOND THE RECIPES. add_order takes one of its named recipes (recipe and amount are both required). For any
 other DF manager order use add_manager_order: job (a DF job type name, e.g. MakeCrafts) and amount, optionally reaction
-and material_category, with the same repeat/when; it runs at whichever built workshop can do that job.
+and material_category, with the same repeat/when; it runs at whichever built workshop can do that job. This v0 API has
+no depot-construction or trading action: add_manager_order is not a way to construct a depot, and guessing alternate
+manager-job names cannot implement this unavailable operation.
 
 TASK-SPECIFIC WORK THE LAYER TAKES CHARGE OF. A hand-over/surge task whose goal says "every dwarf must have a placed
 bed" (LT08) or that a 21-day window is coming are handled by the layer: on the placed-bed goal it skips its dining
