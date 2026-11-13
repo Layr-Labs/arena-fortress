@@ -18,6 +18,31 @@ SEVERITY_ORDER = {"minor": 0, "major": 1, "fatal": 2}
 ENV_HOST = "game:8090"     # the environment host the prompts name; HA_ENV_HOST / DFBENCH_ENV_HOST override it
 
 
+def own_work_downgrade(findings, contexts):
+    """RULES §8: reusing your own earlier work undeclared is at most a minor finding. A model reviewer can still issue
+    a fatal "base producer omitted" when the base is the submitter's own promoted harness (seen: 0xplemonade 7982c7ce,
+    2026-11-12, context marked own). So, deterministically: an attribution finding above minor whose cited and named
+    submissions are all the submitter's own becomes minor, with a note. A finding that names anyone else's submission,
+    or none, is left alone."""
+    own = {c["id"] for c in contexts if c.get("own")}
+    others = {c["id"] for c in contexts if not c.get("own")}
+    if not own:
+        return findings
+    def named(f):
+        text = " ".join([f.get("title", ""), f.get("explanation", "")] + [e.get("source", "") for e in f.get("evidence", [])])
+        return {cid for cid in own | others if cid in text or cid[:8] in text}
+    for f in findings:
+        if f.get("role") != "attribution" or SEVERITY_ORDER.get(f.get("severity"), 0) == 0:
+            continue
+        ids = named(f)
+        if ids and ids <= own:
+            f["downgraded_from"] = f["severity"]
+            f["severity"] = "minor"
+            f["explanation"] = (f.get("explanation", "") + " [Judge: downgraded to minor; the only submissions it names are "
+                                "the submitter's own earlier work, which RULES §8 doesn't require crediting.]")
+    return findings
+
+
 def env_host():
     for k in ("HA_ENV_HOST", "DFBENCH_ENV_HOST"):
         if os.environ.get(k):
@@ -270,6 +295,7 @@ class Committee:
                     for f in out["findings"]:
                         gid = f"{PREFIX[role]}{'.' + str(ch + 1) if n > 1 else ''}-{f['id']}"
                         findings.append({**f, "id": gid, "role": role, "chunk": ch + 1})
+        own_work_downgrade(findings, ev["contexts"])
         fatal = [f for f in findings if f["severity"] == "fatal"]
         defense = adjudication = None
         if fatal:

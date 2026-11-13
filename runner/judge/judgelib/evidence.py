@@ -6,13 +6,14 @@ import hashlib, json, os, re, subprocess
 # Limits (characters of annotated text unless noted). Recorded in the dossier.
 LIMITS = {
     "max_changed_files": 500,        # more -> hold (size_limit)
-    "max_file_chars": 250_000,       # a file whose annotated diff is longer is inventoried (name/size/hash + excerpt);
-                                     # below one review chunk (300k) so a large harness file is reviewed whole. At 60k a
-                                     # 74 KB controller was shown as a 3k excerpt and held as unreviewable (2026-11-10)
+    "max_file_chars": 2_000_000,     # a file whose annotated diff is longer is inventoried (name/size/hash + excerpt).
+                                     # Larger files are split across review chunks (split_segment), so a big harness file
+                                     # is still reviewed whole: a 13,500-line overseer was excerpted and held at 250k
+                                     # (2026-11-12), a 74 KB controller at 60k (2026-11-10)
     "excerpt_chars": 3_000,          # head excerpt shown for an inventoried text file
     "max_deleted_lines_shown": 200,  # per file; deletions are summarised beyond this
     "chunk_chars": 300_000,          # one review chunk of the diff (~90k tokens)
-    "max_chunks": 4,                 # more -> hold (size_limit)
+    "max_chunks": 8,                 # more -> hold (size_limit); 4 held a 6-chunk diff (2026-11-12)
     "max_note_chars": 102_400,       # longer -> hold (size_limit); = Yukon's own 100 KiB note cap (SUBMITTING §3)
     "max_deps_bytes": 65_536,        # Yukon's own declaration cap
     "context_chars_each": 40_000,    # per prior submission (added lines + note), truncated beyond
@@ -160,6 +161,25 @@ def split_patch_files(patch):
     return [(p or "?", t) for p, t in files]
 
 
+def split_segment(seg, limit):
+    """A file's annotated diff longer than one review chunk -> consecutive parts at line boundaries, each headed by
+    the file's header line marked "(part i/n)", so a reviewer sees the whole file across chunks instead of an excerpt."""
+    if len(seg) <= limit:
+        return [seg]
+    head, _, body = seg.partition("\n")
+    room = max(1000, limit - len(head) - 40)
+    parts, cur = [], ""
+    for line in body.split("\n"):
+        if cur and len(cur) + len(line) + 1 > room:
+            parts.append(cur)
+            cur = ""
+        cur += line + "\n"
+    if cur:
+        parts.append(cur)
+    n = len(parts)
+    return [f"{head}  (part {i + 1}/{n})\n{p}" for i, p in enumerate(parts)]
+
+
 def collect_submission(repo, base, head):
     base_sha, head_sha = resolve(repo, base), resolve(repo, head)
     changes = _raw_changes(repo, base_sha, head_sha)
@@ -205,7 +225,8 @@ def collect_submission(repo, base, head):
         segments.append((ch["path"], text))
         files.append(entry)
     chunks, chunk_files, cur, cur_files = [], [], "", []
-    for path, seg in segments:
+    pieces = [(path, part) for path, seg in segments for part in split_segment(seg, LIMITS["chunk_chars"] - 2)]
+    for path, seg in pieces:
         if cur and len(cur) + len(seg) + 2 > LIMITS["chunk_chars"]:
             chunks.append(cur)
             chunk_files.append(cur_files)

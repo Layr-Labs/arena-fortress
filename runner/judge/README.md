@@ -125,9 +125,9 @@ No model writes the verdict and no free text (summaries, reasons) feeds it. A pr
 |---|---|---|
 | changed files in `submission/` | 500 | hold |
 | one file in `submission/` | 32 MiB | hold |
-| annotated diff per file shown | 250k chars (fits one 300k review chunk) | inventory + 3k excerpt |
+| annotated diff per file shown | 2M chars, split across 300k review chunks | inventory + 3k excerpt |
 | review chunk | 300k chars (~90k tokens) | next chunk |
-| chunks | 4 | hold |
+| chunks | 8 (about 2.4M chars of diff) | hold |
 | note | 100 KiB (102,400 chars; Yukon's own cap) | hold |
 | dependencies file | 64 KiB | hold |
 | context | 12 submissions, 40k chars each, 160k total | truncated (recorded in the dossier and shown to the reviewer) |

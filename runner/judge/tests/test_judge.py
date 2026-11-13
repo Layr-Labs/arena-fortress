@@ -367,6 +367,30 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(files["submission/overseer.py"]["shown"], "diff")
         self.assertGreater(len(code), 60_000)
 
+    def test_file_longer_than_a_chunk_is_split_not_excerpted(self):
+        """A 13,500-line overseer (yuyuyUuuuuuuuuuuu 1f8e79b0) was excerpted and held; it is now reviewed in parts."""
+        code = "".join(f"def rule_{i}(obs):\n    return obs.get('stock_{i}', 0) > {i}\n\n" for i in range(6000))
+        f = self.fx({**GOOD_HEAD, "submission/overseer.py": code})
+        d, fake = f.run()
+        files = {x["path"]: x for x in d["evidence"]["files"]}
+        self.assertEqual(files["submission/overseer.py"]["shown"], "diff")
+        self.assertGreater(len(code), E.LIMITS["chunk_chars"])
+        parts = [c["user"] for c in fake.calls if "overseer.py" in c["user"] and "(part " in c["user"]]
+        self.assertTrue(parts, "the file should reach reviewers in labelled parts")
+
+    def test_own_base_finding_is_downgraded(self):
+        from judgelib import committee as C
+        own_id, other = BASE_PRODUCER, OTHER
+        ctx = [{"id": own_id, "own": True}, {"id": other, "own": False}]
+        fs = [{"id": "AT-1", "role": "attribution", "severity": "fatal", "title": "Promoted base producer omitted",
+               "explanation": f"Submission {own_id[:8]} produced the base and is not declared.", "evidence": []},
+              {"id": "AT-2", "role": "attribution", "severity": "fatal", "title": "Undeclared copy",
+               "explanation": f"Copies {other[:8]}.", "evidence": []},
+              {"id": "FP-1", "role": "fair_play", "severity": "fatal", "title": "x", "explanation": own_id, "evidence": []}]
+        C.own_work_downgrade(fs, ctx)
+        self.assertEqual([f["severity"] for f in fs], ["minor", "fatal", "fatal"])
+        self.assertEqual(fs[0]["downgraded_from"], "fatal")
+
     def test_hold_on_bad_sha(self):
         f = self.fx(GOOD_HEAD)
         f.head = "deadbeef" * 5
@@ -374,6 +398,9 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(d["verdict"], "hold")
 
     def test_large_and_binary_files_inventoried(self):
+        old = dict(E.LIMITS)
+        self.addCleanup(E.LIMITS.update, old)
+        E.LIMITS.update(max_file_chars=100_000)            # the excerpt path for files beyond the per-file limit
         big = "".join(f"line {i} of dwarf lore, wiki excerpt\n" for i in range(9000))   # > max_file_chars annotated
         f = self.fx({"submission/lore.md": big})
         with open(os.path.join(f.repo, "submission", "w.bin"), "wb") as fh:
