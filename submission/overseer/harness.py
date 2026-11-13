@@ -283,6 +283,8 @@ class Overseer(OpenPlayRules):
             return
         mgr = self.adm.get("MANAGER_id")
         offices = self.zone("office")
+        if self.office_over_chair(mgr, offices):
+            return
         mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
         if not mine:
             spare = next((z for z in offices if z.get("owner") is None), None)
@@ -304,11 +306,45 @@ class Overseer(OpenPlayRules):
             if room:
                 self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
 
+    def office_over_chair(self, manager, offices):
+        """Prefer a usable existing chair over a fresh office on a potentially full farm level.
+
+        The API may report the first of multiple owned offices. Inspect zone furniture too, so an older
+        chairless office does not hide a later usable one or cause repeated office creation.
+        """
+        if manager is None:
+            return False
+        chaired = [z for z in offices if (d(z.get("furniture")).get("chair") or 0) > 0]
+        if any(z.get("owner") == manager for z in chaired):
+            return True
+        spare = next((z for z in chaired if z.get("owner") is None), None)
+        if spare:
+            self.act("office_ready_%s" % spare["id"], "assign_zone",
+                     {"zone_id": spare["id"], "dwarf_id": manager}, retry=1, limit=12)
+            return True
+        chairs = [f for f in lst(self.o.get("furniture"))
+                  if d(f).get("kind") == "chair" and d(f).get("built")]
+        sites = [s for s in self.kind("A") + self.kind("R")
+                 if 0 < (s.get("w") or 0) <= ZONE_SIDE and 0 < (s.get("h") or 0) <= ZONE_SIDE
+                 and (s.get("kind") == "A" or not s.get("used_by"))
+                 and any(covers(s, chair) for chair in chairs)]
+        if not sites:
+            return False
+        site = sites[0]
+        result = self.act("office_ready_zone_%s" % site["id"], "make_zone",
+                          {"kind": "office", "site": site["id"]}, retry=3, limit=3)
+        if isinstance(result, dict) and result.get("ok"):
+            zid = d(result.get("result")).get("zone_id", result.get("zone_id"))
+            if zid is not None:
+                self.act("office_ready_%s" % zid, "assign_zone",
+                         {"zone_id": zid, "dwarf_id": manager}, retry=1, limit=12)
+        return True
+
     def build(self, wtype, retry=3):
-        """One workshop of `wtype`: the first W site this run has not built this type on yet (the site the last
-        build consumed is unusable, and moving on keeps a second Carpenters from retrying the first)."""
+        """Build on a W site not already consumed by any workshop this run. The observation stays stale
+        throughout a pass, so reserve successful sites across workshop types as well as repeated copies."""
         for s in self.kind("W"):
-            if (s.get("id"), wtype) in self.full_sites:
+            if any(site_id == s.get("id") for site_id, _ in self.full_sites):
                 continue
             if not self.material():
                 return None
@@ -519,6 +555,10 @@ class Overseer(OpenPlayRules):
         if not isinstance(self.day, int) or self.day < PROG_FROM_DAY or self.cit < 7:
             return
         if (d(self.o.get("wealth")).get("created") or 0) >= PROG_WEALTH:
+            # The standing order otherwise keeps hauling logs across the map through the whole winter.
+            present = {order.get("id") for order in self.orders}
+            for order_id in sorted(self.craft_ids & present):
+                self.act("craft_stop_%s" % order_id, "cancel_order", {"order_id": order_id}, retry=1, limit=99)
             return
         if "Craftsdwarfs" not in self.shops():
             if "Craftsdwarfs" not in self.listed() or not self.core_missing():

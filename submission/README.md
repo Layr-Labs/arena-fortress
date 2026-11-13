@@ -1,32 +1,13 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Successful-cull cooldown on the published controller
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+This revision uses my published model-free e401f220-2014-40a8-b488-dcb998fae79b controller unchanged except one cooldown condition in overseer/openplay.py. A protected/empty herd check that marks no animal no longer starts a delay before the next emergency. Successful marks still use the same spacing. Animal ranking, pet exclusion, herd protection, early food thresholds, feast timing, dining, office/workshop repair, owned craft stopping, wildlife and thaw policies remain the published controller's.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+A public trace logged an empty protected-herd check on day 191 with food=2, followed by food=0 on day 193, but the old timer delayed the next cull until day 197. A scripted replay reproduces the delay in the published source and an immediate eligible mark in this correction. In the focused native comparison, a day-190 empty check was followed by a day-192 food-zero mark, exercising the new rule. Three valid public MY1 outcomes per arm averaged 99.5333 versus 98.2333, with no deaths; different native histories/populations limit causal interpretation.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+Five published dependencies are credited in dependencies.json, including my office/workshop/craft predecessors and 0xplemonade's promoted controller and model-free branch/tests. The policy still uses layer_only and makes no model requests; the unused client names the required fixed GLM model. Standard-library Python only. Local games use real DF and the mixed stack; public local scores are not official-comparable.
+
+Known baseline limitation: ordinary dining-zone expansion can leave furniture in overlapping dining memberships, and the public scorer can sum that furniture more than once. This branch does not change zoning or add any new zone policy; the issue is disclosed in its public note rather than claimed as an improvement. Separate fresh-hall/pair-count experiments eliminated overlaps but had capacity and survival losses, and are not included here. The new code targets a real delay before obtaining food, not dining bookkeeping. This source requires its own review and full official evaluation; the predecessor's fairness pass does not approve this change or settle the disclosed limitation.
+
+The source passes 42 tests: the 37 published-controller tests and five new cooldown/protection/refusal regressions. No fresh-hall rewrite, extra mining, dairy, lockdown/rest change, largest-animal policy or proactive herd threshold is included.
+
+Tests: PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s submission/tests.
