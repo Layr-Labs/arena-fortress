@@ -1,32 +1,45 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Stop completed growth crafts and repair lab offices
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+This revision builds on my published submission `bbbb6c26-f81b-48ca-81e3-e428c3e8a230` and its promoted source,
+`65e60732-98d2-4765-a2c6-f84076c3e5fe` (main at `ab1668c`). Both are declared in `dependencies.json`, with
+citations for the inherited office and growth controller. Earlier component ancestry remains in the source.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+On full-year open tasks, the controller cancels only its own repeating wood-crafts orders once observed created
+wealth reaches the existing 5,500 target. Previously it stopped adding orders at that target but left its daily
+order running. The existing below-target path can restart production after wealth falls. Model-created and other
+unowned orders are preserved; jobs already spawned by a cancelled order may still finish.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+The existing chaired-office repair now also runs on lab tasks before their hands-off window. It recognizes an
+owned office with a built chair, can assign a spare chaired office, or can zone and assign an appropriate area
+over a built chair. An older chairless office in the summary does not hide a usable later owned office. This
+repair already applied to open tasks in the predecessor.
+
+Validation available for these components:
+
+- 35 unit tests, including own-order-only cancellation, below-target continuation, restart after a wealth drop,
+  and a lab manager choosing a chaired spare over an earlier chairless office.
+- Eight full-year craft-stop games: two replicates on the default public start and on public training embarks
+  1001, 1002 and 1004. Mean outcome 88.275, range 87.5–90.6; all eight had full survival, supply, wellbeing and
+  housing components. These are local mixed-stack games, using real DF and a fake model gateway.
+- Earlier, separate lab-office component and predecessor-control checks each passed twelve public lab cases
+  with partial 1.0. The assembled full public Yukon run passes eleven of twelve: LT08's final case has partial
+  0.995, finishing with 49 beds for 50 citizens, adequate drink and no deaths. That shortfall is retained.
+- The assembled run completes all fifteen games: MY1 outcomes 100/100 and OP1 outcome 87.5. Its local mixed-stack
+  score is 95.17 (point 95.21), with provisional public anchors and no infrastructure exclusions. It is not an
+  official or private-comparable result; fake-gateway credit counters do not measure real GLM usage.
+
+Local mixed-stack measurements are not real-GLM or private seasonal score evidence. The submitted harness uses
+the fixed GLM gateway. The final public submission note records the complete comparison and validation used for
+selection, including losses in alternative policies.
+
+The predecessor's cross-type workshop reservations and office-aware STATUS digest are retained. Inherited
+behavior includes dining-zone seat counting, bounded rebuilding of suspended workshops, wildlife shelter and
+hatch admission, spring-thaw precautions, first-felling safety, and goal policies for lab hands-off windows.
+The model loop, prompt, game client and Docker runtime are unchanged by this revision. The experimental wildlife
+restraint, urgent cadence, late-brew buffer, dairy and sleeper-grace policies are separate local prototypes.
+
+Standard-library Python, the game API and the fixed gateway only. Run tests from this directory with:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests
+```
