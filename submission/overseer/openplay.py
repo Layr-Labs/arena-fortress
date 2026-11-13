@@ -181,7 +181,9 @@ class OpenPlayRules:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        # A protected or empty herd is not a meal: do not delay a later emergency
+        # merely because an earlier check had no eligible animal to mark.
+        if marked:
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)

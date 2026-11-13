@@ -1,32 +1,15 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Bounded dining batches
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+This deterministic fortress controller uses the ordinary dfbench/v3 facts API. Docker packaging, entrypoint and fixed z-ai/glm-5.3-flash client are inherited; the current branch enters the credited model-free layer loop and spends no model credits.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+Every new DiningHall request passes a common action gate. New rectangles must be disjoint from observed dining halls and accepted or uncertain requests made before the next observation. Existing zone rectangles are not treated as tile masks, and existing dining memberships are not expanded or overlaid. Actual table/chair IDs are counted once in usable per-hall pairs.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+Fresh dining sites start a bounded furniture batch only when observed capacity is short, or finish a batch already started. The batch target is at most ten pairs, estimated from the observed rectangle area with three cells reserved. A bounding box does not prove every cell is open: the ordinary native placement tool chooses revealed free floor, and a full-floor result permits a smaller finished batch. Excavation and the targeted furniture batch must finish before a zone is created, except for a final-three-day partial completion. Deferred readiness does not consume an action attempt or start a retry cooldown. Larger fresh activity boxes can supersede contained uncommitted plans as excavation reveals more floor.
+
+Extra room excavation remains bounded to two named R rooms on already opened observed levels, with the original supply and pending-excavation guards. There is no added shaft or deeper-stair policy, no raw-coordinate action fallback, and no hidden tile-mask read. The initial stair behavior is inherited. The change also reserves sufficient table/chair stock and places matching items in alternating order.
+
+Office repair, owned craft stopping, successful-cull cooldown, herd protection, food timing, wildlife hatches, admission, rest and spring-thaw rules remain inherited. The experimental bed pipeline, altered hands-off brewing and stone-craft material policy are not included.
+
+Run `python3 -B -m unittest discover -s tests` in this directory for 109 offline regressions. Native game validation and source invariance are recorded outside the archive; public evaluation notes distinguish actual Yukon runs from direct experimental suites and retain valid deaths, partial labs and poor outcomes.
+
+Six published dependencies are formally declared in dependencies.json, including rejected predecessors and 0xplemonade's controller/model-free contributions. The latest own published parent is 5f9b0fa4-33fe-4150-aecf-63a4f74fd074 (160b0abb552b93be81fc544eda04c07f98f8d3e2). Its fairness pass and score do not approve this new source. Only official evaluation establishes promotion.

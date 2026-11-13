@@ -98,6 +98,9 @@ class Overseer(OpenPlayRules):
         self.brew_own = set()    # of `owned`: its daily brew orders (the ceiling-less goal policy reads this)
         self.craft_ids = set()   # of `owned`: its repeating wood-crafts orders (the growth push reads this)
         self.dine_full = {}      # site id -> (box, open tiles) when it had no room for dining furniture
+        self.dining_batches = {}  # fresh selected boxes, never existing dining memberships
+        self.dining_expansions = {}  # at most two additional named rooms, no new levels
+        self.dining_created = []  # accepted/uncertain requests: prevent same-pass overlaps before observe
         self.zoned = {}          # site id -> {mark, at, n}: when this layer last made a dining zone over it
         self.dine_placed = {}    # site id -> tiles this layer placed dining tables and chairs on
         self.dine_retired = set()   # site ids no longer used for dining (retired_site)
@@ -151,9 +154,30 @@ class Overseer(OpenPlayRules):
         """One rate-limited action. Returns the response if it ran, else None."""
         if key in self.done or not self.may(key, retry, limit):
             return None
+        dining_box = None
+        if tool == "make_zone" and args.get("kind") == "dining_hall":
+            site = next((s for s in getattr(self, "sites", []) if s.get("id") == args.get("site")), None)
+            if site:
+                dining_box = {**site, "w": args.get("w", site.get("w", 3)), "h": args.get("h", site.get("h", 3))}
+            if not self.dining_disjoint(dining_box):
+                self.last[key] = self.now
+                log("dining_guard", key=key, site=args.get("site"), reason="unknown_or_overlapping_rectangle")
+                return None
+            if not self.extra_dining_ready(dining_box):
+                log("dining_batch_wait", key=key, site=args.get("site"), day=self.day)
+                return None
+            # Before sending: a lost answer must not allow a second overlapping request.
+            self.dining_created.append(dining_box)
         self.tries[key] = self.tries.get(key, 0) + 1
         self.last[key] = self.now
-        r = self.game.act(tool, args)
+        try:
+            r = self.game.act(tool, args)
+        except (ActionLimit, HandsOff, GameOver):
+            if dining_box is not None:
+                self.dining_created.remove(dining_box)  # explicit refusal, not an uncertain response
+            raise
+        if dining_box is not None and not r.get("ok"):
+            self.dining_created.remove(dining_box)
         self.count += 1
         log("act", key=key, tool=tool, args=args, ok=r.get("ok"), code=r.get("error_code"),
             err=str(r.get("error") or "")[:160])
@@ -283,6 +307,8 @@ class Overseer(OpenPlayRules):
             return
         mgr = self.adm.get("MANAGER_id")
         offices = self.zone("office")
+        if self.office_over_chair(mgr, offices):
+            return
         mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
         if not mine:
             spare = next((z for z in offices if z.get("owner") is None), None)
@@ -304,11 +330,45 @@ class Overseer(OpenPlayRules):
             if room:
                 self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
 
+    def office_over_chair(self, manager, offices):
+        """Prefer a usable existing chair over a fresh office on a potentially full farm level.
+
+        The API may report the first of multiple owned offices. Inspect zone furniture too, so an older
+        chairless office does not hide a later usable one or cause repeated office creation.
+        """
+        if manager is None:
+            return False
+        chaired = [z for z in offices if (d(z.get("furniture")).get("chair") or 0) > 0]
+        if any(z.get("owner") == manager for z in chaired):
+            return True
+        spare = next((z for z in chaired if z.get("owner") is None), None)
+        if spare:
+            self.act("office_ready_%s" % spare["id"], "assign_zone",
+                     {"zone_id": spare["id"], "dwarf_id": manager}, retry=1, limit=12)
+            return True
+        chairs = [f for f in lst(self.o.get("furniture"))
+                  if d(f).get("kind") == "chair" and d(f).get("built")]
+        sites = [s for s in self.kind("A") + self.kind("R")
+                 if 0 < (s.get("w") or 0) <= ZONE_SIDE and 0 < (s.get("h") or 0) <= ZONE_SIDE
+                 and (s.get("kind") == "A" or not s.get("used_by"))
+                 and any(covers(s, chair) for chair in chairs)]
+        if not sites:
+            return False
+        site = sites[0]
+        result = self.act("office_ready_zone_%s" % site["id"], "make_zone",
+                          {"kind": "office", "site": site["id"]}, retry=3, limit=3)
+        if isinstance(result, dict) and result.get("ok"):
+            zid = d(result.get("result")).get("zone_id", result.get("zone_id"))
+            if zid is not None:
+                self.act("office_ready_%s" % zid, "assign_zone",
+                         {"zone_id": zid, "dwarf_id": manager}, retry=1, limit=12)
+        return True
+
     def build(self, wtype, retry=3):
-        """One workshop of `wtype`: the first W site this run has not built this type on yet (the site the last
-        build consumed is unusable, and moving on keeps a second Carpenters from retrying the first)."""
+        """Build on a W site not already consumed by any workshop this run. The observation stays stale
+        throughout a pass, so reserve successful sites across workshop types as well as repeated copies."""
         for s in self.kind("W"):
-            if (s.get("id"), wtype) in self.full_sites:
+            if any(site_id == s.get("id") for site_id, _ in self.full_sites):
                 continue
             if not self.material():
                 return None
@@ -485,6 +545,8 @@ class Overseer(OpenPlayRules):
         if self.open_task():          # dining furniture counted where it seats someone (real_seats)
             site = self.dine_site()
             tables, chairs = self.dine_stock("table", site), self.dine_stock("chair", site)
+            if site and (site.get("id") in self.dining_expansions or site.get("id") in self.dining_batches):
+                seats = max(seats, self.dining_pairs() + self.extra_dining_goal(site) + 1)
         else:
             tables, chairs = self.st.get("tables") or 0, self.st.get("chairs") or 0
         wants = (("make_bed", self.st.get("beds") or 0, bed_target),
@@ -519,6 +581,10 @@ class Overseer(OpenPlayRules):
         if not isinstance(self.day, int) or self.day < PROG_FROM_DAY or self.cit < 7:
             return
         if (d(self.o.get("wealth")).get("created") or 0) >= PROG_WEALTH:
+            # The standing order otherwise keeps hauling logs across the map through the whole winter.
+            present = {order.get("id") for order in self.orders}
+            for order_id in sorted(self.craft_ids & present):
+                self.act("craft_stop_%s" % order_id, "cancel_order", {"order_id": order_id}, retry=1, limit=99)
             return
         if "Craftsdwarfs" not in self.shops():
             if "Craftsdwarfs" not in self.listed() or not self.core_missing():
@@ -630,8 +696,55 @@ class Overseer(OpenPlayRules):
     # ---- dining seats on the long open tasks (MY1, OP1), where housing is scored; lab tasks keep the steps above
     def real_seats(self):
         """min(built tables, built chairs) in dining zones, each building once (never above the score's count)."""
-        n = self.dining_kinds(built_only=True)
-        return min(n["table"], n["chair"])
+        return self.dining_pairs(built_only=True)
+
+    def dining_pairs(self, built_only=False):
+        """Pair table/chair IDs inside each hall; no furniture can supply two pairs.
+
+        With a capped list, only disjoint complete zone summaries seed the count.
+        Surplus tables in one hall do not pair with chairs in another hall.
+        """
+        raw = lst(self.o.get("furniture"))
+        rows = {f["id"]: f for f in raw if isinstance(f, dict) and type(f.get("id")) is int
+                and f.get("kind") in ("table", "chair") and (not built_only or f.get("built"))}
+        zones = self.zone("dining")
+        used, pairs = set(), 0
+        total = self.o.get("furniture_total")
+        capped = type(total) is int and total > len(raw)
+        def summary(z):
+            return min((d(z.get("furniture")).get(k) or 0) +
+                       (0 if built_only else (d(z.get("furniture_planned")).get(k) or 0))
+                       for k in ("table", "chair"))
+        if capped:
+            for z in sorted(zones, key=lambda z: -summary(z)):
+                ids = {i for i in lst(z.get("building_ids")) if type(i) is int}
+                if ids and not ids & used:
+                    pairs += summary(z)
+                    used.update(ids)
+        def available(z, kind):
+            return sorted(i for i, f in rows.items() if i not in used and f["kind"] == kind
+                          and z.get("id") in lst(f.get("zone_ids")))
+        for z in sorted(zones, key=lambda z: -min(len(available(z, k)) for k in ("table", "chair"))):
+            tables, chairs = available(z, "table"), available(z, "chair")
+            n = min(len(tables), len(chairs))
+            pairs += n
+            used.update(tables[:n] + chairs[:n])
+        return pairs
+
+    def dining_local(self, site):
+        """Visible built/planned non-members in a fresh proposed hall, each ID once."""
+        counts = {"table": 0, "chair": 0}
+        if site is None:
+            return counts
+        dining = {z.get("id") for z in self.zone("dining")}
+        seen = set()
+        for f in lst(self.o.get("furniture")):
+            f = d(f)
+            if (f.get("kind") in counts and type(f.get("id")) is int and f["id"] not in seen
+                    and covers(site, f) and not dining & set(lst(f.get("zone_ids")))):
+                counts[f["kind"]] += 1
+                seen.add(f["id"])
+        return counts
 
     @staticmethod
     def box(s):
@@ -650,27 +763,41 @@ class Overseer(OpenPlayRules):
         rows = [d(f) for f in lst(self.o.get("furniture"))]
         total = self.o.get("furniture_total")
         capped = isinstance(total, int) and not isinstance(total, bool) and total > len(rows)
+        counted = set()
         if capped:
-            for z in self.zone("dining"):
+            # Zone summaries may share the same buildings. Count disjoint summaries,
+            # then visible extra members, so the estimate never duplicates a chair.
+            zones = sorted(self.zone("dining"), key=lambda z: -sum(
+                (d(z.get("furniture")).get(k) or 0) +
+                (0 if built_only else (d(z.get("furniture_planned")).get(k) or 0)) for k in n))
+            for z in zones:
+                members = {bid for bid in lst(z.get("building_ids")) if type(bid) is int}
+                if not members or members & counted:
+                    continue
                 for k in n:
                     n[k] += d(z.get("furniture")).get(k) or 0
                     if not built_only:
                         n[k] += d(z.get("furniture_planned")).get(k) or 0
+                counted |= members
         prospective = site is not None and not built_only and (self.may_zone(site) or self.zoned_now(site))
         for f in rows:
             k = f.get("kind")
             if k not in n or (built_only and not f.get("built")):
                 continue
             member = bool(dining & set(lst(f.get("zone_ids"))))
-            if member and not capped:
+            if member and (not capped or f.get("id") not in counted):
                 n[k] += 1
-            elif not member and prospective and covers(site, f):
+                if capped:
+                    counted.add(f.get("id"))
+            elif not member and prospective and covers(site, f) and (not capped or f.get("id") not in counted):
                 n[k] += 1
+                if capped:
+                    counted.add(f.get("id"))
         return n
 
     def dine_stock(self, kind, site):
         """Tables or chairs that are or will be dining seats (dining_kinds), plus the free ones."""
-        return self.dining_kinds(site=site)[kind] + (self.free.get(kind) or 0)
+        return self.dining_pairs() + self.dining_local(site)[kind] + (self.free.get(kind) or 0)
 
     def may_zone(self, site):
         """make_zone takes `site` (no side over ZONE_SIDE; a room nothing touches) and this layer may zone it now:
@@ -695,13 +822,163 @@ class Overseer(OpenPlayRules):
         z = self.zoned.get(site.get("id"))
         return bool(z) and z["at"] == self.now
 
+    def dining_disjoint(self, site):
+        """Every new dining rectangle must be disjoint, including ordinary small sites.
+
+        A zone bounding box is not its tile mask; do not overlay or assume existing coverage.
+        """
+        if not site or not all(type(site.get(k)) is int for k in ("x", "y", "z", "w", "h")):
+            return False
+        if site["w"] <= 0 or site["h"] <= 0:
+            return False
+        total = self.o.get("zones_total")
+        if type(total) is int and total > len(self.zones):
+            return False  # unseen zone boxes cannot be proved disjoint
+        for zone in self.zone("dining") + self.dining_created:
+            if type(zone.get("z")) is not int:
+                return False
+            if zone["z"] != site["z"]:
+                continue
+            if not all(type(zone.get(k)) is int for k in ("x", "y", "w", "h")) or zone["w"] <= 0 or zone["h"] <= 0:
+                return False
+            if (site["x"] < zone["x"] + zone["w"] and zone["x"] < site["x"] + site["w"]
+                    and site["y"] < zone["y"] + zone["h"] and zone["y"] < site["y"] + site["h"]):
+                return False
+        return True
+
+    def remember_dining_batch(self, site):
+        """Keep a fresh placement box unzoned until its actual furniture batch is built."""
+        needed = self.dining_pairs() < math.ceil(self.cit / 2) + 1
+        staged = site.get("id") in self.dining_batches or site.get("id") in self.dining_expansions
+        if self.open_task() and (needed or staged) and self.dining_disjoint(site):
+            # Excavation may enlarge an A site's box and assign a new id. The larger
+            # fresh box supersedes contained uncommitted plans, not existing zones.
+            for sid, plan in list(self.dining_batches.items()):
+                if (site["z"] == plan["z"] and site["x"] <= plan["x"] and site["y"] <= plan["y"]
+                        and site["x"] + site["w"] >= plan["x"] + plan["w"]
+                        and site["y"] + site["h"] >= plan["y"] + plan["h"]):
+                    del self.dining_batches[sid]
+            self.dining_batches[site["id"]] = dict(site)
+        return site
+
+    def extra_dining_goal(self, site):
+        """A bounded physical batch for an extra room; leave at least three floor tiles spare."""
+        plan = self.dining_expansions.get(site.get("id"), self.dining_batches.get(site.get("id"), site))
+        return max(1, min(10, ((plan.get("w") or 0) * (plan.get("h") or 0) - 3) // 2))
+
+    def extra_dining_ready(self, box):
+        """Fill each fresh extra room before its single dining zone makes the strict planner leave it.
+
+        This gate covers legacy direct make_zone calls as well as zone_dining().
+        It never permits an overlapping dining zone or assumes an existing zone's tile mask.
+        """
+        for sid, plan in {**self.dining_batches, **self.dining_expansions}.items():
+            if (plan["z"] != box["z"] or plan["x"] >= box["x"] + box["w"]
+                    or box["x"] >= plan["x"] + plan["w"] or plan["y"] >= box["y"] + box["h"]
+                    or box["y"] >= plan["y"] + plan["h"]):
+                continue
+            if (box["x"] > plan["x"] or box["y"] > plan["y"]
+                    or box["x"] + box["w"] < plan["x"] + plan["w"]
+                    or box["y"] + box["h"] < plan["y"] + plan["h"]):
+                return False  # a legacy smaller rectangle must not commit just the first pair
+            if (self.o.get("dig_designations_pending") or 0) > 0 and not (type(self.days_left) is int and self.days_left <= 3):
+                return False  # do not freeze a smaller box while the planned rooms are still being excavated
+            built = {"table": 0, "chair": 0}
+            pending = 0
+            for f in lst(self.o.get("furniture")):
+                f = d(f)
+                if f.get("kind") in built and covers(plan, f):
+                    if f.get("built"):
+                        built[f["kind"]] += 1
+                    else:
+                        pending += 1
+            pairs = min(built.values())
+            full = self.dine_full.get(sid) == self.fill_mark(plan)
+            late = type(self.days_left) is int and self.days_left <= 3
+            if pairs < self.extra_dining_goal({**plan, "id": sid}) and not (pairs > 0 and (late or (full and not pending))):
+                return False
+        return True
+
+    def dining_bounds(self, site):
+        """A named activity site's visible box, clipped to legal zone dimensions only when seats are short.
+
+        The frozen facts API accepts w/h on site tools; keep the required site and its own origin.
+        Placement and zoning must receive the same dimensions, not merely a smaller planning estimate.
+        """
+        if site and site.get("id") in self.dining_expansions:
+            plan = self.dining_expansions[site["id"]]
+            if not site.get("dug") or (self.o.get("dig_designations_pending") or 0) > 0:
+                return {**site, "w": 0, "h": 0}  # corner dug does not establish the whole planned box
+            return {**site, "w": plan["w"], "h": plan["h"], "_dining_bounds": True}
+        if (not site or site.get("kind") != "A" or site.get("subterranean") is not True
+                or not all(type(site.get(k)) is int and site[k] > 0 for k in ("w", "h"))
+                or max(site["w"], site["h"]) <= ZONE_SIDE
+                or self.real_seats() >= math.ceil(self.cit / 2)):
+            return site
+        # New dining zones must not overlap any existing dining rectangle: the
+        # scorer sums zone memberships, so adding overlapping zones could count old chairs twice.
+        # Keep the named site's own origin and choose only a subset of its visible box.
+        if not all(type(site.get(k)) is int for k in ("x", "y", "z")):
+            return site
+        boxes = [(w * h, w, h) for w in range(1, min(site["w"], ZONE_SIDE) + 1)
+                 for h in range(1, min(site["h"], ZONE_SIDE) + 1)
+                 if w * h >= 6 and self.dining_disjoint({**site, "w": w, "h": h})]
+        if not boxes:
+            return site
+        _, w, h = max(boxes)
+        return {**site, "w": w, "h": h, "_dining_bounds": True}
+
+    def expand_dining(self):
+        """One bounded extra room beside an existing observed stair, only on a real shortage.
+
+        Wait for current digging to finish. Placement later uses the same named origin
+        and requested box (3x3 through 7x5/5x7); the normal API still selects revealed free floor.
+        """
+        if (not self.open_task() or not isinstance(self.day, int) or self.day < 20
+                or not isinstance(self.days_left, int) or self.days_left < 10 or self.core_missing() or self.thaw_alert
+                or (self.st.get("food_edible") or 0) < max(3, self.cit // 2)
+                or (self.st.get("drink") or 0) < 2 * self.cit
+                or self.dining_pairs() >= math.ceil(self.cit / 2)
+                or len(self.dining_expansions) >= 2):
+            return
+        def overlap(a, b):
+            if a.get("z") != b.get("z"):
+                return False
+            if not all(type(b.get(k)) is int for k in ("x", "y", "w", "h")):
+                return True
+            return (a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
+                    and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"])
+        for plan in self.dining_expansions.values():
+            if not any(overlap(plan, z) for z in self.zone("dining")):
+                return  # wait until a hall is actually observed, not just requested
+        if (self.o.get("dig_designations_pending") or 0) > 0:
+            return
+        levels = {a.get("z") for a in self.kind("A") if a.get("subterranean") is True and (a.get("open_tiles") or 0) >= 6}
+        candidates = sorted((r for r in self.kind("R") if not r.get("designated") and not r.get("used_by")
+                             and r.get("id") not in self.roles and r.get("z") in levels),
+                            key=lambda r: (r.get("soil") is not True, str(r.get("id"))))
+        for room in candidates:
+            for width, height in [(7, 5), (5, 7), (3, 7), (7, 3), (5, 3), (3, 5), (3, 3)]:
+                plan = {**room, "w": width, "h": height}
+                if not self.dining_disjoint(plan) or any(overlap(plan, d(f)) for f in lst(self.o.get("farm_plots"))):
+                    continue
+                key = "dig_dining_extra_" + room["id"]
+                if not self.may(key, 3, 1):
+                    continue
+                result = self.act(key, "dig_room", {"site": room["id"], "w": width, "h": height}, retry=3, limit=1)
+                if result and result.get("ok"):
+                    self.dining_expansions[room["id"]] = plan
+                    self.roles[room["id"]] = "dine"
+                    return
+
     def dine_site(self):
         """Where dining furniture goes: only a seat in a dining zone counts, make_zone refuses a box over ZONE_SIDE and
         place_furniture one over PLACE_SIDE (handed-over forts' dining levels were 21x4 to 51x58). The usual site
         while a dining zone holds it or it can be zoned; else another level, else a dug room a dining zone holds
         whole or nothing touches. Full sites wait for a change; retired ones are left. None if nothing qualifies."""
-        first = self.room_for("dine") or self.room_for("dorm")
+        first = self.dining_bounds(self.room_for("dine") or self.room_for("dorm"))
         if not first:
+            self.expand_dining()
             return None
         zones = self.zone("dining")
 
@@ -709,6 +986,8 @@ class Overseer(OpenPlayRules):
             return any(covers(z, s) for z in zones)
 
         def fits(s, alt):
+            if not self.dining_disjoint(s):
+                return False
             w, h = s.get("w") or 0, s.get("h") or 0
             if not (0 < w <= PLACE_SIDE and 0 < h <= PLACE_SIDE) or self.dine_full.get(s.get("id")) == self.fill_mark(s):
                 return False
@@ -724,15 +1003,19 @@ class Overseer(OpenPlayRules):
             return (s.get("open_tiles") or 0) >= 6 and (zoned(s) or (w <= ZONE_SIDE and h <= ZONE_SIDE))
 
         if fits(first, False):
-            return first
-        alts = [s for s in self.kind("A") + self.kind("R") if fits(s, True)]
+            return self.remember_dining_batch(first)
+        candidates = [self.dining_bounds(s) for s in self.kind("A") + self.kind("R")]
+        alts = [s for s in candidates if fits(s, True)]
         alts.sort(key=lambda s: (not zoned(s), s.get("kind") != "A", -(s.get("open_tiles") or 0), str(s.get("id"))))
-        return alts[0] if alts else None
+        if alts:
+            return self.remember_dining_batch(alts[0])
+        self.expand_dining()
+        return None
 
     def needs_zone(self, site, placed=()):
         """GordoAR's coverage check (5dfdcf15, kept by fa9c13cc), on membership: may_zone, and a table or chair in
         the site is in no dining zone, or was just placed where no dining zone's box reaches."""
-        if not self.may_zone(site):
+        if not self.dining_disjoint(site) or not self.may_zone(site):
             return False
         dining = {z.get("id") for z in self.zone("dining")}
         if any(d(f).get("kind") in ("table", "chair") and covers(site, d(f)) and not dining & set(lst(d(f).get("zone_ids")))
@@ -742,8 +1025,12 @@ class Overseer(OpenPlayRules):
 
     def zone_dining(self, site):
         """make_zone dining_hall over the site (may_zone bounds how often): a refused room is passed over."""
-        r = self.act("z_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]},
-                     retry=ZONE_RECHECK, limit=ZONE_FAILS)
+        if not self.dining_disjoint(site):
+            return
+        args = {"kind": "dining_hall", "site": site["id"]}
+        if site.get("_dining_bounds"):
+            args.update(w=site["w"], h=site["h"])
+        r = self.act("z_dine_%s" % site["id"], "make_zone", args, retry=ZONE_RECHECK, limit=ZONE_FAILS)
         if isinstance(r, dict) and r.get("ok"):
             z = self.zoned.setdefault(site["id"], {"n": 0})
             z.update(mark=self.fill_mark(site), at=self.now, n=z["n"] + 1)
@@ -753,7 +1040,10 @@ class Overseer(OpenPlayRules):
     def place(self, key, kind, site, count):
         """place_furniture; returns the tiles it used as furniture rows. A site with no room left is passed over
         until its box or open area changes."""
-        r = self.act(key, "place_furniture", {"kind": kind, "site": site["id"], "count": count}, retry=1, limit=99)
+        args = {"kind": kind, "site": site["id"], "count": count}
+        if site.get("_dining_bounds"):
+            args.update(w=site["w"], h=site["h"])
+        r = self.act(key, "place_furniture", args, retry=1, limit=99)
         if not isinstance(r, dict) or not r.get("ok"):
             if isinstance(r, dict) and r.get("error_code") == "no_space":
                 self.dine_full[site.get("id")] = self.fill_mark(site)
@@ -805,7 +1095,8 @@ class Overseer(OpenPlayRules):
                 site = next((x for x in self.dug_rooms() if x.get("z") == z), None)
             if not site:
                 continue
-            if kinds & {"table", "chair"} and not self.zoned_now(site):   # furnish zoned it on this observation
+            if (kinds & {"table", "chair"} and not self.zoned_now(site)
+                    and min(self.dining_local(site).values()) > 0):   # furnish zoned it on this observation
                 self.act("rz_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]}, retry=2, limit=3)
             if "bed" in kinds:
                 self.act("rz_dorm_%s" % site["id"], "make_zone", {"kind": "dormitory", "site": site["id"]}, retry=2, limit=3)
@@ -813,7 +1104,7 @@ class Overseer(OpenPlayRules):
             if kinds.get("table") and kinds.get("chair"):
                 site = next((x for x in self.kind("A") if x.get("z") == z and (x.get("open_tiles") or 0) >= 6
                              and (x.get("w") or 0) <= 20 and (x.get("h") or 0) <= 20), None)
-                if site and not self.zoned_now(site):
+                if site and not self.zoned_now(site) and min(self.dining_local(site).values()) > 0:
                     self.act("dx_dine_%s" % site["id"], "make_zone", {"kind": "dining_hall", "site": site["id"]}, retry=3, limit=2)
 
     def room_for(self, role):
@@ -865,13 +1156,28 @@ class Overseer(OpenPlayRules):
         if dine and not self.beds_first and self.open_task():
             site = self.dine_site()
             if site:
-                want = math.ceil(self.cit / 2) + 1
+                want = max(0, math.ceil(self.cit / 2) + 1 - self.dining_pairs())
+                if site.get("id") in self.dining_expansions or site.get("id") in self.dining_batches:
+                    want = self.extra_dining_goal(site)
+                local = self.dining_local(site)
+                free = {k: self.free.get(k) or 0 for k in local}
+                target = min(want, local["table"] + free["table"], local["chair"] + free["chair"])
                 placed = []
-                for kind in ("table", "chair"):
-                    n = min(self.free.get(kind) or 0, want - self.dining_kinds(site=site)[kind], 15)
-                    if n > 0 and self.dine_full.get(site.get("id")) != self.fill_mark(site):
-                        placed += self.place("f_" + kind, kind, site, n)
-                if self.needs_zone(site, placed):
+                # Interleave individual items: a partial/full floor strands at most one item,
+                # rather than filling all remaining floor with tables before trying a chair.
+                for i in range(12):
+                    if min(local.values()) >= target or self.dine_full.get(site.get("id")) == self.fill_mark(site):
+                        break
+                    kind = "table" if local["table"] <= local["chair"] else "chair"
+                    if not free[kind]:
+                        break
+                    rows = self.place("f_%s_%s_%s" % (kind, site["id"], i), kind, site, 1)
+                    if not rows:
+                        break
+                    local[kind] += len(rows)
+                    free[kind] -= len(rows)
+                    placed += rows
+                if min(local.values()) > 0 and self.needs_zone(site, placed):
                     self.zone_dining(site)
         elif dine and not self.beds_first:
             if not self.zone("dining"):
