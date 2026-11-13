@@ -3,10 +3,11 @@ the surface stairs, the shelter burrow and the wildlife lockdown. A mixin for Ov
 calls these from its plan and keeps their state. In its own file so that each file can be read in full.
 """
 import json
+import re
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameOver, HandsOff
-from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, whole
+from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, race_words, whole
 
 DAY = 1200
 
@@ -27,12 +28,12 @@ def lst(v):
 # perishable (raw meat, cleaned fish, plants, prepared meals too) rots 16-19 days after it is made. The food count is
 # therefore a moving sum of the last two and a half weeks' production, and an animal slaughtered a month before the
 # horizon becomes a drop inside the scored final stretch. Live animals are the one food store that can't rot.
-FEAST_DAYS = 14         # animals are slaughtered from this many days before the horizon: none of that meat can rot in time
+FEAST_DAYS = 14         # animals are slaughtered from this many days before the horizon (nothing rots before H)
 FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
-HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
+HUNGER_FINAL = 1.0      # ... (at least 10) from FINAL_STRETCH days out, where a day at zero costs coverage: an
                         #   earlier cull's meat rots all at once, and a game went from 14 food to none in three days
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
@@ -43,6 +44,17 @@ DRINK_SAFE = 28         # drink per citizen at which brewing stops for the feast
                         #   days stay in the food count. A year's drinking is about 20; with no brewing at all over the
                         #   final stretch, 28 still projects past a year at a fifth more than that rate
 DRINK_REOPEN = 22       # ... and below which brewing is allowed again
+PLANT_GUARD_FOOD = 1.5  # final-stretch plant guard: pause brewing when edible food < max(12, 1.5*cit) and drink >= 14*cit
+PLANT_REOPEN_FOOD = 2.5 # ... and reopen once feast/harvest lifts edible food >= max(20, 2.5*cit)
+PLANT_GUARD_DRINK = 14
+PLANT_REOPEN_DRINK = 12
+TROOP_QUICK = 90        # fast troop / citizen-attacker distance within which hatches lock on the same pass
+
+ATTACK_RE = re.compile(
+    r"^The ([^,.!?;:]+?) (?:bites|scratches|strikes|kicks|punches|gores|stabs|slashes|lashes|shakes|"
+    r"strangles|pushes|tackles|charges|snatches|claws|pecks|butts|stings|mauls) the ([^,.!?;:]+?)(?: in |,|!|\.|$)",
+    re.IGNORECASE,
+)
 
 # Open play: dangerous wildlife. Measured on a training embark: three undead harpies were visible two to eight days
 # before they struck, every dwarf stood at the wagon on the surface, and the inherited alert never sounded because
@@ -129,10 +141,28 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
-            if food < max(8, HUNGER_FINAL * self.cit):
+            self.sync_brew_guard()
+            if food < max(10, HUNGER_FINAL * self.cit):
                 self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
             self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP)
+
+    def sync_brew_guard(self):
+        st = self.st
+        drink = st.get("drink") or 0
+        food = st.get("food_edible") or 0
+        low_food = (self.days_left <= FINAL_STRETCH
+                    and food < max(12, PLANT_GUARD_FOOD * self.cit)
+                    and drink >= max(120, PLANT_GUARD_DRINK * self.cit))
+        recovered = (food >= max(20, PLANT_REOPEN_FOOD * self.cit)
+                     or drink < max(100, PLANT_REOPEN_DRINK * self.cit))
+        if drink >= DRINK_SAFE * self.cit or low_food:
+            self.brew_stopped = True
+        elif self.brew_stopped and drink < DRINK_REOPEN * self.cit and (self.days_left > FINAL_STRETCH or recovered):
+            self.brew_stopped = False        # the regular supply step adds its brew order again
+        if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
+            for oid in sorted(self.brew_own):
+                self.act("brew_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=4)
 
     def feast(self):
         self.cull("feast", FEAST_BATCH, smallest=False, retry=1)
@@ -142,14 +172,7 @@ class OpenPlayRules:
                                        and (x.get("left") or 0) > 0 for x in self.orders):
             self.act("o_cook_feast", "add_order", {"recipe": "cook_meal", "amount": int(min(6, max(2, raw // 10)))},
                      retry=1, limit=99)
-        drink = st.get("drink") or 0
-        if drink >= DRINK_SAFE * self.cit:
-            self.brew_stopped = True
-        elif self.brew_stopped and drink < DRINK_REOPEN * self.cit:
-            self.brew_stopped = False        # the regular supply step adds its brew order again
-        if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
-            for oid in sorted(self.brew_own):
-                self.act("brew_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=4)
+        self.sync_brew_guard()
 
     def cull(self, key, n, smallest, retry):
         """Mark up to n of the fortress's unowned tame animals for slaughter. The feast takes the largest first. A
@@ -318,19 +341,60 @@ class OpenPlayRules:
                 if r and r.get("ok"):
                     self.sheltered[a["id"]] = tiles
 
+    def note_attackers(self):
+        """Record wild species that attacked a citizen in recent_events (capped at 20 species)."""
+        seen = getattr(self, "attackers", None)
+        if seen is None:
+            seen = self.attackers = set()
+        if len(seen) >= 20:
+            return
+        try:
+            events = lst(self.o.get("recent_events"))
+            if not events:
+                return
+            cits = {"dwarf", "child", "baby", "peasant", "miner", "woodcutter", "carpenter", "mason",
+                    "brewer", "cook", "planter", "farmer", "expedition leader"}
+            for p in self.people:
+                for k in ("name", "profession"):
+                    v = p.get(k)
+                    if isinstance(v, str) and v.strip():
+                        s = v.strip().casefold()
+                        cits.add(s)
+                        cits.add(s.split()[0])
+            for ev in events:
+                if not isinstance(ev, str):
+                    continue
+                m = ATTACK_RE.match(ev.strip())
+                if not m:
+                    continue
+                atk, vic = m.group(1).strip().casefold(), m.group(2).strip().casefold()
+                if atk in cits or atk.split()[0] in cits:
+                    continue
+                if vic in cits or vic.split()[0] in cits or any(vic.startswith(c + " ") for c in cits):
+                    w = race_words(atk)
+                    if w and w not in seen:
+                        seen.add(w)
+                        log("attacker_learned", species=" ".join(sorted(w)), day=self.day)
+                        if len(seen) >= 20:
+                            break
+        except Exception as e:
+            log("attacker_parse_error", error=repr(e)[:120])
+
     def look_for_beasts(self, holding=False):
         """(found, sure): the large wild predators in sight and whether the list can be relied on for what it does
         not show (overseer/beasts.py). One query a pass, only while the fort could be shut or is. Whatever goes
         wrong with the call or its answer is a failed look: nothing found, nothing sure. After BEAST_FAILS failed
         looks in a row the layer stops looking for a reason to shut the fort; during a lockdown it goes on for
         HOLD_FAILS, since an animal seen inside the shelter must end it."""
+        self.note_attackers()
         if self.beast_fail >= (HOLD_FAILS if holding else BEAST_FAILS):
             return [], False
         try:
             q = d(d(self.game.query("units", kind="others", limit=300)).get("result"))
             if not isinstance(q.get("units"), list):
                 raise ValueError("no unit list in the answer")
-            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"))
+            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"),
+                                   extra=getattr(self, "attackers", ()))
             told = sorted({b["race"] for b in found})
             if told != self.beast_told:
                 log("beasts", day=self.day, seen=told, nearest=min((b["dist"] for b in found), default=None))
@@ -520,7 +584,8 @@ class OpenPlayRules:
                 why = self.beast_limit(lock)     # these two limits need the threats and the stocks, not the doors
             if why is None:
                 indoors = (shelter or {}).get("citizens_inside") or 0
-                if known and (lock["due"] is not None or indoors >= self.cit - 1 or age >= DAY):
+                quick = any(b.get("troop") and b.get("dist") is not None and b["dist"] <= TROOP_QUICK for b in beasts)
+                if known and (lock["due"] is not None or indoors >= self.cit - 1 or age >= DAY or quick):
                     if lock["due"] is None:
                         lock["due"] = self.now
                     keep = self.admit(lock, hatches, hostiles, api_seen, api_dist, listed, sure)
