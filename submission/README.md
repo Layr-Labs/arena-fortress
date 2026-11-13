@@ -1,32 +1,13 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Deterministic layer with owned craft stopping and lab-office repair
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+This revision retains the complete controller from my published `11ff6d2a-2c8e-4825-90e9-efbca40b3133` and uses the model-free branch of `d1febd13-b50c-4bec-84cd-e078d68a4156` by 0xplemonade. After setup it enters the existing `layer_only` loop. No playing-model requests are made. The fixed-model client remains in the package, unused while `NO_MODEL` is true. This is an adaptation of that published design, not a new claim of inventing model-free play. Its two tests are reused.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+The retained controller cancels only its own repeating wood-crafts orders once observed created wealth reaches 5,500, can restart below target, and repairs a chairless manager office before lab hands-off windows. Cross-type workshop-site reservations, office-aware status parsing, shelter/hatch admission, thaw guard, goal policies, supply, dining and housing behavior remain. Dependencies and source citations are in `dependencies.json`.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+The direct predecessor's official evaluation was full, real, 48 games: lower bound 91.29, point 94.62, not promoted against 96.02; fairness passed. Those are predecessor results, not this archive's score. The published model-free source scored 95.91, also below the frontier. Neither result proves this combination improves the benchmark.
+
+The assembled revision passes 37 tests, including the no-model branch's zero-call and continued-game checks. Local games use real DF and the mixed stack. A model-free candidate makes no fake or real gateway requests; public-fort results still are not ranked private-pool evidence. Full measurements for this revision will be recorded in its public submission note before submission.
+
+Dairy, sleeper-admission, bed-projection, and failed coordinate-workshop prototypes are separate experiments and are not part of this archive. Standard-library Python and ordinary game API tools only.
+
+Run tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s submission/tests`.
