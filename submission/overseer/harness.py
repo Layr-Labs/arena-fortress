@@ -109,6 +109,7 @@ class Overseer(OpenPlayRules):
         self.dorm_box = None
         self.lab = False         # the task has a hands-off window (set_task); open play is everything else
         self.culled = {}         # cull key -> tick of its last pass
+        self.food_caravan = {"last": None, "offset": 0, "until": 0, "seen": set()}
         self.brew_stopped = False
         self.sheltered = {}      # A site id -> its open tiles when it was last added to the shelter burrow
         self.stairs = {}         # E site id -> (x, y, z): every surface stair ever listed
@@ -128,6 +129,7 @@ class Overseer(OpenPlayRules):
         self.beast_told = []     # ... and the species last logged
         self.beast_fail = 0      # ... looks that failed in a row
         self.beast_spent = 0     # ... ticks spent shut from the first sight of one to the opening of the fort
+        self.fought = set()      # open play: species (overseer/beasts.py words()) seen attacking a citizen this game
         self.fell = None         # open play, the first felling: None undecided, {"since", "blind"} waiting for a
                                  #   large predator to leave, False no longer waiting
 
