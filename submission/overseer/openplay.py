@@ -174,6 +174,10 @@ class OpenPlayRules:
             spare = herd[FEAST_KEEP:]
             if not spare and (self.st.get("food_edible") or 0) <= 0:
                 spare = herd
+            elif not spare and self.final_floor(len(herd)):
+                # Adapted from 0xplemonade 8c28e5dc / 3047877 final_floor():
+                # take one smallest reserve animal before zero, keep one for the feast.
+                spare, n = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))[:1], 1
             pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
@@ -181,11 +185,18 @@ class OpenPlayRules:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        # A protected or empty herd is not a meal: do not delay a later emergency
+        # merely because an earlier check had no eligible animal to mark.
+        if marked:
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
         return marked
+
+    def final_floor(self, herd_n):
+        """Peer 8c28e5dc's final food floor, isolated from grazer, feast and batch changes."""
+        return (self.open_play() and FEAST_DAYS < self.days_left <= FINAL_STRETCH and herd_n > 1
+                and (self.st.get("food_edible") or 0) <= max(3, (self.cit or 0) // 5))
 
     # ---- the first trees wait for the predators to leave
     def felling_waits(self):
