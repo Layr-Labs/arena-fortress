@@ -1,22 +1,996 @@
 [
-{"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "rationale": "Inherited through a9f894ea: i34-9's digest model loop, regular controller, closer, layer-only fallback, ownership checks and controller action report. This was the upstream author's direct base; a9f894ea is this follow-up's actual starting runtime.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/plain/harness.py", "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6", "startLine": 105, "endLine": 232}, {"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/plain/harness.py", "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6", "startLine": 309, "endLine": 334}, {"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/overseer/harness.py", "fileSha256": "3763e1f2daf12bb03b5b274eb45cfce70330395c6c2f7a4068d3504af6c3ed9a", "startLine": 278, "endLine": 344}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 126, "endLine": 143}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 162, "endLine": 181}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 443, "endLine": 492}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 545, "endLine": 563}]},
-{"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "rationale": "Inherited through a9f894ea: kshitij-hash's STATUS digest, failed/recent-action memory, compact observation and model-loop structure.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "path": "submission/plain/digest.py", "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2", "startLine": 109, "endLine": 183}, {"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "path": "submission/plain/harness.py", "fileSha256": "64c4ace37a51c7493ca7def53de4122e9ef706b180859d24ed64484e6c25e5b1", "startLine": 188, "endLine": 210}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 185, "endLine": 214}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 158, "endLine": 168}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 251, "endLine": 278}]},
-{"submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8", "rationale": "Inherited through a9f894ea: kshitij-hash's PLAYBOOK in the system prompt. The removed KNOWLEDGE block remains absent. The playbook's DEFENCE paragraph also says that a hatch on an E site plus lock_door seals the stair, the fortress's own dwarves included. This candidate's controller applies that seal itself when hostile wildlife is near; the conditions and the two-step release are new.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here. Additional target: Overseer.place_hatches() and Overseer.wildlife() in overseer/openplay.py, which build the stair hatch and lock it during a lockdown.", "citations": [{"submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8", "path": "submission/plain/prompt.py", "fileSha256": "71776b877f5014c276ba33ccf181e75bf1ffa3d27180da2bf7fe0b1030606773", "startLine": 35, "endLine": 104}, {"submissionId": null, "path": "submission/plain/prompt.py", "fileSha256": "6ecf6ec248404235dc614b2a76dee041655d4f343f3cba4b07aab31d30b0c488", "startLine": 36, "endLine": 103}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 288, "endLine": 306}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 372, "endLine": 572}]},
-{"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "rationale": "Inherited through a9f894ea: e-man07's deterministic controller for moods, defence, management, automation, workshops, digging, farms, supply, furniture and zones, including the Fishery rule already present in a9f894ea.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "path": "submission/overseer/harness.py", "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67", "startLine": 110, "endLine": 234}, {"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "path": "submission/overseer/harness.py", "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67", "startLine": 324, "endLine": 336}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 245, "endLine": 258}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 260, "endLine": 275}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 966, "endLine": 978}]},
-{"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "rationale": "Inherited through a9f894ea: e-man07's dining-seat accounting, loose-furniture re-zoning and pacing into the hands-off window. No additional policy is imported directly in this follow-up.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 298, "endLine": 304}, {"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 356, "endLine": 372}, {"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 409, "endLine": 423}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 622, "endLine": 628}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 788, "endLine": 817}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 537, "endLine": 543}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 145, "endLine": 157}]},
-{"submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02", "rationale": "Inherited through a9f894ea: mpjunior92's end-window brewing-target and population/workshop ideas, already represented in the inherited closer and second-Carpenters policy.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02", "path": "submission/plain/caretaker.py", "fileSha256": "d41759eb2914781b9e1fb3ba4b1d0a4cd600e8f24a2836f3744cfdc4e8cb687f", "startLine": 99, "endLine": 106}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 545, "endLine": 563}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}]},
-{"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "rationale": "GordoAR is retained through the selected base lineage and also supplies the earlier office-first repair inherited by fa9c13cc: after creating an office, place a chair before later furniture consumes the floor. This submission takes that office sequence through fa9c13cc and narrows it to the migrant task. 5dfdcf15 also produced the trusted checkout used by the upstream a9f894ea author; goal-policy material is credited separately to 5ef22a35. Its coverage check (zone a placement site when furniture placed there lies outside every dining zone), kept by fa9c13cc, is the basis of this candidate's dining-zone step, which reads DF's zone membership instead of rectangles and zones each site a bounded number of times.", "evidence": "The cited source office() includes immediate chair placement after accepted office creation; the target office() retains that sequence behind the migrant flag. Other cited passages identify retained controller/model-loop ancestry. Additional source: covers() and Overseer.needs_zone() in overseer/harness.py of the trusted tree 1afa775. Additional target: covers(), Overseer.needs_zone(), Overseer.dine_site() and Overseer.zone_dining() in overseer/harness.py.", "citations": [{"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 40, "endLine": 43}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 146, "endLine": 173}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 184, "endLine": 190}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 257, "endLine": 303}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 332, "endLine": 366}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/plain/harness.py", "fileSha256": "9d939e177fd461811a5d4d7888c2ed301ae23cf9e95f1695004685958529a262", "startLine": 207, "endLine": 263}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/Dockerfile", "fileSha256": "061fabd4de826ee3386800255a58805cecaed6bddbb6bc43747ba15c9f8f89b4", "startLine": 1, "endLine": 14}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 277, "endLine": 305}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 307, "endLine": 320}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 913, "endLine": 956}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 293, "endLine": 338}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 40, "endLine": 43}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 270, "endLine": 275}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 73, "endLine": 80}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 732, "endLine": 741}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 698, "endLine": 730}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 743, "endLine": 751}]},
-{"submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c", "rationale": "Retained declared lineage of a9f894ea: kshitij-hash's earlier archive of the cut-2 plain code, also represented by 9b597a76. No additional mechanism is introduced from this archive.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c", "path": "submission/plain/digest.py", "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2", "startLine": 109, "endLine": 183}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 185, "endLine": 214}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 158, "endLine": 168}]},
-{"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "rationale": "Retained declared lineage of a9f894ea: e-man07's intermediate controller revision shares the inherited layer. No additional mechanism is imported from this revision.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "path": "submission/overseer/harness.py", "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9", "startLine": 298, "endLine": 304}, {"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "path": "submission/overseer/harness.py", "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9", "startLine": 356, "endLine": 372}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 622, "endLine": 628}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 788, "endLine": 817}]},
-{"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "rationale": "Retained declared lineage of a9f894ea: GordoAR's earlier package shares the inherited controller and Dockerfile line. Its goal policies are credited separately to 5ef22a35.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/overseer/harness.py", "fileSha256": "f0de982a4c93ff28ee31b7e98e7541ce6c05506087b55ac39747257ee485837b", "startLine": 161, "endLine": 203}, {"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/plain/harness.py", "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020", "startLine": 35, "endLine": 45}, {"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/plain/harness.py", "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020", "startLine": 160, "endLine": 187}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 307, "endLine": 320}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 410, "endLine": 446}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 183, "endLine": 249}]},
-{"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "rationale": "GordoAR's public-goal detection, bed-only queue, bounded extra carpenter and actual-no-space alternate-area route are retained through a9f894ea. The treatment extends that same route to a measured remainder; it does not claim these concepts as new.", "evidence": "a9f894ea declares and credits 5ef22a35. Compare the source goal-policy methods with the retained target methods; partial-placement and depth/farm changes are separately credited to our published v4.", "citations": [{"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 57, "endLine": 63}, {"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 247, "endLine": 272}, {"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 304, "endLine": 331}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 134, "endLine": 140}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 832, "endLine": 884}]},
-{"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "rationale": "pepedesigner's published harness is the actual starting implementation. The client, plain model loop, digest, late population-gated progression push and all non-surge behavior are retained.", "evidence": "All 19 control files match the published Git blobs. Treatment changes are confined to surge behavior in overseer/harness.py plus tests/documentation/declarations; the replay checks non-surge actions.", "citations": [{"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/plain/harness.py", "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789", "startLine": 119, "endLine": 136}, {"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/plain/harness.py", "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789", "startLine": 280, "endLine": 323}, {"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/overseer/harness.py", "fileSha256": "6b7cf8535c1ffeac984ad35a7a2d3716a87b52cb69b27067019fd42d1f6626ff", "startLine": 338, "endLine": 355}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 126, "endLine": 143}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 293, "endLine": 338}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 512, "endLine": 530}]},
-{"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "rationale": "Our published v4 supplies the surge early-bed target/batch, office-chair exception, deep dorm priority, dorm/farm box exclusion, extra-carpenter condition and partial-placement accounting idea. This is a port, not independent re-creation.", "evidence": "The transfer adapts v4 to a9f894ea's existing bed-only queue and single-alternate route. The office exception is narrowed to one chair, unknown receipts do not trigger overflow, and bounded stairs access enforces the depth rule.", "citations": [{"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 242, "endLine": 248}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 219, "endLine": 224}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 259, "endLine": 265}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 267, "endLine": 274}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 542, "endLine": 551}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 363, "endLine": 374}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 369, "endLine": 377}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 379, "endLine": 383}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 385, "endLine": 390}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 832, "endLine": 884}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}]},
-{"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "rationale": "i34-9 produced the current promoted submission tree at 2f3abb30f6291e05a8d37a8c40c34a29732000b4, retained by trusted-tree HEAD b98e4e27474a69e5ab688d53c91646335f63ddf9. i34-9's office() supplies immediate chair placement after an accepted new office zone, before later furniture placement consumes that floor. This follow-up adapts it behind the migrant flag. The source's placement-coordinate response handling is also retained through our v4 port. Its progress() rule is taken for full-year games with its numbers: from day 40, until created wealth reaches 5,500, a Craftsdwarfs and one standing daily order of wood crafts that runs while 25 logs are in stock, for the Hamlet rank. It replaces this candidate's late population-gated push.", "evidence": "The office-first prerequisite was identified after the original a9f transfer's games. This separate follow-up adds that behavior and keeps the original played arms frozen. The source/target office and placement methods identify both reused mechanisms. Additional source: progress(), WEALTH_TARGET, PROGRESS_FROM_DAY and LOG_RESERVE in overseer/harness.py at 2f3abb30. Additional target: Overseer.progression_push(), PROG_FROM_DAY, PROG_WEALTH and PROG_LOGS in overseer/harness.py.", "citations": [{"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 453, "endLine": 461}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 392, "endLine": 405}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 184, "endLine": 212}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 277, "endLine": 305}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 414, "endLine": 431}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 30, "endLine": 30}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 31, "endLine": 31}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 32, "endLine": 32}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 512, "endLine": 530}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 46, "endLine": 46}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 47, "endLine": 47}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 48, "endLine": 48}]},
-{"submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5", "rationale": "The earlier same-code predecessor of 7662723d supplies the retained layer digest; kept as explicit lineage for that material.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5", "path": "submission/plain/digest.py", "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523", "startLine": 556, "endLine": 573}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 761, "endLine": 778}]},
-{"submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6", "rationale": "mpjunior92's larger regular bed-batch technique is reused through v4, narrowed here to the migrant task and the API's maximum 30.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6", "path": "submission/overseer/harness.py", "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc", "startLine": 373, "endLine": 383}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}]},
-{"submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca", "rationale": "The earlier source of the larger regular bed-batch technique is retained through f42cefb1 and our v4 transfer.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca", "path": "submission/overseer/harness.py", "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80", "startLine": 343, "endLine": 353}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}]},
-{"submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a", "rationale": "mpjunior92's population-scaled Carpenters idea, previously credited by v4, informs the three-shop surge variant. The original scaling code is not copied. The note published with this submission also points out that DFHack's legacy autolabor ties the fishing labour to a Fishery. This candidate uses that fact the other way round: it enables autolabor and builds no Fishery, so that nobody fishes. No code is taken.", "evidence": "Source scales Carpenters with population up to six. Target retains a fixed second shop and permits a third only for an observed migrant bed shortage with sufficient population/logs. Additional target: Overseer.no_fishing() in overseer/openplay.py. The source of the fact is DFHack's autolabor documentation, to which that note refers.", "citations": [{"submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a", "path": "submission/plain/caretaker.py", "fileSha256": "65775c868a583559433c6e72cf2c77bf6991ad57e3299d1ed55aae1034f3106b", "startLine": 84, "endLine": 95}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 237, "endLine": 263}]},
-{"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "rationale": "mpjunior92's published harness caps every model-requested advance at two days so that the deterministic controller keeps a one- or two-day cadence. This candidate uses that idea on tasks without a hands-off window. No code is taken: here one model call still decides the advance, and the harness walks it in two-day steps with a controller pass between them.", "evidence": "Source: the MAX_DAYS constant and cadence_days() in plain/harness.py at the published commit f5aa9fb2dc9e9758e5f920e4798e7a9c6db842c8. Target: Plain.open_advance(), which keeps the model's requested length and steps through it. The slaughter schedule itself does not come from this source.", "citations": [{"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "path": "submission/plain/harness.py", "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447", "startLine": 39, "endLine": 39}, {"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "path": "submission/plain/harness.py", "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447", "startLine": 176, "endLine": 185}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 383, "endLine": 423}]},
-{"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "rationale": "mpjunior92's published harness does not enable the tree-felling plugin while an alligator is in sight, having measured a woodworker killed by one on the second day of a fresh fort. This candidate takes that idea for its open tasks. The code is this candidate's own: a wait that ends for good, its own bounds (35 days, drink or food per citizen, two failed looks) and a list of large predators in place of the one species.", "evidence": "Source: Overseer.scan_logging_risk() in overseer/harness.py and the autochop branch of Plain.refuse() in plain/harness.py at the published commit 2813f007432914456d7011144f8e921de3a699c8, and that submission's note. Target: felling_waits() in overseer/openplay.py and the autochop branch of Plain.refuse().", "citations": [{"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "path": "submission/overseer/harness.py", "fileSha256": "373cf08876eddec620ea9f8050419d4f70e2fe57a91cd62afef885e78efbccdf", "startLine": 186, "endLine": 206}, {"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "path": "submission/plain/harness.py", "fileSha256": "14fd10f8a61b3a91571943d1d06ec75958a5b4c3bdd115b0eb82496cf4370157", "startLine": 401, "endLine": 431}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 191, "endLine": 234}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 443, "endLine": 492}]}
+  {
+    "submissionId": "bbbb6c26-f81b-48ca-81e3-e428c3e8a230",
+    "rationale": "Own published workshop reservations and chaired-office repair, retained through the later controller lineage.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "bbbb6c26-f81b-48ca-81e3-e428c3e8a230",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "36d55c5e16955a5bc38c5e91d88ec68588a4beadbe8d01f93806dafbf501cae3",
+        "startLine": 277,
+        "endLine": 307
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 309,
+        "endLine": 339
+      },
+      {
+        "submissionId": "bbbb6c26-f81b-48ca-81e3-e428c3e8a230",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "36d55c5e16955a5bc38c5e91d88ec68588a4beadbe8d01f93806dafbf501cae3",
+        "startLine": 309,
+        "endLine": 341
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 341,
+        "endLine": 373
+      },
+      {
+        "submissionId": "bbbb6c26-f81b-48ca-81e3-e428c3e8a230",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "36d55c5e16955a5bc38c5e91d88ec68588a4beadbe8d01f93806dafbf501cae3",
+        "startLine": 343,
+        "endLine": 356
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 375,
+        "endLine": 388
+      },
+      {
+        "submissionId": "bbbb6c26-f81b-48ca-81e3-e428c3e8a230",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "36d55c5e16955a5bc38c5e91d88ec68588a4beadbe8d01f93806dafbf501cae3",
+        "startLine": 548,
+        "endLine": 566
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 651,
+        "endLine": 673
+      }
+    ]
+  },
+  {
+    "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+    "rationale": "Promoted 0xplemonade controller lineage: management, excavation, supplies, furniture and wildlife protection. New dining batches adapt these methods; no claim the new code is the parent code. The retained shops() suspension accounting is also reused by any mood-recovery adaptation.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "startLine": 260,
+        "endLine": 275
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 292,
+        "endLine": 307
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "startLine": 410,
+        "endLine": 446
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 543,
+        "endLine": 583
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "startLine": 462,
+        "endLine": 500
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 599,
+        "endLine": 639
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "startLine": 832,
+        "endLine": 884
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1272,
+        "endLine": 1339
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "startLine": 372,
+        "endLine": 572
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 411,
+        "endLine": 611
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "startLine": 322,
+        "endLine": 336
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 390,
+        "endLine": 404
+      }
+    ]
+  },
+  {
+    "submissionId": "11ff6d2a-2c8e-4825-90e9-efbca40b3133",
+    "rationale": "Own published owned-order craft stopping and lab office repair; retained through the direct model-free parent.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "11ff6d2a-2c8e-4825-90e9-efbca40b3133",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 548,
+        "endLine": 570
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 651,
+        "endLine": 673
+      },
+      {
+        "submissionId": "11ff6d2a-2c8e-4825-90e9-efbca40b3133",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 572,
+        "endLine": 575
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 675,
+        "endLine": 678
+      },
+      {
+        "submissionId": "11ff6d2a-2c8e-4825-90e9-efbca40b3133",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 309,
+        "endLine": 341
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 341,
+        "endLine": 373
+      }
+    ]
+  },
+  {
+    "submissionId": "d1febd13-b50c-4bec-84cd-e078d68a4156",
+    "rationale": "0xplemonade model-free layer_only entry design and two reused no-model tests. Fixed GLM client remains packaged but unused; no prior fairness approval claimed.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "d1febd13-b50c-4bec-84cd-e078d68a4156",
+        "path": "submission/plain/harness.py",
+        "fileSha256": "6eeed2dc69037d3dbf5bc3e5ca710f056f175d0818affcf417d78d9d78333f89",
+        "startLine": 185,
+        "endLine": 255
+      },
+      {
+        "submissionId": null,
+        "path": "submission/plain/harness.py",
+        "fileSha256": "279348c2e0472c1624f9de22eeffd9a5fd141f39b90bb7317a59567eafb6e7fe",
+        "startLine": 184,
+        "endLine": 254
+      },
+      {
+        "submissionId": "d1febd13-b50c-4bec-84cd-e078d68a4156",
+        "path": "submission/tests/test_no_model.py",
+        "fileSha256": "3a5718a95d5cd384a2acc1e96c48092dff31791552c61dc629be5862433a114b",
+        "startLine": 1,
+        "endLine": 54
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_no_model.py",
+        "fileSha256": "3a5718a95d5cd384a2acc1e96c48092dff31791552c61dc629be5862433a114b",
+        "startLine": 1,
+        "endLine": 54
+      }
+    ]
+  },
+  {
+    "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+    "rationale": "Own published complete model-free controller base: planning, core construction, agriculture, labor/defense, timed provisions and hands-off supplies. Dining placement/counting/zoning are adapted by the new unique-pair and batch logic.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 245,
+        "endLine": 258
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 276,
+        "endLine": 290
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 181,
+        "endLine": 217
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 212,
+        "endLine": 248
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 385,
+        "endLine": 403
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 428,
+        "endLine": 447
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 484,
+        "endLine": 496
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 585,
+        "endLine": 597
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 953,
+        "endLine": 996
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1369,
+        "endLine": 1422
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "0781d14fb7a948e7a4bcb14127a944da8fa964761f1343fd00df9cad0a3882af",
+        "startLine": 616,
+        "endLine": 632
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 719,
+        "endLine": 735
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "startLine": 121,
+        "endLine": 135
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 132,
+        "endLine": 146
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "startLine": 137,
+        "endLine": 152
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 148,
+        "endLine": 163
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "startLine": 583,
+        "endLine": 613
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 622,
+        "endLine": 652
+      },
+      {
+        "submissionId": "e401f220-2014-40a8-b488-dcb998fae79b",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "startLine": 288,
+        "endLine": 306
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 327,
+        "endLine": 345
+      }
+    ]
+  },
+  {
+    "submissionId": "5f9b0fa4-33fe-4150-aecf-63a4f74fd074",
+    "rationale": "Own published success-only cull cooldown and regression tests. Cooldown remains successful-mark-only; any selected new reserve-floor rule adapts cull() and moves non-emergency test food fixtures above that new threshold.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "5f9b0fa4-33fe-4150-aecf-63a4f74fd074",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "7959e035f1da60f3c7f450a360091cc6ae35483c9714e4ad2a4e1afad73b8235",
+        "startLine": 154,
+        "endLine": 190
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 165,
+        "endLine": 222
+      },
+      {
+        "submissionId": "5f9b0fa4-33fe-4150-aecf-63a4f74fd074",
+        "path": "submission/tests/test_empty_cull.py",
+        "fileSha256": "7700d15dbb76b1ad89a40135b709d2809b06abbbdcfbd566be36f628fe5913d8",
+        "startLine": 1,
+        "endLine": 34
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_empty_cull.py",
+        "fileSha256": "80c12770dcb91910755978636e7e1895eafa9f16bfd492631978f4f4d0bbc6ef",
+        "startLine": 1,
+        "endLine": 35
+      }
+    ]
+  },
+  {
+    "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+    "rationale": "Own published physical dining capacity work: strict common disjointness gate, per-hall unique pairs, bounded additional rooms and all-fresh pre-zone furniture batches. Reused as the direct base; its local or official result is not approval of this new candidate.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 153,
+        "endLine": 202
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 160,
+        "endLine": 209
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 701,
+        "endLine": 732
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 778,
+        "endLine": 809
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 757,
+        "endLine": 796
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 834,
+        "endLine": 873
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 825,
+        "endLine": 847
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 902,
+        "endLine": 924
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 869,
+        "endLine": 900
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 954,
+        "endLine": 985
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 902,
+        "endLine": 929
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 987,
+        "endLine": 1014
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 931,
+        "endLine": 972
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1016,
+        "endLine": 1057
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 974,
+        "endLine": 1013
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1059,
+        "endLine": 1098
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 1123,
+        "endLine": 1190
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1272,
+        "endLine": 1339
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "06f87131c40c25c0eb86d475a37cc012e305da4dcad6dd2ad3f258e86512167f",
+        "startLine": 522,
+        "endLine": 562
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 599,
+        "endLine": 639
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/tests/test_batch_all.py",
+        "fileSha256": "6bfda2f266b824ee4ab146aa795f21b5cf6cfd5242bafc3781e531a8a244e450",
+        "startLine": 1,
+        "endLine": 41
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_batch_all.py",
+        "fileSha256": "6bfda2f266b824ee4ab146aa795f21b5cf6cfd5242bafc3781e531a8a244e450",
+        "startLine": 1,
+        "endLine": 41
+      },
+      {
+        "submissionId": "c48a6592-8dde-48d0-9a79-e79b2bb173f6",
+        "path": "submission/tests/test_dining_gate_pairs.py",
+        "fileSha256": "6e39bbb1fddc929be94609a373d8f9f6563312ee4499b1b16c0227d68d911c08",
+        "startLine": 1,
+        "endLine": 119
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_dining_gate_pairs.py",
+        "fileSha256": "6e39bbb1fddc929be94609a373d8f9f6563312ee4499b1b16c0227d68d911c08",
+        "startLine": 1,
+        "endLine": 119
+      }
+    ]
+  },
+  {
+    "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+    "rationale": "0xplemonade published mechanism adaptation: underground meeting area restricted to observed living space; proactive final-stretch reserve-animal food floor; specific relevant source/candidate functions cited. No claim that other bundled peer changes are used. Discussion171/174 supplied context; our isolated native tests and negative outcomes are reported separately. This archive additionally adapts the same published GRAZERS classification and grazer-first hunger-cull technique. It preserves non-grazers in the protected slots, takes grazer spares first, and chooses a grazer in an already eligible mixed-herd floor or zero-food emergency. The original clocks, thresholds and ordinary spare count remain; no moderate-stock reserve-release expansion is included. The classification assignment and existing cull function are explicitly cited; other bundled peer policies remain unadopted.",
+    "evidence": "Published source verified through immutable Git objects. Whole-file SHA256 and AST-derived line bounds select both endpoints; comparison results and fairness of earlier archives do not establish this candidate performance.",
+    "citations": [
+      {
+        "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "9ddfa8057e32b724befbc7ae95773f666f53eb0839d22855d9d011db122156f7",
+        "startLine": 1201,
+        "endLine": 1236
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1217,
+        "endLine": 1253
+      },
+      {
+        "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "9ddfa8057e32b724befbc7ae95773f666f53eb0839d22855d9d011db122156f7",
+        "startLine": 1182,
+        "endLine": 1199
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1256,
+        "endLine": 1269
+      },
+      {
+        "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "3afed9c0a2db079d277c0cdc7da8fd8242ff5da3223272e4d418f602a7642911",
+        "startLine": 193,
+        "endLine": 246
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 165,
+        "endLine": 222
+      },
+      {
+        "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "3afed9c0a2db079d277c0cdc7da8fd8242ff5da3223272e4d418f602a7642911",
+        "startLine": 248,
+        "endLine": 254
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 224,
+        "endLine": 227
+      },
+      {
+        "submissionId": "8c28e5dc-ff9a-4047-a8f0-c39aac27ce9e",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "3afed9c0a2db079d277c0cdc7da8fd8242ff5da3223272e4d418f602a7642911",
+        "startLine": 142,
+        "endLine": 149
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 120,
+        "endLine": 127
+      }
+    ]
+  },
+  {
+    "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+    "rationale": "Own direct predecessor supplies the combined required-workshop suspension recovery, reserve-food floor with successful-only cooldown, and their regression fixtures. Original peer credit is retained separately.",
+    "evidence": "Exact predecessor uploaded package and candidate files, with full-file SHA256 and AST-derived line bounds below. The predecessor source is checked against its immutable published copy before this new candidate is submitted.",
+    "citations": [
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "1a05cd8c25cf08f5bb7237207134a263968a078ff3292a4de29a1edc2f962a89",
+        "startLine": 1192,
+        "endLine": 1205
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1341,
+        "endLine": 1354
+      },
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "7951c5af617e288b8c0c502c787ace1219bdce81936e4c88fcec8aafefff3e10",
+        "startLine": 154,
+        "endLine": 194
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 165,
+        "endLine": 222
+      },
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "7951c5af617e288b8c0c502c787ace1219bdce81936e4c88fcec8aafefff3e10",
+        "startLine": 196,
+        "endLine": 199
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 224,
+        "endLine": 227
+      },
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/tests/test_mood_recovery.py",
+        "fileSha256": "9fac1ef79ae23661df2fbb2b5537f880921bfb201f44651ade3780ed449b027c",
+        "startLine": 1,
+        "endLine": 27
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_mood_recovery.py",
+        "fileSha256": "9fac1ef79ae23661df2fbb2b5537f880921bfb201f44651ade3780ed449b027c",
+        "startLine": 1,
+        "endLine": 27
+      },
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/tests/test_food_floor.py",
+        "fileSha256": "cd3819b1b7b5efb33dd41b0c2bebb2feb66b3f9e29af315e2a8f470be35b8ef4",
+        "startLine": 1,
+        "endLine": 23
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_food_floor.py",
+        "fileSha256": "cd3819b1b7b5efb33dd41b0c2bebb2feb66b3f9e29af315e2a8f470be35b8ef4",
+        "startLine": 1,
+        "endLine": 23
+      },
+      {
+        "submissionId": "9f1e1d32-74ab-466d-8799-3f3c865b3c58",
+        "path": "submission/tests/test_empty_cull.py",
+        "fileSha256": "80c12770dcb91910755978636e7e1895eafa9f16bfd492631978f4f4d0bbc6ef",
+        "startLine": 1,
+        "endLine": 35
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_empty_cull.py",
+        "fileSha256": "80c12770dcb91910755978636e7e1895eafa9f16bfd492631978f4f4d0bbc6ef",
+        "startLine": 1,
+        "endLine": 35
+      }
+    ]
+  },
+  {
+    "submissionId": "6dcee57a-7de5-4add-8132-0e53a1ca73cc",
+    "rationale": "Own direct predecessor supplies the repair for shifted overlapping uncommitted activity dining plans and its regression fixtures. Those physical capacity decisions are retained; the new squad policy is described separately.",
+    "evidence": "Exact predecessor uploaded package and candidate files, with full-file SHA256 and AST-derived line bounds below. The predecessor source is checked against its immutable published copy before this new candidate is submitted.",
+    "citations": [
+      {
+        "submissionId": "6dcee57a-7de5-4add-8132-0e53a1ca73cc",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "86008dc8e1cb76487a4a85fc89637d645a7b512758bb2f2893b1976978821cee",
+        "startLine": 849,
+        "endLine": 870
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 926,
+        "endLine": 947
+      },
+      {
+        "submissionId": "6dcee57a-7de5-4add-8132-0e53a1ca73cc",
+        "path": "submission/tests/test_batch_rebase.py",
+        "fileSha256": "8d0e9494c44d50cd905b2edf0088c4c18d76274324bca3e96501722745ee9fd7",
+        "startLine": 1,
+        "endLine": 49
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_batch_rebase.py",
+        "fileSha256": "8d0e9494c44d50cd905b2edf0088c4c18d76274324bca3e96501722745ee9fd7",
+        "startLine": 1,
+        "endLine": 49
+      }
+    ]
+  },
+  {
+    "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+    "rationale": "Own direct predecessor supplies scoped open-play defense against observed invaders or shelter intruders, supported explicit target IDs, and the final-month single-animal hunger buffer of two food units per citizen, with their regression fixtures. Inherited original peer credit is retained. A later meeting-area addition is described and credited separately.",
+    "evidence": "Exact predecessor uploaded package and candidate files, with full-file SHA256 and AST-derived line bounds below. The predecessor source is checked against its immutable published copy before this new candidate is submitted.",
+    "citations": [
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "294c3784bc59cea6a0eb225a99398b3299b4279412626823b375857238a6e768",
+        "startLine": 1228,
+        "endLine": 1281
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1369,
+        "endLine": 1422
+      },
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "38c2d96e0c27a784ee12de0a4200b41249859fd0509013e891ffbe969a63e2b1",
+        "startLine": 35,
+        "endLine": 35
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 35,
+        "endLine": 35
+      },
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "38c2d96e0c27a784ee12de0a4200b41249859fd0509013e891ffbe969a63e2b1",
+        "startLine": 121,
+        "endLine": 135
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/openplay.py",
+        "fileSha256": "dfa38b602be3cb67a02293dbf7d383f26058d2c48b7fcf70af9e70d45ce21353",
+        "startLine": 132,
+        "endLine": 146
+      },
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/tests/test_invader_only.py",
+        "fileSha256": "b4b721458277c917cba29d86781f42ff7a903618445b5224a97c15a9c47ed3ac",
+        "startLine": 1,
+        "endLine": 31
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_invader_only.py",
+        "fileSha256": "b4b721458277c917cba29d86781f42ff7a903618445b5224a97c15a9c47ed3ac",
+        "startLine": 1,
+        "endLine": 31
+      },
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/tests/test_scoped_defense.py",
+        "fileSha256": "dc0b4289418490f9cbe6e4d23900c880ba719c7ee0776f7620dd9f5772e76978",
+        "startLine": 1,
+        "endLine": 17
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_scoped_defense.py",
+        "fileSha256": "dc0b4289418490f9cbe6e4d23900c880ba719c7ee0776f7620dd9f5772e76978",
+        "startLine": 1,
+        "endLine": 17
+      },
+      {
+        "submissionId": "97b9792f-f17c-4874-bfcc-128eb8ff897d",
+        "path": "submission/tests/test_final_food_buffer.py",
+        "fileSha256": "e89ed83951828cf21fc8f54f53c8b81db74dcb705bf128eb7bd2e779d7749e52",
+        "startLine": 1,
+        "endLine": 18
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_final_food_buffer.py",
+        "fileSha256": "fe9090cd0f9fd2d8c94faf341655cf3380ba8f8ab045f6988506886c412c4e82",
+        "startLine": 1,
+        "endLine": 18
+      }
+    ]
+  },
+  {
+    "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+    "rationale": "Own directly uploaded controller base supplies the small shortage-office bootstrap and native-validation excavation gate, bounded second Still, bounded meeting placement, and their retained regression fixtures. The archived source is verified against the real upload and its immutable publication before child submission. Its weak local MY1 result and current official status are disclosed separately; publication is not promotion or performance approval. Original peer credit remains declared separately.",
+    "evidence": "Exact predecessor uploaded package and candidate files, with full-file SHA256 and AST-derived line bounds below. The predecessor source is checked against its immutable published copy before this new candidate is submitted.",
+    "citations": [
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 490,
+        "endLine": 541
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 490,
+        "endLine": 541
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 543,
+        "endLine": 583
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 543,
+        "endLine": 583
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 417,
+        "endLine": 426
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 417,
+        "endLine": 426
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1217,
+        "endLine": 1253
+      },
+      {
+        "submissionId": null,
+        "path": "submission/overseer/harness.py",
+        "fileSha256": "b4cc721c60bbfdc3c78c58d6616943f554b14880878acc5f32543c139c206b8a",
+        "startLine": 1217,
+        "endLine": 1253
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/tests/test_office_bootstrap.py",
+        "fileSha256": "fab93a0cc13480a6791e019276bbef2c709e9a632f9dfeb60b6ffebaddf717d2",
+        "startLine": 1,
+        "endLine": 54
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_office_bootstrap.py",
+        "fileSha256": "fab93a0cc13480a6791e019276bbef2c709e9a632f9dfeb60b6ffebaddf717d2",
+        "startLine": 1,
+        "endLine": 54
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/tests/test_brew_capacity.py",
+        "fileSha256": "88eba7f2ccb0a825f5f53e1d27118a89c8e9b03d3fc462b3bfa708267a56296f",
+        "startLine": 1,
+        "endLine": 28
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_brew_capacity.py",
+        "fileSha256": "88eba7f2ccb0a825f5f53e1d27118a89c8e9b03d3fc462b3bfa708267a56296f",
+        "startLine": 1,
+        "endLine": 28
+      },
+      {
+        "submissionId": "32c64d82-97a4-4f25-a8a5-057fba8e90e5",
+        "path": "submission/tests/test_meeting_clip.py",
+        "fileSha256": "9f9e12dc7c6e442fc13c7b82680014658985e5644f8ae7ddab6cf8c2c50188c8",
+        "startLine": 1,
+        "endLine": 19
+      },
+      {
+        "submissionId": null,
+        "path": "submission/tests/test_meeting_clip.py",
+        "fileSha256": "9f9e12dc7c6e442fc13c7b82680014658985e5644f8ae7ddab6cf8c2c50188c8",
+        "startLine": 1,
+        "endLine": 19
+      }
+    ]
+  }
 ]

@@ -32,7 +32,7 @@ FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
-HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
+HUNGER_FINAL = 2.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
                         #   earlier cull's meat rots all at once, and a game went from 14 food to none in three days
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
@@ -116,6 +116,17 @@ ANIMAL_RANK = {"WATER_BUFFALO": 100, "YAK": 70, "COW": 60, "HORSE": 50, "CAMEL_1
                         #   cow gives 20-40 food, a turkey 10, a cat 7, a rabbit or cavy next to nothing
 
 
+# Classification adapted from published8c28e5dc; narrow final-month priority only.
+GRAZERS = frozenset((   # d58: every [STANDARD_GRAZER] creature of the vanilla raws (49). No tool makes a pasture, so
+    "ALPACA", "CAMEL_1_HUMP", "CAMEL_2_HUMP", "CAPYBARA", "CAVY", "CENOZOIC_DEINOTHERIUM", "CENOZOIC_ENTELODON",
+    "CENOZOIC_MAMMOTH_PYGMY", "CENOZOIC_MAMMOTH_WOOLLY", "CENOZOIC_MEGACEROPS", "CENOZOIC_MEGATHERIUM",
+    "CENOZOIC_MIOHIPPUS", "CENOZOIC_PARACERATHERIUM", "CENOZOIC_PLATYBELODON", "CENOZOIC_RHINOCEROS_WOOLLY",
+    "COW", "DEER", "DONKEY", "DRALTHA", "ELEPHANT", "ELK", "ELK_BIRD", "GAZELLE", "GIRAFFE", "GOAT",
+    "GOAT_MOUNTAIN", "GROUNDHOG", "HARE", "HORSE", "IBEX", "IMPALA", "KANGAROO", "LLAMA", "MARMOT_HOARY", "MOOSE",
+    "MULE", "MUSKOX", "PANDA", "PERMIAN_DIADECTES", "RABBIT", "REINDEER", "RHINOCEROS", "SHEEP", "TAPIR",
+    "UNICORN", "WARTHOG", "WATER_BUFFALO", "WOMBAT", "YAK"))
+
+
 class OpenPlayRules:
     # ---- when the animals are slaughtered
     def provision(self):
@@ -171,21 +182,49 @@ class OpenPlayRules:
         herd.sort(key=lambda a: (-size(a), str(a.get("id"))))          # largest first
         pick = herd
         if smallest:
-            spare = herd[FEAST_KEEP:]
-            if not spare and (self.st.get("food_edible") or 0) <= 0:
-                spare = herd
-            pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            # Adapted from published8c28e5dc: preserve non-grazers for the feast,
+            # use older substantial grazers first while ordinary food is short.
+            uid = lambda a: a["id"] if type(a.get("id")) is int else 0
+            grazer = lambda a: str(a.get("race")) in GRAZERS
+            nongrazers = [a for a in herd if not grazer(a)]
+            grazers = [a for a in herd if grazer(a)]
+            # Fill every original protected slot, including a tiny grazer if needed:
+            # this changes priority without increasing the number of ordinary spares.
+            keep = (nongrazers + sorted(grazers, key=lambda a: -uid(a)))[:FEAST_KEEP]
+            kept = {id(a) for a in keep}
+            spare = (sorted((a for a in grazers if id(a) not in kept),
+                            key=lambda a: (size(a) < 1, uid(a)))
+                     + sorted((a for a in nongrazers if id(a) not in kept),
+                              key=lambda a: (size(a) < 1, size(a), str(a.get("id")))))
+            if not spare and grazers and nongrazers and self.final_floor(len(herd)):
+                spare, n = sorted(grazers, key=lambda a: (size(a) < 1, uid(a)))[:1], 1
+            elif not spare and (self.st.get("food_edible") or 0) <= 0:
+                if grazers and nongrazers:
+                    spare = (sorted(grazers, key=lambda a: (size(a) < 1, uid(a)))
+                             + sorted(nongrazers, key=lambda a: (size(a) < 1, size(a), str(a.get("id")))))
+                else:
+                    spare = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            elif not spare and self.final_floor(len(herd)):
+                spare, n = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))[:1], 1
+            pick = spare
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
             if marked >= n:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        # A protected or empty herd is not a meal: do not delay a later emergency
+        # merely because an earlier check had no eligible animal to mark.
+        if marked:
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
         return marked
+
+    def final_floor(self, herd_n):
+        """Peer 8c28e5dc's final food floor, isolated from grazer, feast and batch changes."""
+        return (self.open_play() and FEAST_DAYS < self.days_left <= FINAL_STRETCH and herd_n > 1
+                and (self.st.get("food_edible") or 0) <= max(3, (self.cit or 0) // 5))
 
     # ---- the first trees wait for the predators to leave
     def felling_waits(self):
