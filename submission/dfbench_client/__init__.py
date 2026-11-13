@@ -17,3 +17,5 @@ from .task import Task, load_task
 __all__ = ["ActionLimit", "ActionRejected", "BudgetExhausted", "ContextTooLong", "DfbenchError", "GameAPIError",
            "GameOver", "GameUnavailable", "HandsOff", "ModelError", "GameClient", "ModelClient", "Task", "load_task"]
 __version__ = "0.1.0"
+
+from .admission import GameClient

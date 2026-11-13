@@ -1,32 +1,107 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Iter82 status: evidence-backed choices, no new gameplay promotion
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+Thirteen fresh real DF horizons reject owned-office recovery as a robust master
+combo; production Python is restored to the pre-experiment iter81 hash. Official
+choices remain95.91 zero-model versus96.02 hybrid at$.2007/133 calls per game-year.
+Submission20b12042 finished rejected87.14 (judge pass). No new submission.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+The historical95.91 source was executed afresh: OP1 87.5, MY1 100.0, LT08 all four
+clauses pass. These are local stochastic samples, not a new official score. It
+already has no advisory sweeps; current-branch pruning savings do not transfer.
+Full13-game scorer/controller/image audits and three retry transitions:
+`python3 -B reports/iter82-owned-office-recovery/verify.py`; conclusions/limits in
+that directory's RESULT.md. Runtime and requested operator constraints are not
+silently replaced by archived official sources. Previous text is historical.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+---
+
+# Iter81 runtime: no-model demand-driven sensing
+
+The current operator-rule branch disables only advisory jobs/buildings/stocks
+sweeps when NO_MODEL is true. Event/safety queries and gameplay actions remain.
+This is a verified request/byte reduction on this branch, not an improvement over
+the official95.91 zero-model baseline (which already lacks those sweeps), and not
+an official score gain. No bounded receiver is integrated. See
+`reports/iter81-production-receiver/RESULT.md` and its `verify.py` for19 historical
+and6 fresh full-agent tape replays,6 trusted real DF horizons and6 image audits.
+Previous status paragraphs below are historical.
+
+---
+
+# Iter78 runtime status
+
+`python -m plain` now runs the current operator-rule deterministic layer with
+`NO_MODEL = True`. Setup still consumes the live task, goal, tools and horizon.
+Model/gateway calls are skipped. Open-play's last ten days add bounded late
+slaughter/cooking; the hands-off lab branch is unchanged.
+
+This is an experimental, locally regressing candidate, not a new Pareto winner.
+Eight real-DF mixed-stack games completed with zero model calls. Trusted
+OP1/MY1 outcomes for this late-food variant are81.2/71.5; the frozen official
+zero-call baseline measured90.3/100.0 on the same public seed. Single games,
+not an official score or matched-randomness causal experiment. See NOTE.md.
+
+---
+
+## Historical architecture (hybrid mode, restored by setting NO_MODEL=False)
+
+# Iteration 15 — exact frontier restored; ZERO SUBMISSIONS
+
+The active13Pythonruntime files equal promoted source
+`2f3abb30f6291e05a8d37a8c40c34a29732000b4` byte-for-byte. Official frontier remains **91.32**, owned
+by i34-9, submission `fa9c13cc-2503-4df4-b989-6a0f49b3cbd4`. No official win or improvement is claimed.
+Current promotion target is at least **93.603** pooled lower bound plus a positive paired lower bound.
+
+## Current measured decision
+
+The ownership-scoped craft-stop candidate was tested prospectively on three public forts with exact-frontier
+controls, six real fixed-GLM years total. O **87.5/87.5/69.0 vs87.5/87.5/62.1**; mean81.33vs79.03,
+delta+2.30, descriptive fort-SE2.30. Two ties and one uneven supply result are insufficient. Candidate archived,
+NOT active. The third candidate still fails sustainable supply; all candidates remain at zero progression.
+
+All6 horizons, zero deaths, positive daily food/drink;36recordinghashes and26frozensourcefiles verified.
+Reference-priced nativeZ.ai cost$.567156/438calls. No builds, gateway errors or budget refusals.
+Successful owned-order cancellations on days187/148/119; first pair0vs212post-target craft items. This proves
+execution, not score efficacy. Static review's citizens<7cleanup edge case remains in the frozen candidate;
+no source was changed mid-experiment. Candidate50tests passed; current restored runtime has46tests.
+
+## Evidence audit
+
+Mandatory iteration15 audit re-scored77retained games with trusted repository scorers and rechecked472saved
+recordinghashes/966checks. The audit's runtime checks target the exact incumbent, not craft-stop. Across15
+retrospective exact-frontier OP1 controls: housing full14/15, supply impaired7/15, progressionzero12/15.
+All12zero-progression controls had wealth>=5000 but population<20. All15 kept producing crafts after5500wealth
+(2709credited items). More wealth alone cannot be assumed to fix first-year population/progression.
+
+Seeded but temporarily empty-season farms occur13/15, including6/7low-supply controls. Autofarm reports on;
+its source counts plant stack quantity while API counts plant objects. No direct crop/threshold/runonce tool
+is exposed. This correlation is not a proven API-accessible remedy. Do not bypass the game interface.
+
+Earlier pacing, map-backed furniture, global3x3cap, shallow shaft and entry policies are retired. Pacing's
+same-fort gain failed cross-fort; the entry selector's gain was entirely on the unchanged-entry seed.
+See `NOTE.md` and `reports/research-53fa9f65d46e44252e57455506e7df0e-15.txt` for exact evidence and limits.
+The inherited note was33633characters and failed the30000character gate; it is preserved and now corrected.
+
+## Blockers and user requirements
+
+Global weekly40admission allowance exhausted until **2026-11-09 00:00 UTC**, freshly corroborated by another
+solver's Weekly cap failure. Required wrapper exits2 for missing pinned-route provider variable. Existing
+native GLM access works but is not pinnedTogether/private official scoring. No credentials printed or expanded.
+
+Individual3x3bedroomgrid/centredbeds/lateraldoors/entrancetavern/safewell+leakseal are NOT achieved by these
+experiments or dormitory counts. The frozen API is site-based/firsteligiblefurnituretile; no well, bucket or
+tavern-location tool. Do not invent construction success or bypass the interface.
+
+## Operation, provenance and checks
+
+Inherited hybrid deterministic routines run each observed game day before the fixed `z-ai/glm-5.3-flash`
+model sees current facts. Shared K40actions/day, $.50referencecredits and5400seconds/year.12messagehistory,
+temperature0, low effort,4000outputtokens; modeladvance cap14days; inherited credit/failure stops.
+Inherited repair, brewing protection, office-chair and Fishery features remain. No experimental policy active.
+`dependencies.json` retains18published material sources including current leader and our prior unplayed upload;
+that upload scored0with0games and is not negative gameplay evidence. Full provenance is in `NOTE.md`.
+
+Existing verifier: `python3 -m unittest discover -s submission/tests`.
+Offline audit: `python3 reports/iteration15-evidence-audit/audit.py`.
+Frozen-game verifier: `python3 reports/iteration15-evidence-audit/finalize.py`.
+Local scores and regression passes are not board results. No new Docker build required.
