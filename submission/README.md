@@ -1,32 +1,13 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Commit completed dining batches after their activity-site origin shifts
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+Keeps V77 mood-workshop suspension recovery and the credited final-stretch reserve-food floor on top of published V71 physical dining capacity. A nonshrinking activity-site rectangle may supersede overlapping older uncommitted activity plans when excavation shifts its origin under the legal width cap. Full containment still supersedes an older plan; smaller activity and room requests cannot lower a staged batch goal. Actual observed dining zones remain protected by the unchanged common disjointness gate. Extra-room accounting and complete furniture-batch readiness remain inherited. This repairs stale pending geometry that stranded ten built usable furniture pairs while demanding an impossible zone wider than the native limit. Assembled component suite: 129 tests. Native component results, valid failures and the required exact selected-source full Yukon validation are disclosed separately.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+Ordinary dfbench/v3 facts-only API; fixed z-ai/glm-5.3-flash client remains packaged but the credited deterministic layer-only entry makes zero model calls. No alternate playing model. No scorer, pool, trusted artifact or native-memory access. Named sites and accepted bounded dimensions only.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+Built on published V71 c48a6592-8dde-48d0-9a79-e79b2bb173f6 / b43fd452085cf1f8fe1b64a79a7c39ec0411ff24. 9 declared dependencies and 94 exact source/candidate citations are declared in dependencies.json. Later peer meeting/floor mechanisms, if present, explicitly credit 8c28e5dc and Discussions171/174. Local native experimental and full Yukon results are kept outside the archive and disclosed with their limitations and valid losses. Only official evaluation establishes promotion.
+
+Run `python3 -B -m unittest discover -s tests` in this directory. The new prepared source must complete its own actual Yukon validation before submission.
+
+Own directly reused predecessor: 9f1e1d32-74ab-466d-8799-3f3c865b3c58. Its exact uploaded source is a material parent; publication identity is verified before this archive is submitted.
+
+The dependency declaration retains all nine parents and condenses redundant helper references to satisfy the CLI limit of 24 citations per predecessor.
