@@ -58,6 +58,9 @@ SURGE_BEDS = 50
 SURGE_CARPENTERS = 3
 SURGE_DORM_DEPTH = 3
 
+OFFICE_FAILS = 2        # chair placements an office's site refused for want of floor (no_space) before the office
+                        #   is given up: handed to another citizen and made again on a site with open floor
+
 def log(kind, **kw):
     print(json.dumps({"t": round(time.time(), 2), "kind": kind, **kw}, default=str), flush=True)
 
@@ -130,6 +133,9 @@ class Overseer(OpenPlayRules):
         self.beast_spent = 0     # ... ticks spent shut from the first sight of one to the opening of the fort
         self.fell = None         # open play, the first felling: None undecided, {"since", "blind"} waiting for a
                                  #   large predator to leave, False no longer waiting
+        self.office_fails = {}   # office zone id -> chair placements its site refused with no_space
+        self.office_bad = set()  # office zone ids given up (OFFICE_FAILS refusals): never the manager's again
+        self.office_bad_sites = set()   # site ids those offices stood on: no new office goes there
 
     def set_task(self, info):
         """Goal policies from the task's own public text (GET /task). A hands_off field means a lab task."""
@@ -275,7 +281,14 @@ class Overseer(OpenPlayRules):
         self.office()
 
     def office(self):
-        """DF stops validating orders around 20 citizens unless the manager has an office with a chair."""
+        """DF stops validating orders around 20 citizens unless the manager has an office with a chair.
+
+        Once that happens no order is validated, the one for the office's own chair included, so the chair must be
+        in before then. This build: the office goes on a site with open floor (a level's A site can have none: a
+        full-year game's office stood on a 7x3 stair level and refused its chair until the fort reached 21 citizens,
+        then no bed, chair, brew or meal order was validated for the last 128 days); its chair goes in as soon as the
+        zone is made, on every task, not only the migrant task; and an office whose site refuses the chair
+        OFFICE_FAILS times for want of floor is handed to another citizen and made again elsewhere."""
         if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
             return
         mo = self.adm.get("manager_office")
@@ -284,25 +297,75 @@ class Overseer(OpenPlayRules):
         mgr = self.adm.get("MANAGER_id")
         offices = self.zone("office")
         mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
+        if mine and mine.get("id") in self.office_bad and not self.office_has_chair(mine):
+            if self.drop_office(mine, mgr):
+                return               # the manager has no office on the next look, and a new one is made then
+            mine = None              # nobody to hand it to: make another one beside it
         if not mine:
-            spare = next((z for z in offices if z.get("owner") is None), None)
+            spare = next((z for z in offices if z.get("owner") is None and z.get("id") not in self.office_bad), None)
             if spare and mgr is not None:
                 self.act("office_assign", "assign_zone", {"zone_id": spare["id"], "dwarf_id": mgr})
                 return
-            room = next(iter(self.dug_rooms("office") + self.dug_rooms("dine") + self.kind("A")), None)
+            room = self.office_site()
             if room:
                 result = self.act("office_zone", "make_zone", {"kind": "office", "site": room["id"]})
-                if self.surge and result and result.get("ok") and (self.free.get("chair") or 0) > 0:
-                    self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
+                if result and result.get("ok") and (self.free.get("chair") or 0) > 0:
+                    zid = d(result.get("result")).get("zone_id", result.get("zone_id"))
+                    self.office_chair(room, zid)
             return
-        if d(mine.get("furniture")).get("chair") or d(mine.get("furniture_planned")).get("chair"):
+        if self.office_has_chair(mine):
             return
         if (self.free.get("chair") or 0) > 0:
-            room = next((s for s in self.sites if s.get("kind") in "RA" and s.get("z") == mine.get("z")
-                         and s.get("x") == mine.get("x") and s.get("y") == mine.get("y")), None)
+            room = self.office_room(mine)
             room = room or next(iter(self.dug_rooms("office") + self.kind("A")), None)
             if room:
-                self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
+                self.office_chair(room, mine.get("id"))
+
+    def office_has_chair(self, zone):
+        return bool(d(zone.get("furniture")).get("chair") or d(zone.get("furniture_planned")).get("chair"))
+
+    def office_room(self, zone):
+        """The R or A site an office zone was made over (make_zone covers the site's whole box)."""
+        return next((s for s in self.sites if s.get("kind") in "RA" and s.get("z") == zone.get("z")
+                     and s.get("x") == zone.get("x") and s.get("y") == zone.get("y")), None)
+
+    def office_site(self):
+        """Where a new office goes: a dug office or dining room, else an A site with open floor, not one an office
+        was given up on. Among A sites, one that no dining hall or dormitory covers first (an office over the dining
+        hall would claim its chairs), then the most open tiles."""
+        rooms = [r for r in self.dug_rooms("office") + self.dug_rooms("dine") if r.get("id") not in self.office_bad_sites]
+        if rooms:
+            return rooms[0]
+        shared = [z for z in self.zones if any(w in str(z.get("type")).lower() for w in ("dining", "dorm"))]
+
+        def overlaps(s):
+            return any(covers(z, s) or covers(s, z) for z in shared)
+
+        areas = [s for s in self.kind("A") if (s.get("open_tiles") or 0) > 0 and s.get("id") not in self.office_bad_sites]
+        areas.sort(key=lambda s: (overlaps(s), -(s.get("open_tiles") or 0), str(s.get("id"))))
+        return areas[0] if areas else None
+
+    def office_chair(self, room, zone_id):
+        """place_furniture a chair in the office's site; a site that refuses it for want of floor counts towards
+        giving the office up."""
+        r = self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
+        if isinstance(r, dict) and not r.get("ok") and r.get("error_code") == "no_space" and zone_id is not None:
+            self.office_fails[zone_id] = self.office_fails.get(zone_id, 0) + 1
+            if self.office_fails[zone_id] >= OFFICE_FAILS:
+                self.office_bad.add(zone_id)
+                self.office_bad_sites.add(room.get("id"))
+                log("office_given_up", zone=zone_id, site=room.get("id"), day=self.day)
+        return r
+
+    def drop_office(self, zone, mgr):
+        """Hand a given-up office to another adult citizen with no position, so the manager can take a new one.
+        True if the game accepted it."""
+        other = next((p for p in self.people if p.get("id") not in (None, mgr) and not p.get("positions")
+                      and p.get("adult", True)), None)
+        if other is None:
+            return False
+        r = self.act("office_drop", "assign_zone", {"zone_id": zone["id"], "dwarf_id": other["id"]}, retry=1)
+        return isinstance(r, dict) and bool(r.get("ok"))
 
     def build(self, wtype, retry=3):
         """One workshop of `wtype`: the first W site this run has not built this type on yet (the site the last
@@ -498,6 +561,9 @@ class Overseer(OpenPlayRules):
             if have < want and not self.pending(recipe) and self.logs():
                 batch = 30 if self.surge and recipe == "make_bed" else 8
                 self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
+        if not self.beds_first and self.office_chair_needed() and not self.pending("make_chair") and self.logs():
+            # every task: the office's chair is ordered while orders are still validated (dining counts its own)
+            self.act("o_office_chair", "add_order", {"recipe": "make_chair", "amount": 1}, retry=2, limit=6)
 
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
