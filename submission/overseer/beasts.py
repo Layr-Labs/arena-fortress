@@ -1,15 +1,14 @@
-"""Open play: large wild predators.
+"""Open play: large wild predators and fast aggressive troop species.
 
 The game API lists a unit as hostile when it is an invader, undead, crazed, agitated or a great beast. A wild
-animal that hunts is none of those: no threat field names it, no advance stops for it and the inherited alert
-never sounds. This version of the game has such animals in ordinary, calm country. This file holds the list this
-layer goes by and reads the units query against it; overseer/openplay.py decides what follows.
+animal that hunts or raids in fast troops is none of those: no threat field names it, no advance stops for it and
+the inherited alert never sounds. This file holds the static predator/troop sets plus reactive species matching for
+wild species observed attacking citizens; overseer/openplay.py decides what follows.
 """
+import re
 
 # Surface animals the game's own creature definitions mark [LARGE_PREDATOR] with an adult BODY_SIZE over a dwarf's
-# 60000 and that are not confined to water, by the id the units query gives. (The game's documentation: a large
-# predator attacks what is smaller than itself.) Smaller ones are left out: dingos were in sight for weeks on two
-# training forts and attacked nobody.
+# 60000 and that are not confined to water, by the id the units query gives.
 BEASTS = frozenset((
     "CRETACEOUS_CARNOTAURUS", "ALLIGATOR", "CROCODILE_SALTWATER", "BEAR_GRIZZLY", "BEAR_BLACK", "BEAR_POLAR", "TIGER",
     "LION", "JAGUAR", "ANACONDA", "CRETACEOUS_TYRANNOSAURUS", "CRETACEOUS_SPINOSAURUS_MIRABILIS",
@@ -21,9 +20,32 @@ BEASTS = frozenset((
 # ... of which these keep to the water's edge: they count only when close to the wagon
 LURKERS = frozenset(("ALLIGATOR", "CROCODILE_SALTWATER", "ANACONDA", "CRETACEOUS_SPINOSAURUS_MIRABILIS",
                      "CRETACEOUS_SPINOSAURUS_AEGYPTIACUS", "GRIMELING"))
-LURK_SCALE = 5          # a lurker counts as this many times farther away than it is: 20 tiles for the others' 100.
-                        #   Alligators 25 to 65 tiles from the wagon killed nobody once nobody fished and the first
-                        #   felling waited for them; six of them 14 tiles from it killed in every build
+LURK_SCALE = 5
+
+# Fast troop species that raid surface workers without setting `hostile=True` (f4bb39b empirical attack records,
+# excluding peaceful scavengers like buzzards so the 60-day lockdown budget is preserved for real attackers).
+TROOPS = frozenset((
+    frozenset(("rhesus", "macaque")),
+    frozenset(("gray", "langur")),
+    frozenset(("giant", "kea")),
+    frozenset(("mandrill",)),
+    frozenset(("baboon",)),
+    frozenset(("chimpanzee",)),
+))
+IGNORE_WORDS = frozenset(("bird", "the", "a", "an", "stray", "wild"))
+
+
+def race_words(text):
+    """Normalized word set for matching creature race IDs (`MACAQUE_RHESUS`) and combat log names (`rhesus macaque`)."""
+    if not isinstance(text, str):
+        return frozenset()
+    parts = [w for w in re.split(r"[^a-z0-9]+", text.lower()) if w and w not in IGNORE_WORDS]
+    return frozenset(parts)
+
+
+def is_troop(race, extra=()):
+    words = race_words(race)
+    return bool(words) and (words in TROOPS or words in extra)
 
 
 def whole(*vs):
@@ -31,16 +53,8 @@ def whole(*vs):
     return all(isinstance(v, int) and not isinstance(v, bool) and -10 ** 6 < v < 10 ** 6 for v in vs)
 
 
-def in_sight(units, total, wagon):
-    """(found, sure) from the units query's `others`.
-
-    found: the listed animals among the rows that can be read, each {"race", "x", "y", "z", "dist", "beast": True},
-    with dist in the API's own measure (the larger of |dx| and |dy| from the wagon, plus three for every level
-    between them), times LURK_SCALE for a lurker. One that cannot be placed (no wagon in the observation, or a
-    position that is not three whole numbers) has x, y and z None and dist 0: in sight, somewhere.
-    sure: nothing was left out, so what the list does not show is not there. Only when the answer's own count
-    says the list is whole (in 4,008 answers of 25 recorded games it always did); False when there is no list,
-    no such count, a row that cannot be read, or a listed animal that cannot be placed."""
+def in_sight(units, total, wagon, extra=()):
+    """(found, sure) from the units query's `others`."""
     if not isinstance(units, list):
         return [], False
     sure = whole(total) and total == len(units)
@@ -50,16 +64,23 @@ def in_sight(units, total, wagon):
     for u in units:
         race = u.get("race") if isinstance(u, dict) else None
         if not isinstance(race, str):
-            sure = False            # it may be one of them
+            sure = False
             continue
-        if race not in BEASTS or u.get("hostile") is True or u.get("visitor") is True:
-            continue                # a hostile one is in the threats list already
+        if u.get("hostile") is True or u.get("visitor") is True or u.get("tame") is True:
+            continue
+        beast = race in BEASTS
+        troop = not beast and is_troop(race, extra)
+        if not beast and not troop:
+            continue
         p = (u.get("x"), u.get("y"), u.get("z"))
+        row = {"race": race, "beast": True}
+        if troop:
+            row["troop"] = True
         if whole(*p) and whole(*w):
             dist = max(abs(p[0] - w[0]), abs(p[1] - w[1])) + 3 * abs(p[2] - w[2])
-            found.append({"race": race, "x": p[0], "y": p[1], "z": p[2], "beast": True,
-                          "dist": dist * LURK_SCALE if race in LURKERS else dist})
+            row.update(x=p[0], y=p[1], z=p[2], dist=dist * LURK_SCALE if race in LURKERS else dist)
         else:
             sure = False
-            found.append({"race": race, "x": None, "y": None, "z": None, "beast": True, "dist": 0})
+            row.update(x=None, y=None, z=None, dist=0)
+        found.append(row)
     return found, sure
