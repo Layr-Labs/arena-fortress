@@ -1,32 +1,10 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Hybrid Master Pareto Controller v2 (base = 65e60732)
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+Built on 0xplemonade's promoted hybrid controller (`65e60732-98d2-4765-a2c6-f84076c3e5fe`), keeping the metered `z-ai/glm-5.3-flash` consultation loop active (`NO_MODEL = False`) and integrating six empirically verified improvements across open-play survival/progression, lab validation, and harness resilience:
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
-
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+1. **Owned wood-craft stop at `wealth.created >= 5500` or endgame** (`overseer/harness.py`, adapted from `11ff6d2a` / `e401f220`): on full-year open games (`OP1`), queues daily wood `MakeCrafts` (`amount=3`, `WOOD >= 25`) from Day 40 until `wealth.created >= 5500` (sufficient for Rank 1 Hamlet), then calls `cancel_order` on controller-owned `craft_ids` once `5,500` or endgame is reached so logs and carpenter/craftsdwarf labor return to beds, barrels, farming, and hauling.
+2. **Chaired manager-office repair, farm-plot `no_space` bypass, + usable-office digest** (`overseer/harness.py`, `plain/digest.py`, adapted from `11ff6d2a` / `e401f220`): zones/assigns an `office` over an existing built chair on Day 0 on lab tasks (`LT03`, `LT08`, `LT01`, `LT02`) when `free.chair == 0`, chairs open-play offices (`citizens >= 14`, non-soil rooms prioritized so soil stays free for late farm plots) while filtering `farm_plots` and memorizing `no_space` areas (`office_full`) across passes so `place_furniture("chair")` never loops on `A4`/`A5` farm areas, and updates `_manager()` in `plain/digest.py` to recognise any chaired owned office.
+3. **Cross-type workshop site reservation within a pass** (`overseer/harness.py`, adapted from `11ff6d2a` / `e401f220`): `full_sites` reserves accepted `W` sites across all workshop types within a single pass so `Still` and `Kitchen` never collide on `Carpenters`'s consumed site.
+4. **Pre-window surge bed placement (`SURGE_BEDS = 56`)** (`overseer/harness.py`): raises `SURGE_BEDS` from 50 to 56 and updates `furnish()` so `self.surge` tasks (`LT08`) place crafted beds into dormitories up to `max(citizens + 12, SURGE_BEDS)` before the hands-off window closes.
+5. **Fast troop-animal lockdown, attacker learning, and post-feast brew continuity** (`overseer/beasts.py`, `overseer/openplay.py`, `overseer/harness.py`, adapted from `f4bb39bc` / `f1150bf2`), preserving `65e60732`'s `FEAST_DAYS = 14` rot-safe feast window, `DRINK_SAFE = 28` brew ceiling, and pre-feast `o_brew_end` plant reserve (`max(12, citizens)`) while adding `o_brew_f_end` during `days_left <= FEAST_DAYS` once post-feast `food_edible >= max(40, 4 * citizens)`.
+6. **Wall-budget handoff and transient gateway backoff** (`plain/harness.py`, adapted from `7173e169`): tracks per-call model latency EMA against remaining `wall_seconds` (`WALL_MIN_RESERVE = 360.0`) and retries transient connection errors (`MAX_API_STREAK = 8`).

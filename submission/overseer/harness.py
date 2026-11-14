@@ -45,7 +45,7 @@ MOOD_WORKSHOP = {
 
 PROG_FROM_DAY = 40      # wealth for the Hamlet rank (20 citizens and 5000 created wealth), full-year games only:
 PROG_WEALTH = 5500      #   from this day, until created wealth reaches this, a Craftsdwarfs and one daily order of
-PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress())
+PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock, then cancels cleanly
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -54,7 +54,7 @@ ZONE_FAILS = 3          # refusals of a site's dining make_zone after which it i
 STUCK_DAYS = 3          # a workshop construction suspended this long is built again elsewhere (no tool resumes it;
 STUCK_REBUILDS = 2      #   a stuck Carpenters left a full-year fort with no bed, table or chair), this many times
 
-SURGE_BEDS = 50
+SURGE_BEDS = 56
 SURGE_CARPENTERS = 3
 SURGE_DORM_DEPTH = 3
 
@@ -97,6 +97,8 @@ class Overseer(OpenPlayRules):
         self.owned = set()       # order ids this layer added: the model loop refuses to cancel them
         self.brew_own = set()    # of `owned`: its daily brew orders (the ceiling-less goal policy reads this)
         self.craft_ids = set()   # of `owned`: its repeating wood-crafts orders (the growth push reads this)
+        self.attackers = set()   # wild species word-sets seen attacking citizens this game
+        self.office_full = set() # site ids where office chair placement failed (e.g. farm plots returning no_space)
         self.dine_full = {}      # site id -> (box, open tiles) when it had no room for dining furniture
         self.zoned = {}          # site id -> {mark, at, n}: when this layer last made a dining zone over it
         self.dine_placed = {}    # site id -> tiles this layer placed dining tables and chairs on
@@ -172,6 +174,11 @@ class Overseer(OpenPlayRules):
                 self.craft_ids.add(oid)
             if args.get("repeat") and key.startswith("o_") and key.endswith(("_end", "_win")):
                 self.done.add(key)   # a standing closer order is added once per game
+        if r.get("ok") and tool == "cancel_order" and isinstance(args, dict):
+            oid = args.get("order_id")
+            self.craft_ids.discard(oid)
+            self.brew_own.discard(oid)
+            self.owned.discard(oid)
         self.report = (self.report + [{"day": self.day, "tool": tool, "args": args, "ok": bool(r.get("ok")),
                                        **({"error_code": r.get("error_code"), "error": str(r.get("error") or "")[:100]}
                                           if not r.get("ok") else {})}])[-REPORT_KEEP:]
@@ -255,6 +262,7 @@ class Overseer(OpenPlayRules):
         self.furnish()
         self.rezone()
         self.closer()
+        self.surge_place_completion()
         self.progression_push()
 
     def management(self):
@@ -274,41 +282,117 @@ class Overseer(OpenPlayRules):
             self.no_fishing(plugins)
         self.office()
 
+    def room_areas(self):
+        """Existing dug areas large enough to hold an office chair (never a 1x1 stairwell)."""
+        plots = [d(fp) for fp in lst(self.o.get("farm_plots")) if "x" in d(fp) and "z" in d(fp)]
+        return [a for a in self.kind("A")
+                if a.get("id") not in self.office_full
+                and self.roles.get(a.get("id")) != "farm"
+                and (a.get("open_tiles") or ((a.get("w") or 0) * (a.get("h") or 0))) >= 4
+                and not any(covers(a, fp) for fp in plots)]
+
+    def office_rooms(self):
+        seen, out = set(), []
+        for s in (self.dug_rooms("office") + self.dug_rooms("dine") + self.dug_rooms("dorm") + self.room_areas()):
+            sid = s.get("id")
+            if sid and sid not in seen and sid not in self.office_full and self.roles.get(sid) != "farm":
+                seen.add(sid)
+                out.append(s)
+        out.sort(key=lambda s: 1 if s.get("soil") else 0)
+        return out
+
     def office(self):
         """DF stops validating orders around 20 citizens unless the manager has an office with a chair."""
-        if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
+        if not self.adm.get("manager_active_for_orders"):
+            return
+        if self.open_task() and self.cit < 14:
             return
         mo = self.adm.get("manager_office")
         if isinstance(mo, dict) and mo.get("chair"):
             return
+        has_chair = lambda z: bool(d(z.get("furniture")).get("chair") or d(z.get("furniture_planned")).get("chair"))
         mgr = self.adm.get("MANAGER_id")
         offices = self.zone("office")
-        mine = next((z for z in offices if mgr is not None and z.get("owner") == mgr), None)
+        owned = [z for z in offices if mgr is not None and z.get("owner") == mgr]
+        if any(has_chair(z) for z in owned):
+            return
+        chaired_spare = next((z for z in offices if z.get("owner") is None and has_chair(z)), None)
+        if chaired_spare and mgr is not None:
+            self.act("office_ready_%s" % chaired_spare["id"], "assign_zone",
+                     {"zone_id": chaired_spare["id"], "dwarf_id": mgr}, retry=1, limit=12)
+            return
+        built_chairs = [d(f) for f in lst(self.o.get("furniture"))
+                        if d(f).get("built") and d(f).get("kind") == "chair"]
+        allow_borrow = (not self.open_task()) or (
+            (self.free.get("chair") or 0) == 0 and any(o.get("validated") is False for o in self.orders)
+        )
+        chair_sites = ([] if not allow_borrow else
+                       [s for s in self.kind("A") + self.kind("R")
+                        if 0 < (s.get("w") or 0) <= ZONE_SIDE and 0 < (s.get("h") or 0) <= ZONE_SIDE
+                        and (s.get("kind") == "A" or not s.get("used_by"))
+                        and ((s.get("w") or 1) * (s.get("h") or 1)) >= 2
+                        and not any(z.get("x") == s.get("x") and z.get("y") == s.get("y") and z.get("z") == s.get("z")
+                                    for z in offices)
+                        and any(covers(s, c) for c in built_chairs)])
+        chair_sites.sort(key=lambda s: any(lst(c.get("zone_ids")) for c in built_chairs if covers(s, c)))
+        if chair_sites and mgr is not None:
+            site = chair_sites[0]
+            res = self.act("office_ready_zone_%s" % site["id"], "make_zone",
+                           {"kind": "office", "site": site["id"]}, retry=3, limit=3)
+            if isinstance(res, dict) and res.get("ok"):
+                zid = d(res.get("result")).get("zone_id", res.get("zone_id"))
+                if zid is not None:
+                    self.act("office_ready_%s" % zid, "assign_zone",
+                             {"zone_id": zid, "dwarf_id": mgr}, retry=1, limit=12)
+            return
+        mine = owned[0] if owned else None
         if not mine:
+            if self.cit < 14 and not (self.lab or self.in_window_prep() or self.dug_rooms("office")):
+                return
             spare = next((z for z in offices if z.get("owner") is None), None)
             if spare and mgr is not None:
                 self.act("office_assign", "assign_zone", {"zone_id": spare["id"], "dwarf_id": mgr})
                 return
-            room = next(iter(self.dug_rooms("office") + self.dug_rooms("dine") + self.kind("A")), None)
+            candidates = self.dug_rooms("office") if (self.cit < 14 and not self.lab) else self.office_rooms()
+            room = next(iter(candidates), None)
             if room:
                 result = self.act("office_zone", "make_zone", {"kind": "office", "site": room["id"]})
-                if self.surge and result and result.get("ok") and (self.free.get("chair") or 0) > 0:
-                    self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
+                if result and result.get("ok"):
+                    zid = d(result.get("result")).get("zone_id") or d(result.get("result")).get("id")
+                    if zid is not None and mgr is not None and offices:
+                        self.act("office_assign", "assign_zone", {"zone_id": zid, "dwarf_id": mgr})
+                    if (self.free.get("chair") or 0) > 0:
+                        rc = self.act("office_chair_" + room["id"], "place_furniture", {"kind": "chair", "site": room["id"]})
+                        if isinstance(rc, dict) and not rc.get("ok"):
+                            self.office_full.add(room["id"])
             return
-        if d(mine.get("furniture")).get("chair") or d(mine.get("furniture_planned")).get("chair"):
+        if (self.free.get("chair") or 0) <= 0:
             return
-        if (self.free.get("chair") or 0) > 0:
-            room = next((s for s in self.sites if s.get("kind") in "RA" and s.get("z") == mine.get("z")
-                         and s.get("x") == mine.get("x") and s.get("y") == mine.get("y")), None)
-            room = room or next(iter(self.dug_rooms("office") + self.kind("A")), None)
-            if room:
-                self.act("office_chair", "place_furniture", {"kind": "chair", "site": room["id"]})
+        for z in owned:
+            match = next((s for s in self.sites if s.get("kind") in "RA" and s.get("z") == z.get("z")
+                          and s.get("x") == z.get("x") and s.get("y") == z.get("y")
+                          and ((s.get("w") or 1) * (s.get("h") or 1)) >= 2), None)
+            if match and match.get("id") not in self.office_full:
+                r = self.act("office_chair_" + match["id"], "place_furniture", {"kind": "chair", "site": match["id"]}, retry=2, limit=3)
+                if r is None or r.get("ok"):
+                    return
+                self.office_full.add(match["id"])
+        for room in self.office_rooms():
+            mz = self.act("office_rezone_" + room["id"], "make_zone", {"kind": "office", "site": room["id"]}, retry=2, limit=3)
+            if mz and mz.get("ok"):
+                zid = d(mz.get("result")).get("zone_id") or d(mz.get("result")).get("id")
+                if zid is not None and mgr is not None:
+                    self.act("office_reassign_%s" % zid, "assign_zone", {"zone_id": zid, "dwarf_id": mgr}, retry=1, limit=4)
+                if (self.free.get("chair") or 0) > 0:
+                    rc = self.act("office_chair_" + room["id"], "place_furniture", {"kind": "chair", "site": room["id"]}, retry=2, limit=3)
+                    if rc is None or rc.get("ok"):
+                        return
+                    self.office_full.add(room["id"])
 
     def build(self, wtype, retry=3):
-        """One workshop of `wtype`: the first W site this run has not built this type on yet (the site the last
-        build consumed is unusable, and moving on keeps a second Carpenters from retrying the first)."""
+        """Build on a W site not already consumed by any workshop this run (reserving across types in the same pass)."""
         for s in self.kind("W"):
-            if (s.get("id"), wtype) in self.full_sites:
+            if any(site_id == s.get("id") for site_id, _ in self.full_sites):
                 continue
             if not self.material():
                 return None
@@ -367,7 +451,9 @@ class Overseer(OpenPlayRules):
                 self.build("Carpenters")
 
     def office_chair_needed(self):
-        if self.cit < 14 or not self.adm.get("manager_active_for_orders"):
+        if not self.adm.get("manager_active_for_orders"):
+            return False
+        if self.cit < 14 and not self.lab and not self.zone("office") and not self.dug_rooms("office"):
             return False
         if d(self.adm.get("manager_office")).get("chair") or (self.free.get("chair") or 0):
             return False
@@ -435,7 +521,8 @@ class Overseer(OpenPlayRules):
                     self.roles[rid] = "farm"
                     farms += 1
             elif need:
-                role = need[0]
+                role = "dine" if ("dine" in need and isinstance(self.surface_seen, int)
+                                  and r.get("z") == self.surface_seen - 1) else need[0]
                 if self.surge and role == "dorm" and not self.dorm_depth_ok(r):
                     continue
                 size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
@@ -487,9 +574,10 @@ class Overseer(OpenPlayRules):
             tables, chairs = self.dine_stock("table", site), self.dine_stock("chair", site)
         else:
             tables, chairs = self.st.get("tables") or 0, self.st.get("chairs") or 0
+        chair_target = seats + 1 + (1 if self.office_chair_needed() and (self.free.get("chair") or 0) == 0 else 0)
         wants = (("make_bed", self.st.get("beds") or 0, bed_target),
                  ("make_table", tables, seats),
-                 ("make_chair", chairs, seats + 1))
+                 ("make_chair", chairs, chair_target))
         if self.beds_first:
             wants = wants[:1]
             if self.surge and self.office_chair_needed():
@@ -508,17 +596,56 @@ class Overseer(OpenPlayRules):
         """Lab tasks: the hands-off window starts soon; after it begins only standing orders keep working."""
         return isinstance(self.hands_off, int) and 0 < self.hands_off <= WINDOW_PREP_DAYS
 
+    def surge_place_completion(self):
+        """LT08 only, pre-window days: a wave that arrives inside the hands-off window leaves beds crafted but
+        unplaced (place_furniture is refused once the window begins), and furnish() places only up to
+        cit + 12/SURGE_BEDS against the *current* count. After the regular furnish pass, if placed beds are
+        still short of the citizens actually on the fort and free beds are in stock, run one more bounded
+        placement pass on the dorm site (and the overflow areas furnish() already ranks) so beds that were
+        crafted in time are not left standing when the window shuts. Goes quiet once the metric is met."""
+        if not (self.surge and self.in_window_prep()):
+            return
+        short = self.cit - (self.placed.get("bed") or 0)
+        if short <= 0 or not (self.free.get("bed") or 0):
+            return
+        dorm = self.room_for("dorm")
+        if not dorm:
+            return
+        n = min(self.free.get("bed") or 0, short, 30)
+        r = self.act("beds_fill", "place_furniture", {"kind": "bed", "site": dorm["id"], "count": n},
+                     retry=1, limit=99)
+        placed = self.placement_count(r) if isinstance(r, dict) else None
+        rest = max(0, n - placed) if placed is not None else 0
+        if rest > 0:
+            areas = sorted((s for s in self.kind("A") if s.get("id") != dorm.get("id")
+                            and (s.get("open_tiles") or 0) >= 6
+                            and s.get("z") != dorm.get("z")
+                            and 0 < (s.get("w") or 0) <= 20 and 0 < (s.get("h") or 0) <= 20),
+                           key=lambda s: (-(s.get("open_tiles") or 0), str(s.get("id"))))
+            if areas and self.may("beds_fill_" + areas[0]["id"], 1, 6):
+                alt = areas[0]
+                rr = self.act("beds_fill_" + alt["id"], "place_furniture",
+                              {"kind": "bed", "site": alt["id"], "count": rest}, retry=1, limit=99)
+                if isinstance(rr, dict) and rr.get("ok"):
+                    self.act("z_dorm_fill_" + alt["id"], "make_zone",
+                             {"kind": "dormitory", "site": alt["id"]}, retry=3)
+
     # ---- the growth push: created wealth for the Hamlet rank on full-year games
     def progression_push(self):
-        """Full-year games: the Hamlet rank needs 20 citizens and 5000 created wealth. Our wealth passed 5000 on days
-        186-322 or never, after the second migrant wave (days 174-207). i34-9's rule (fa9c13cc progress()): from
-        PROG_FROM_DAY until PROG_WEALTH, a Craftsdwarfs and one standing daily order of wood crafts while at least
-        PROG_LOGS logs are in stock."""
+        """Full-year games: build a Craftsdwarfs and run one daily wood-crafts order while created wealth is below
+        PROG_WEALTH and logs stay >= PROG_LOGS, then cancel owned craft orders once PROG_WEALTH or endgame is met."""
         if self.hands_off is not None or self.lab or self.beds_first or (self.days or 0) < 336:
+            return
+        created = d(self.o.get("wealth")).get("created") or 0
+        present = {o.get("id") for o in self.orders}
+        if created >= PROG_WEALTH or self.in_endgame():
+            for oid in sorted(self.craft_ids):
+                if oid in present:
+                    self.act("prog_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=99)
             return
         if not isinstance(self.day, int) or self.day < PROG_FROM_DAY or self.cit < 7:
             return
-        if (d(self.o.get("wealth")).get("created") or 0) >= PROG_WEALTH:
+        if self.core_missing() or (self.st.get("drink") or 0) < 2 * self.cit or (self.st.get("food_edible") or 0) < self.cit:
             return
         if "Craftsdwarfs" not in self.shops():
             if "Craftsdwarfs" not in self.listed() or not self.core_missing():
@@ -554,6 +681,11 @@ class Overseer(OpenPlayRules):
             self.act("o_brew_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
                 {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
                 {"stock": "barrels_empty", "at_least": 1}]}, retry=3, limit=4)
+            if self.open_play() and self.days_left <= FEAST_DAYS:
+                self.act("o_brew_f_end", "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": [
+                    {"stock": "drink", "below": cap}, {"stock": "food_edible", "at_least": max(40, 4 * self.cit)},
+                    {"stock": "plants_brewable", "at_least": 4}, {"stock": "barrels_empty", "at_least": 1}]},
+                    retry=2, limit=3)
         self.act("o_barrel_end", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 8}, {"stock": "logs", "at_least": 4}]}, retry=3, limit=4)
         self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
@@ -832,7 +964,8 @@ class Overseer(OpenPlayRules):
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
         if dorm:
-            short = self.cit + 2 - (self.placed.get("bed") or 0)
+            bed_goal = max(self.cit + 12, SURGE_BEDS) if self.surge else self.cit + 2
+            short = bed_goal - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             if n > 0:
                 r = self.act("beds", "place_furniture", {"kind": "bed", "site": dorm["id"], "count": n},
