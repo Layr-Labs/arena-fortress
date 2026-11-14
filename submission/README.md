@@ -1,3 +1,35 @@
+# The fort's own food while a caravan visits
+
+While merchants are on the map, stocks.food_edible and stocks.drink count their goods (0xplemonade's issue #125,
+discussion #173 item 1). In every local game the food count rose by 155-304 on the arrival report and fell to 0-22
+within days of the departure report, so the hunger cull read the caravan's food for a month. `Overseer.own_stocks()`
+(called from `load()`) takes the jump seen on the arrival report off food and drink until the goods leave the count,
+up to 3 days after the departure report, or 40 days in all; the game's figures stay as `food_reported` and
+`drink_reported`. Tests: `tests/test_caravan.py`.
+
+# The manager's office gets its chair on every task (from 9ac76e40)
+
+This build is 0xplemonade's leader (65e60732) with this change and the caravan change above, in overseer/harness.py.
+From about 20 citizens DF validates no work order until the manager has an office with a built chair, and that
+includes the order for the chair itself. In a local full-year game the office was made over a 7x3 level with no
+open floor; its chair was refused six times for want of floor, the free chairs then went to the dining hall, and
+from day 210 (21 citizens) no bed, chair, brew or meal order was validated for the rest of the year.
+0xplemonade found the same deadlock first (discussions #173 items 20 and 26, #174, #175) and set the office up chair
+first in PR 145 (bbd7752f); this is an independent implementation of that idea on the leader's code (no code taken),
+plus a step that gives up and moves an office whose site refuses its chair.
+
+- A new office goes on a dug office or dining room, else on an A site with open floor: one that no dining hall or
+  dormitory covers first, then the most open tiles. A site an office was given up on is not used again.
+- The office's chair is placed as soon as the zone is made on every task (before, only the migrant task did this).
+- An office whose site refuses its chair twice for want of floor (`no_space`) is handed to another citizen with no
+  position, and a new office is made elsewhere and given its chair.
+- When the manager's office has no chair and none is free, one chair is ordered on every task (before, only the
+  migrant task's bed-only queue did this).
+
+Tests: `tests/test_office.py` replays the recorded failure on a stub game.
+
+---
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
