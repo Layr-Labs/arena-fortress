@@ -45,7 +45,9 @@ MOOD_WORKSHOP = {
 
 PROG_FROM_DAY = 40      # wealth for the Hamlet rank (20 citizens and 5000 created wealth), full-year games only:
 PROG_WEALTH = 5500      #   from this day, until created wealth reaches this, a Craftsdwarfs and one daily order of
-PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress())
+PROG_LOGS = 12          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress(),
+                        #   amount raised and the log floor lowered: the official runs show the push too slow —
+                        #   wealth crossed 5000 late or never, and 8 of 16 OP1 games missed the Hamlet rank)
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -526,7 +528,7 @@ class Overseer(OpenPlayRules):
             return
         if not self.craft_standing():
             self.act("o_crafts", "add_manager_order",
-                     {"job": "MakeCrafts", "amount": 3, "repeat": "daily", "material_category": ["wood"],
+                     {"job": "MakeCrafts", "amount": 8, "repeat": "daily", "material_category": ["wood"],
                       "when": [{"item_type": "WOOD", "at_least": PROG_LOGS}]}, retry=4, limit=6)
 
     def craft_standing(self):
