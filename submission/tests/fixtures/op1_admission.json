@@ -1,0 +1,1390 @@
+[
+  {
+    "record": "opr1-hard-OP1-4",
+    "victims": [
+      90,
+      151
+    ],
+    "response": {
+      "day": 212,
+      "tick": 1078300,
+      "days_left": 123,
+      "observation": {
+        "date": {
+          "abs_tick": 1078300,
+          "day_of_year": 227,
+          "season": "autumn",
+          "year": 2
+        },
+        "administrators": {
+          "BOOKKEEPER": "VACANT",
+          "BROKER": "VACANT",
+          "CHIEF_MEDICAL_DWARF": "VACANT",
+          "citizens": 24,
+          "EXPEDITION_LEADER": "Al\u00e5th Rakustm\u00e2tzang, expedition leader",
+          "EXPEDITION_LEADER_id": 90,
+          "MANAGER": "Mist\u00eam \u00e5blelmuzish, manager",
+          "manager_active_for_orders": true,
+          "MANAGER_id": 84,
+          "manager_office": {
+            "chair": true,
+            "zone_id": 33
+          },
+          "manager_required_office": 1
+        },
+        "stocks": {
+          "drink": 235,
+          "food_edible": 28
+        },
+        "dwarves": [
+          {
+            "id": 84,
+            "profession": "manager",
+            "job": "idle",
+            "x": 101,
+            "y": 99,
+            "z": 122
+          },
+          {
+            "id": 85,
+            "profession": "Planter",
+            "job": "idle",
+            "x": 106,
+            "y": 101,
+            "z": 125
+          },
+          {
+            "id": 86,
+            "profession": "Carpenter",
+            "job": "idle",
+            "x": 124,
+            "y": 74,
+            "z": 126
+          },
+          {
+            "id": 87,
+            "profession": "Metalcrafter",
+            "job": "idle",
+            "x": 114,
+            "y": 84,
+            "z": 126
+          },
+          {
+            "id": 88,
+            "profession": "militia commander",
+            "job": "idle",
+            "x": 117,
+            "y": 81,
+            "z": 126
+          },
+          {
+            "id": 89,
+            "profession": "Woodcrafter",
+            "job": "idle",
+            "x": 102,
+            "y": 98,
+            "z": 123
+          },
+          {
+            "id": 90,
+            "profession": "expedition leader",
+            "job": "idle",
+            "x": 95,
+            "y": 99,
+            "z": 126
+          },
+          {
+            "id": 148,
+            "profession": "Stonecrafter",
+            "job": "idle",
+            "x": 101,
+            "y": 98,
+            "z": 125
+          },
+          {
+            "id": 149,
+            "profession": "Clothier",
+            "job": "idle",
+            "x": 99,
+            "y": 99,
+            "z": 124
+          },
+          {
+            "id": 150,
+            "profession": "Blacksmith",
+            "job": "idle",
+            "x": 102,
+            "y": 99,
+            "z": 124
+          },
+          {
+            "id": 151,
+            "profession": "Bowyer",
+            "job": "idle",
+            "x": 95,
+            "y": 98,
+            "z": 126
+          },
+          {
+            "id": 154,
+            "profession": "Glassmaker",
+            "job": "idle",
+            "x": 106,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 157,
+            "profession": "Mason",
+            "job": "idle",
+            "x": 102,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 159,
+            "profession": "Gem Cutter",
+            "job": "idle",
+            "x": 107,
+            "y": 98,
+            "z": 125
+          },
+          {
+            "id": 160,
+            "profession": "Animal Caretaker",
+            "job": "idle",
+            "x": 106,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 161,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 99,
+            "y": 99,
+            "z": 123
+          },
+          {
+            "id": 238,
+            "profession": "Surgeon",
+            "job": "idle",
+            "x": 103,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 241,
+            "profession": "Potash Maker",
+            "job": "idle",
+            "x": 108,
+            "y": 102,
+            "z": 125
+          },
+          {
+            "id": 284,
+            "profession": "Leatherworker",
+            "job": "idle",
+            "x": 107,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 285,
+            "profession": "Stonecrafter",
+            "job": "idle",
+            "x": 107,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 286,
+            "profession": "Glassmaker",
+            "job": "idle",
+            "x": 107,
+            "y": 97,
+            "z": 125
+          },
+          {
+            "id": 287,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 99,
+            "y": 97,
+            "z": 125
+          },
+          {
+            "id": 288,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 99,
+            "y": 101,
+            "z": 126
+          },
+          {
+            "id": 289,
+            "profession": "Clothier",
+            "job": "idle",
+            "x": 91,
+            "y": 110,
+            "z": 126
+          }
+        ],
+        "threats": {
+          "by_race": {
+            "BIRD_RAVEN": {
+              "invader": false,
+              "n": 6
+            }
+          },
+          "dead_citizens_total": 0,
+          "hostiles": [
+            {
+              "dist_to_wagon": 112,
+              "id": 278,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 159,
+              "y": 15,
+              "z": 136
+            },
+            {
+              "dist_to_wagon": 141,
+              "id": 279,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 169,
+              "y": 13,
+              "z": 145
+            },
+            {
+              "dist_to_wagon": 128,
+              "id": 280,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 107,
+              "y": 14,
+              "z": 141
+            },
+            {
+              "dist_to_wagon": 88,
+              "id": 281,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 152,
+              "y": 51,
+              "z": 137
+            },
+            {
+              "dist_to_wagon": 78,
+              "id": 282,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 151,
+              "y": 69,
+              "z": 134
+            },
+            {
+              "dist_to_wagon": 101,
+              "id": 283,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 129,
+              "y": 26,
+              "z": 136
+            }
+          ],
+          "invaders_dead": 0,
+          "nearest_hostile_dist_to_wagon": 78,
+          "visible_hostiles": 6
+        },
+        "burrows": {
+          "civilian_alert": true,
+          "list": [
+            {
+              "bbox": {
+                "x1": 97,
+                "x2": 109,
+                "y1": 97,
+                "y2": 103,
+                "z1": 122,
+                "z2": 125
+              },
+              "citizens_inside": 17,
+              "civ_alert_burrow": true,
+              "id": 0,
+              "name": "Shelter",
+              "tiles": 159
+            }
+          ]
+        },
+        "doors": {
+          "door_items_free": 0,
+          "hatch_cover_items_free": 1,
+          "list": [
+            {
+              "built": true,
+              "id": 13,
+              "kind": "hatch",
+              "locked": false,
+              "x": 100,
+              "y": 98,
+              "z": 126
+            }
+          ]
+        },
+        "map": {
+          "wagon": {
+            "present": true,
+            "x": 97,
+            "y": 97,
+            "z": 126
+          },
+          "surface_z": 126,
+          "sites": [
+            {
+              "id": "E1",
+              "w": 1,
+              "h": 1,
+              "soil": null,
+              "building": true,
+              "kind": "E",
+              "x": 100,
+              "y": 98,
+              "z": 126,
+              "designated": null,
+              "dug": null,
+              "free": true
+            }
+          ]
+        }
+      }
+    },
+    "others": [
+      {
+        "hostile": true,
+        "id": 278,
+        "race": "BIRD_RAVEN",
+        "x": 159,
+        "y": 15,
+        "z": 136
+      },
+      {
+        "hostile": true,
+        "id": 279,
+        "race": "BIRD_RAVEN",
+        "x": 169,
+        "y": 13,
+        "z": 145
+      },
+      {
+        "hostile": true,
+        "id": 280,
+        "race": "BIRD_RAVEN",
+        "x": 107,
+        "y": 14,
+        "z": 141
+      },
+      {
+        "hostile": true,
+        "id": 281,
+        "race": "BIRD_RAVEN",
+        "x": 152,
+        "y": 51,
+        "z": 137
+      },
+      {
+        "hostile": true,
+        "id": 282,
+        "race": "BIRD_RAVEN",
+        "x": 151,
+        "y": 69,
+        "z": 134
+      },
+      {
+        "hostile": true,
+        "id": 283,
+        "race": "BIRD_RAVEN",
+        "x": 129,
+        "y": 26,
+        "z": 136
+      }
+    ],
+    "since_tick": 1077100
+  },
+  {
+    "record": "opr1-hard-OP1-4",
+    "victims": [
+      90,
+      151
+    ],
+    "response": {
+      "day": 216,
+      "tick": 1083100,
+      "days_left": 119,
+      "observation": {
+        "date": {
+          "abs_tick": 1083100,
+          "day_of_year": 231,
+          "season": "autumn",
+          "year": 2
+        },
+        "administrators": {
+          "BOOKKEEPER": "VACANT",
+          "BROKER": "VACANT",
+          "CHIEF_MEDICAL_DWARF": "VACANT",
+          "citizens": 24,
+          "EXPEDITION_LEADER": "Al\u00e5th Rakustm\u00e2tzang, expedition leader",
+          "EXPEDITION_LEADER_id": 90,
+          "MANAGER": "Mist\u00eam \u00e5blelmuzish, manager",
+          "manager_active_for_orders": true,
+          "MANAGER_id": 84,
+          "manager_office": {
+            "chair": true,
+            "zone_id": 33
+          },
+          "manager_required_office": 1
+        },
+        "stocks": {
+          "drink": 235,
+          "food_edible": 28
+        },
+        "dwarves": [
+          {
+            "id": 84,
+            "profession": "manager",
+            "job": "idle",
+            "x": 101,
+            "y": 97,
+            "z": 122
+          },
+          {
+            "id": 85,
+            "profession": "Planter",
+            "job": "idle",
+            "x": 103,
+            "y": 98,
+            "z": 125
+          },
+          {
+            "id": 86,
+            "profession": "Carpenter",
+            "job": "Sleep",
+            "x": 104,
+            "y": 97,
+            "z": 125
+          },
+          {
+            "id": 87,
+            "profession": "Metalcrafter",
+            "job": "Sleep",
+            "x": 101,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 88,
+            "profession": "militia commander",
+            "job": "idle",
+            "x": 103,
+            "y": 97,
+            "z": 124
+          },
+          {
+            "id": 89,
+            "profession": "Woodcrafter",
+            "job": "idle",
+            "x": 104,
+            "y": 101,
+            "z": 125
+          },
+          {
+            "id": 90,
+            "profession": "expedition leader",
+            "job": "idle",
+            "x": 95,
+            "y": 99,
+            "z": 126
+          },
+          {
+            "id": 148,
+            "profession": "Stonecrafter",
+            "job": "idle",
+            "x": 101,
+            "y": 102,
+            "z": 125
+          },
+          {
+            "id": 149,
+            "profession": "Clothier",
+            "job": "idle",
+            "x": 101,
+            "y": 99,
+            "z": 123
+          },
+          {
+            "id": 150,
+            "profession": "Blacksmith",
+            "job": "idle",
+            "x": 107,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 151,
+            "profession": "Bowyer",
+            "job": "idle",
+            "x": 95,
+            "y": 98,
+            "z": 126
+          },
+          {
+            "id": 154,
+            "profession": "Glassmaker",
+            "job": "idle",
+            "x": 98,
+            "y": 100,
+            "z": 123
+          },
+          {
+            "id": 157,
+            "profession": "Mason",
+            "job": "idle",
+            "x": 102,
+            "y": 100,
+            "z": 123
+          },
+          {
+            "id": 159,
+            "profession": "Gem Cutter",
+            "job": "idle",
+            "x": 103,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 160,
+            "profession": "Animal Caretaker",
+            "job": "idle",
+            "x": 102,
+            "y": 98,
+            "z": 123
+          },
+          {
+            "id": 161,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 97,
+            "y": 100,
+            "z": 123
+          },
+          {
+            "id": 238,
+            "profession": "Surgeon",
+            "job": "idle",
+            "x": 103,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 241,
+            "profession": "Potash Maker",
+            "job": "idle",
+            "x": 101,
+            "y": 98,
+            "z": 124
+          },
+          {
+            "id": 284,
+            "profession": "Leatherworker",
+            "job": "idle",
+            "x": 97,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 285,
+            "profession": "Stonecrafter",
+            "job": "idle",
+            "x": 101,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 286,
+            "profession": "Glassmaker",
+            "job": "idle",
+            "x": 106,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 287,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 105,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 288,
+            "profession": "Dwarven Child",
+            "job": "idle",
+            "x": 99,
+            "y": 101,
+            "z": 123
+          },
+          {
+            "id": 289,
+            "profession": "Clothier",
+            "job": "idle",
+            "x": 104,
+            "y": 100,
+            "z": 125
+          }
+        ],
+        "threats": {
+          "by_race": {
+            "BIRD_RAVEN": {
+              "invader": false,
+              "n": 4
+            }
+          },
+          "dead_citizens_total": 0,
+          "hostiles": [
+            {
+              "dist_to_wagon": 84,
+              "id": 278,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 89,
+              "y": 52,
+              "z": 139
+            },
+            {
+              "dist_to_wagon": 133,
+              "id": 280,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 15,
+              "y": 133,
+              "z": 143
+            },
+            {
+              "dist_to_wagon": 82,
+              "id": 281,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 54,
+              "y": 48,
+              "z": 137
+            },
+            {
+              "dist_to_wagon": 92,
+              "id": 283,
+              "invader": false,
+              "race": "BIRD_RAVEN",
+              "x": 150,
+              "y": 129,
+              "z": 139
+            }
+          ],
+          "invaders_dead": 0,
+          "nearest_hostile_dist_to_wagon": 82,
+          "visible_hostiles": 4
+        },
+        "burrows": {
+          "civilian_alert": true,
+          "list": [
+            {
+              "bbox": {
+                "x1": 97,
+                "x2": 109,
+                "y1": 97,
+                "y2": 103,
+                "z1": 122,
+                "z2": 125
+              },
+              "citizens_inside": 22,
+              "civ_alert_burrow": true,
+              "id": 0,
+              "name": "Shelter",
+              "tiles": 159
+            }
+          ]
+        },
+        "doors": {
+          "door_items_free": 0,
+          "hatch_cover_items_free": 1,
+          "list": [
+            {
+              "built": true,
+              "id": 13,
+              "kind": "hatch",
+              "locked": false,
+              "x": 100,
+              "y": 98,
+              "z": 126
+            }
+          ]
+        },
+        "map": {
+          "wagon": {
+            "present": true,
+            "x": 97,
+            "y": 97,
+            "z": 126
+          },
+          "surface_z": 126,
+          "sites": [
+            {
+              "id": "E1",
+              "w": 1,
+              "h": 1,
+              "soil": null,
+              "building": true,
+              "kind": "E",
+              "x": 100,
+              "y": 98,
+              "z": 126,
+              "designated": null,
+              "dug": null,
+              "free": true
+            }
+          ]
+        }
+      }
+    },
+    "others": [
+      {
+        "hostile": true,
+        "id": 278,
+        "race": "BIRD_RAVEN",
+        "x": 89,
+        "y": 52,
+        "z": 139
+      },
+      {
+        "hostile": true,
+        "id": 280,
+        "race": "BIRD_RAVEN",
+        "x": 15,
+        "y": 133,
+        "z": 143
+      },
+      {
+        "hostile": true,
+        "id": 281,
+        "race": "BIRD_RAVEN",
+        "x": 54,
+        "y": 48,
+        "z": 137
+      },
+      {
+        "hostile": true,
+        "id": 283,
+        "race": "BIRD_RAVEN",
+        "x": 150,
+        "y": 129,
+        "z": 139
+      }
+    ],
+    "since_tick": 1077100
+  },
+  {
+    "record": "l4full-std-OP1-4",
+    "victims": [
+      89
+    ],
+    "response": {
+      "day": 308,
+      "tick": 1192800,
+      "days_left": 28,
+      "observation": {
+        "date": {
+          "abs_tick": 1192800,
+          "day_of_year": 323,
+          "season": "winter",
+          "year": 2
+        },
+        "administrators": {
+          "BOOKKEEPER": "VACANT",
+          "BROKER": "VACANT",
+          "CHIEF_MEDICAL_DWARF": "VACANT",
+          "citizens": 13,
+          "EXPEDITION_LEADER": "Al\u00e5th Rakustm\u00e2tzang, expedition leader",
+          "EXPEDITION_LEADER_id": 90,
+          "MANAGER": "Mist\u00eam \u00e5blelmuzish, manager",
+          "manager_active_for_orders": true,
+          "MANAGER_id": 84,
+          "manager_office": "none",
+          "manager_required_office": 1
+        },
+        "stocks": {
+          "drink": 320,
+          "food_edible": 22
+        },
+        "dwarves": [
+          {
+            "id": 84,
+            "profession": "manager",
+            "job": "idle",
+            "x": 102,
+            "y": 97,
+            "z": 123
+          },
+          {
+            "id": 85,
+            "profession": "Planter",
+            "job": "idle",
+            "x": 107,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 86,
+            "profession": "Carpenter",
+            "job": "Sleep",
+            "x": 102,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 87,
+            "profession": "Woodcrafter",
+            "job": "Sleep",
+            "x": 101,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 88,
+            "profession": "Fisherdwarf",
+            "job": "idle",
+            "x": 98,
+            "y": 97,
+            "z": 124
+          },
+          {
+            "id": 89,
+            "profession": "Mason",
+            "job": "Sleep",
+            "x": 101,
+            "y": 95,
+            "z": 126
+          },
+          {
+            "id": 90,
+            "profession": "expedition leader",
+            "job": "idle",
+            "x": 107,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 225,
+            "profession": "Blacksmith",
+            "job": "idle",
+            "x": 103,
+            "y": 98,
+            "z": 125
+          },
+          {
+            "id": 226,
+            "profession": "Stone Carver",
+            "job": "idle",
+            "x": 104,
+            "y": 101,
+            "z": 125
+          },
+          {
+            "id": 227,
+            "profession": "militia commander",
+            "job": "idle",
+            "x": 101,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 228,
+            "profession": "Fish Cleaner",
+            "job": "idle",
+            "x": 102,
+            "y": 101,
+            "z": 125
+          },
+          {
+            "id": 260,
+            "profession": "Woodcutter",
+            "job": "idle",
+            "x": 100,
+            "y": 98,
+            "z": 124
+          },
+          {
+            "id": 261,
+            "profession": "Armorer",
+            "job": "idle",
+            "x": 98,
+            "y": 98,
+            "z": 125
+          }
+        ],
+        "threats": {
+          "by_race": {
+            "HARPY": {
+              "invader": false,
+              "n": 3
+            }
+          },
+          "dead_citizens_total": 0,
+          "hostiles": [
+            {
+              "dist_to_wagon": 128,
+              "id": 264,
+              "invader": false,
+              "race": "HARPY",
+              "x": 105,
+              "y": 2,
+              "z": 137
+            },
+            {
+              "dist_to_wagon": 142,
+              "id": 265,
+              "invader": false,
+              "race": "HARPY",
+              "x": 191,
+              "y": 13,
+              "z": 142
+            },
+            {
+              "dist_to_wagon": 142,
+              "id": 266,
+              "invader": false,
+              "race": "HARPY",
+              "x": 191,
+              "y": 6,
+              "z": 142
+            }
+          ],
+          "invaders_dead": 0,
+          "nearest_hostile_dist_to_wagon": 128,
+          "visible_hostiles": 3
+        },
+        "burrows": {
+          "civilian_alert": true,
+          "list": [
+            {
+              "bbox": {
+                "x1": 97,
+                "x2": 109,
+                "y1": 97,
+                "y2": 103,
+                "z1": 122,
+                "z2": 125
+              },
+              "citizens_inside": 12,
+              "civ_alert_burrow": true,
+              "id": 0,
+              "name": "Shelter",
+              "tiles": 159
+            }
+          ]
+        },
+        "doors": {
+          "door_items_free": 0,
+          "hatch_cover_items_free": 1,
+          "list": [
+            {
+              "built": true,
+              "id": 13,
+              "kind": "hatch",
+              "locked": false,
+              "x": 100,
+              "y": 98,
+              "z": 126
+            }
+          ]
+        },
+        "map": {
+          "wagon": {
+            "present": true,
+            "x": 97,
+            "y": 97,
+            "z": 126
+          },
+          "surface_z": 126,
+          "sites": [
+            {
+              "id": "E1",
+              "w": 1,
+              "h": 1,
+              "soil": null,
+              "building": true,
+              "kind": "E",
+              "x": 100,
+              "y": 98,
+              "z": 126,
+              "designated": null,
+              "dug": null,
+              "free": true
+            }
+          ]
+        }
+      }
+    },
+    "others": [
+      {
+        "hostile": true,
+        "id": 264,
+        "race": "HARPY",
+        "x": 105,
+        "y": 2,
+        "z": 137
+      },
+      {
+        "hostile": true,
+        "id": 265,
+        "race": "HARPY",
+        "x": 191,
+        "y": 13,
+        "z": 142
+      },
+      {
+        "hostile": true,
+        "id": 266,
+        "race": "HARPY",
+        "x": 191,
+        "y": 6,
+        "z": 142
+      }
+    ],
+    "since_tick": 1191600
+  },
+  {
+    "record": "l4full-std-OP1-4",
+    "victims": [
+      89
+    ],
+    "response": {
+      "day": 309,
+      "tick": 1194000,
+      "days_left": 27,
+      "observation": {
+        "date": {
+          "abs_tick": 1194000,
+          "day_of_year": 324,
+          "season": "winter",
+          "year": 2
+        },
+        "administrators": {
+          "BOOKKEEPER": "VACANT",
+          "BROKER": "VACANT",
+          "CHIEF_MEDICAL_DWARF": "VACANT",
+          "citizens": 13,
+          "EXPEDITION_LEADER": "Al\u00e5th Rakustm\u00e2tzang, expedition leader",
+          "EXPEDITION_LEADER_id": 90,
+          "MANAGER": "Mist\u00eam \u00e5blelmuzish, manager",
+          "manager_active_for_orders": true,
+          "MANAGER_id": 84,
+          "manager_office": "none",
+          "manager_required_office": 1
+        },
+        "stocks": {
+          "drink": 320,
+          "food_edible": 21
+        },
+        "dwarves": [
+          {
+            "id": 84,
+            "profession": "manager",
+            "job": "idle",
+            "x": 99,
+            "y": 101,
+            "z": 123
+          },
+          {
+            "id": 85,
+            "profession": "Planter",
+            "job": "idle",
+            "x": 102,
+            "y": 98,
+            "z": 123
+          },
+          {
+            "id": 86,
+            "profession": "Carpenter",
+            "job": "Sleep",
+            "x": 102,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 87,
+            "profession": "Woodcrafter",
+            "job": "Sleep",
+            "x": 101,
+            "y": 100,
+            "z": 125
+          },
+          {
+            "id": 88,
+            "profession": "Fisherdwarf",
+            "job": "idle",
+            "x": 99,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 89,
+            "profession": "Mason",
+            "job": "idle",
+            "x": 101,
+            "y": 95,
+            "z": 126
+          },
+          {
+            "id": 90,
+            "profession": "expedition leader",
+            "job": "idle",
+            "x": 101,
+            "y": 98,
+            "z": 124
+          },
+          {
+            "id": 225,
+            "profession": "Blacksmith",
+            "job": "idle",
+            "x": 97,
+            "y": 98,
+            "z": 123
+          },
+          {
+            "id": 226,
+            "profession": "Stone Carver",
+            "job": "idle",
+            "x": 109,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 227,
+            "profession": "militia commander",
+            "job": "idle",
+            "x": 105,
+            "y": 99,
+            "z": 125
+          },
+          {
+            "id": 228,
+            "profession": "Fish Cleaner",
+            "job": "PlantSeeds",
+            "x": 101,
+            "y": 103,
+            "z": 125
+          },
+          {
+            "id": 260,
+            "profession": "Woodcutter",
+            "job": "idle",
+            "x": 98,
+            "y": 98,
+            "z": 124
+          },
+          {
+            "id": 261,
+            "profession": "Armorer",
+            "job": "idle",
+            "x": 103,
+            "y": 98,
+            "z": 123
+          }
+        ],
+        "threats": {
+          "by_race": {
+            "HARPY": {
+              "invader": false,
+              "n": 3
+            }
+          },
+          "dead_citizens_total": 0,
+          "hostiles": [
+            {
+              "dist_to_wagon": 111,
+              "id": 264,
+              "invader": false,
+              "race": "HARPY",
+              "x": 66,
+              "y": 16,
+              "z": 136
+            },
+            {
+              "dist_to_wagon": 142,
+              "id": 265,
+              "invader": false,
+              "race": "HARPY",
+              "x": 191,
+              "y": 13,
+              "z": 142
+            },
+            {
+              "dist_to_wagon": 142,
+              "id": 266,
+              "invader": false,
+              "race": "HARPY",
+              "x": 191,
+              "y": 6,
+              "z": 142
+            }
+          ],
+          "invaders_dead": 0,
+          "nearest_hostile_dist_to_wagon": 111,
+          "visible_hostiles": 3
+        },
+        "burrows": {
+          "civilian_alert": true,
+          "list": [
+            {
+              "bbox": {
+                "x1": 97,
+                "x2": 109,
+                "y1": 97,
+                "y2": 103,
+                "z1": 122,
+                "z2": 125
+              },
+              "citizens_inside": 12,
+              "civ_alert_burrow": true,
+              "id": 0,
+              "name": "Shelter",
+              "tiles": 159
+            }
+          ]
+        },
+        "doors": {
+          "door_items_free": 0,
+          "hatch_cover_items_free": 1,
+          "list": [
+            {
+              "built": true,
+              "id": 13,
+              "kind": "hatch",
+              "locked": true,
+              "x": 100,
+              "y": 98,
+              "z": 126
+            }
+          ]
+        },
+        "map": {
+          "wagon": {
+            "present": true,
+            "x": 97,
+            "y": 97,
+            "z": 126
+          },
+          "surface_z": 126,
+          "sites": [
+            {
+              "id": "E1",
+              "w": 1,
+              "h": 1,
+              "soil": null,
+              "building": true,
+              "kind": "E",
+              "x": 100,
+              "y": 98,
+              "z": 126,
+              "designated": null,
+              "dug": null,
+              "free": true
+            }
+          ]
+        }
+      }
+    },
+    "others": [
+      {
+        "hostile": true,
+        "id": 264,
+        "race": "HARPY",
+        "x": 66,
+        "y": 16,
+        "z": 136
+      },
+      {
+        "hostile": false,
+        "id": 268,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 114,
+        "z": 126
+      },
+      {
+        "hostile": true,
+        "id": 265,
+        "race": "HARPY",
+        "x": 191,
+        "y": 13,
+        "z": 142
+      },
+      {
+        "hostile": true,
+        "id": 266,
+        "race": "HARPY",
+        "x": 191,
+        "y": 6,
+        "z": 142
+      },
+      {
+        "hostile": false,
+        "id": 269,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 111,
+        "z": 126
+      },
+      {
+        "hostile": false,
+        "id": 270,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 125,
+        "z": 126
+      },
+      {
+        "hostile": false,
+        "id": 271,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 115,
+        "z": 126
+      },
+      {
+        "hostile": false,
+        "id": 272,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 126,
+        "z": 126
+      },
+      {
+        "hostile": false,
+        "id": 273,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 111,
+        "z": 127
+      },
+      {
+        "hostile": false,
+        "id": 274,
+        "race": "BIRD_KEA",
+        "x": 97,
+        "y": 112,
+        "z": 126
+      }
+    ],
+    "since_tick": 1191600
+  }
+]
