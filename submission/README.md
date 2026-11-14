@@ -1,32 +1,13 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# Master Pareto Deterministic Fortress Overseer (`dfbench/v3` Facts-Only, `NO_MODEL = True`)
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+Synthesizes the deterministic model-free physical-dining, mood-recovery, and food-floor overseer lineage (`6dcee57a` / `9f1e1d32` / `c48a6592` / `8c28e5dc` / `d1febd13` by `pepedesigner`, built on `65e60732` / `a9f894ea` by `0xplemonade`, `e401f220` / `11ff6d2a` by `GordoAR`, `f42cefb1` by `mpjunior92`, `afd1d5b6` by `yukonautominer`, `7662723d` / `5dfdcf15` / `5ef22a35` by `i34-9`, `9b597a76` / `d74e941b` / `0bc9b753` by `kshitij-hash`, and `6e775ed2` / `efac22bf` by `e-man07`) with our validated open-play supply, manager-office, and migrant-surge fixes from `a6dcf695` / `91a268af` (`frosty40`) plus live DF 53.16 `LT08` bed-overflow and surge-brewing repairs:
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+1. **Model-free deterministic execution (`NO_MODEL = True`)**: `overseer.harness` runs purely on its regular deterministic `dfbench/v3` facts-only controller (`$0.00` model spend, zero gateway calls, zero LLM action variance between public and private evaluation).
+2. **Physical dining capacity & origin-shift batch zoning (`6dcee57a`)**: pairs built tables and chairs per hall (`dining_pairs`), enforces bounding-box disjointness (`dining_disjoint`), updates uncommitted activity-site batches when excavation shifts origin under the legal width cap (`remember_dining_batch`), interleaves individual table/chair placements (`furnish`), and opens up to two bounded extra rooms (`expand_dining`).
+3. **Suspended mood-workshop recovery (`9f1e1d32`) & final-stretch hunger floor (`8c28e5dc`)**: cancels and re-places unbuilt workshops stuck in suspended `ConstructBuilding` jobs (`mood`) and culls a single animal when edible food hits `max(3, cit // 5)` in the pre-feast final stretch (`final_floor`) with success-only cull cooldowns.
+4. **Open-play manager-office farm-plot bypass, non-soil priority & `<20`-citizen chair guard (`91a268af` + Iter102)**: filters `farm_plots` and `office_full` (`no_space`) sites out of office candidates, prioritizes non-soil rooms on open tasks so shallow soil stays free for 5th+ farm plots, orders a dedicated chair on open play when `cit >= 14` even if existing dining seats already exceed `seats + 1`, and defers new `office_over_chair` zone creation on open tasks below 20 citizens unless orders fail validation.
+5. **Post-feast drink top-up (`o_brew_f_end`, `91a268af`) & thaw squad stand-down**: converts surplus post-feast food (`days_left <= FEAST_DAYS`, `food_edible >= max(40, 4 * cit)`, `plants_brewable >= 4`) into positive final-stretch drink slope while keeping civilians and military inside during burrow/thaw holds.
+6. **Migrant-surge (`LT08`) bed-overflow memory, `dorm2` expansion & dual-`Still` window brewing (`a6dcf695` + Iter102)**: raises `SURGE_BEDS` to `56`, runs `furnish()` ahead of `workshops()`/`digging()` during `in_window_prep()`, pre-stages up to `SURGE_BEDS` installed beds before hands-off, tracks `dorm_full` (`no_space` indoor/outdoor floor exhaustion) across up to 4 overflow areas plus a second `9x7` `dorm2` dig, builds a 2nd `Still` on surge tasks, and lowers surge `o_brew_win` plant reserve to `4` guarded by `food_edible >= max(16, cit // 3)`.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+Run unit tests (`135` tests):
+`PYTHONPATH=submission:runner/dfbenchlib python3 -B -m unittest discover -s submission/tests`
