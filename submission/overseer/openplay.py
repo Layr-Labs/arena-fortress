@@ -6,7 +6,7 @@ import json
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameOver, HandsOff
-from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, whole
+from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, TROOP_NAMES, in_sight, whole
 
 DAY = 1200
 
@@ -32,7 +32,7 @@ FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
-HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
+HUNGER_FINAL = 2.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
                         #   earlier cull's meat rots all at once, and a game went from 14 food to none in three days
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
@@ -116,6 +116,17 @@ ANIMAL_RANK = {"WATER_BUFFALO": 100, "YAK": 70, "COW": 60, "HORSE": 50, "CAMEL_1
                         #   cow gives 20-40 food, a turkey 10, a cat 7, a rabbit or cavy next to nothing
 
 
+# Classification adapted from published8c28e5dc; narrow final-month priority only.
+GRAZERS = frozenset((   # d58: every [STANDARD_GRAZER] creature of the vanilla raws (49). No tool makes a pasture, so
+    "ALPACA", "CAMEL_1_HUMP", "CAMEL_2_HUMP", "CAPYBARA", "CAVY", "CENOZOIC_DEINOTHERIUM", "CENOZOIC_ENTELODON",
+    "CENOZOIC_MAMMOTH_PYGMY", "CENOZOIC_MAMMOTH_WOOLLY", "CENOZOIC_MEGACEROPS", "CENOZOIC_MEGATHERIUM",
+    "CENOZOIC_MIOHIPPUS", "CENOZOIC_PARACERATHERIUM", "CENOZOIC_PLATYBELODON", "CENOZOIC_RHINOCEROS_WOOLLY",
+    "COW", "DEER", "DONKEY", "DRALTHA", "ELEPHANT", "ELK", "ELK_BIRD", "GAZELLE", "GIRAFFE", "GOAT",
+    "GOAT_MOUNTAIN", "GROUNDHOG", "HARE", "HORSE", "IBEX", "IMPALA", "KANGAROO", "LLAMA", "MARMOT_HOARY", "MOOSE",
+    "MULE", "MUSKOX", "PANDA", "PERMIAN_DIADECTES", "RABBIT", "REINDEER", "RHINOCEROS", "SHEEP", "TAPIR",
+    "UNICORN", "WARTHOG", "WATER_BUFFALO", "WOMBAT", "YAK"))
+
+
 class OpenPlayRules:
     # ---- when the animals are slaughtered
     def provision(self):
@@ -151,6 +162,35 @@ class OpenPlayRules:
             for oid in sorted(self.brew_own):
                 self.act("brew_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=4)
 
+        self.feast_brew_topup()
+
+    def feast_brew_topup(self):
+        """One finite short-game brew request with an observed food guard.
+
+        This does not lower the inherited standing-order plant reserve or alter
+        its feast hysteresis. Production and downstream supply need native tests.
+        """
+        key = "o_feast_brew_topup"
+        if (key in self.done or not self.open_play() or self.brew_stopped
+                or type(self.days) is not int or not 0 < self.days < 336
+                or not 2 <= self.days_left <= FEAST_DAYS or self.cit < 1):
+            return
+        food_floor = max(30, 3 * self.cit)
+        drink_cap = DRINK_REOPEN * self.cit
+        if ((self.st.get("drink") or 0) >= drink_cap
+                or (self.st.get("food_edible") or 0) < food_floor
+                or (self.st.get("plants_brewable") or 0) < 2
+                or (self.st.get("barrels_empty") or 0) < 1
+                or not any(isinstance(w, dict) and w.get("type") == "Still" and w.get("built")
+                           for w in lst(self.o.get("workshops")))):
+            return
+        # The API permits conditions only on repeating orders. This finite
+        # request uses the observed resource guards above; DF still supplies
+        # its ordinary plant and barrel inputs, but future food is not reserved.
+        result = self.act(key, "add_order", {"recipe": "brew_drink", "amount": 2}, retry=2, limit=3)
+        if result and result.get("ok"):
+            self.done.add(key)
+
     def cull(self, key, n, smallest, retry):
         """Mark up to n of the fortress's unowned tame animals for slaughter. The feast takes the largest first. A
         hunger cull takes the smallest animal that is still a meal and leaves the FEAST_KEEP largest alone unless
@@ -171,21 +211,49 @@ class OpenPlayRules:
         herd.sort(key=lambda a: (-size(a), str(a.get("id"))))          # largest first
         pick = herd
         if smallest:
-            spare = herd[FEAST_KEEP:]
-            if not spare and (self.st.get("food_edible") or 0) <= 0:
-                spare = herd
-            pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            # Adapted from published8c28e5dc: preserve non-grazers for the feast,
+            # use older substantial grazers first while ordinary food is short.
+            uid = lambda a: a["id"] if type(a.get("id")) is int else 0
+            grazer = lambda a: str(a.get("race")) in GRAZERS
+            nongrazers = [a for a in herd if not grazer(a)]
+            grazers = [a for a in herd if grazer(a)]
+            # Fill every original protected slot, including a tiny grazer if needed:
+            # this changes priority without increasing the number of ordinary spares.
+            keep = (nongrazers + sorted(grazers, key=lambda a: -uid(a)))[:FEAST_KEEP]
+            kept = {id(a) for a in keep}
+            spare = (sorted((a for a in grazers if id(a) not in kept),
+                            key=lambda a: (size(a) < 1, uid(a)))
+                     + sorted((a for a in nongrazers if id(a) not in kept),
+                              key=lambda a: (size(a) < 1, size(a), str(a.get("id")))))
+            if not spare and grazers and nongrazers and self.final_floor(len(herd)):
+                spare, n = sorted(grazers, key=lambda a: (size(a) < 1, uid(a)))[:1], 1
+            elif not spare and (self.st.get("food_edible") or 0) <= 0:
+                if grazers and nongrazers:
+                    spare = (sorted(grazers, key=lambda a: (size(a) < 1, uid(a)))
+                             + sorted(nongrazers, key=lambda a: (size(a) < 1, size(a), str(a.get("id")))))
+                else:
+                    spare = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            elif not spare and self.final_floor(len(herd)):
+                spare, n = sorted(herd, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))[:1], 1
+            pick = spare
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
             if marked >= n:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        # A protected or empty herd is not a meal: do not delay a later emergency
+        # merely because an earlier check had no eligible animal to mark.
+        if marked:
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
         return marked
+
+    def final_floor(self, herd_n):
+        """Peer 8c28e5dc's final food floor, isolated from grazer, feast and batch changes."""
+        return (self.open_play() and FEAST_DAYS < self.days_left <= FINAL_STRETCH and herd_n > 1
+                and (self.st.get("food_edible") or 0) <= max(3, (self.cit or 0) // 5))
 
     # ---- the first trees wait for the predators to leave
     def felling_waits(self):
@@ -330,7 +398,8 @@ class OpenPlayRules:
             q = d(d(self.game.query("units", kind="others", limit=300)).get("result"))
             if not isinstance(q.get("units"), list):
                 raise ValueError("no unit list in the answer")
-            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"))
+            troops = TROOP_NAMES if self.open_task() and type(self.days) is int and 0 < self.days < 336 else frozenset()
+            found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"), troops)
             told = sorted({b["race"] for b in found})
             if told != self.beast_told:
                 log("beasts", day=self.day, seen=told, nearest=min((b["dist"] for b in found), default=None))
@@ -368,6 +437,11 @@ class OpenPlayRules:
         if any(b["x"] is None for b in beasts) or self.beast_spent >= BEAST_BUDGET * DAY:
             return False
         return self.beast_short() is False
+
+    def skip_year_wild_refuge(self):
+        """Year games keep the ordinary invader/inside response, without starting an optional wildlife hold."""
+        return (self.open_task() and type(self.days) is int and self.days >= 336
+                and type(self.days_left) is int and self.days_left > 0)
 
     def wildlife(self, alert, open_play=True):
         """One pass of the wildlife lockdown. Returns the civilian alert as this pass leaves it.
@@ -471,6 +545,14 @@ class OpenPlayRules:
                 return alert
             if (not api_seen or api_dist is None or api_dist > WILD_NEAR) and not self.beast_may_shut(beasts):
                 return alert             # no hostile of the API's would start it, and the animals may not
+            if self.skip_year_wild_refuge():
+                if getattr(self, "year_wild_skip_day", None) != self.day:
+                    self.year_wild_skip_day = self.day
+                    log("year_wild_refuge", event="skip_eligible_start", day=self.day,
+                        citizens=self.cit, dist=dist, hostiles=seen, api_hostiles=api_seen,
+                        beast_races=sorted({str(b.get("race")) for b in beasts}),
+                        hatch_ids=[h["id"] for h in hatches], shelter_id=shelter.get("id"))
+                return alert
             self.alert_pending = True    # before the call: if the answer is lost the alert is still to be cleared
             r = self.act("lockdown_on", "civilian_alert", {"on": True}, retry=0, limit=FOREVER)
             self.alert_pending = False   # answered: a lockdown below owns it, or it was refused

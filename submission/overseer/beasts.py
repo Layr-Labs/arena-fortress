@@ -18,6 +18,10 @@ BEASTS = frozenset((
     "JURASSIC_CERATOSAURUS", "JURASSIC_DILOPHOSAURUS", "CENOZOIC_ANDREWSARCHUS", "CENOZOIC_MEGALANIA",
     "CENOZOIC_SMILODON", "CENOZOIC_KELENKEN", "PERMIAN_ANTEOSAURUS", "PERMIAN_DIMETRODON", "OGRE", "YETI",
     "SASQUATCH", "BLIZZARD_MAN", "BEAK_DOG", "NIGHTWING", "GRIMELING"))
+# Narrow short-game adaptation of published e6635fdb troop handling.
+# Exact observed BIRD_KEA only; no fuzzy species matching or learned attacks.
+TROOP_NAMES = frozenset(("BIRD_KEA",))
+
 # ... of which these keep to the water's edge: they count only when close to the wagon
 LURKERS = frozenset(("ALLIGATOR", "CROCODILE_SALTWATER", "ANACONDA", "CRETACEOUS_SPINOSAURUS_MIRABILIS",
                      "CRETACEOUS_SPINOSAURUS_AEGYPTIACUS", "GRIMELING"))
@@ -31,7 +35,7 @@ def whole(*vs):
     return all(isinstance(v, int) and not isinstance(v, bool) and -10 ** 6 < v < 10 ** 6 for v in vs)
 
 
-def in_sight(units, total, wagon):
+def in_sight(units, total, wagon, troops=frozenset()):
     """(found, sure) from the units query's `others`.
 
     found: the listed animals among the rows that can be read, each {"race", "x", "y", "z", "dist", "beast": True},
@@ -52,7 +56,8 @@ def in_sight(units, total, wagon):
         if not isinstance(race, str):
             sure = False            # it may be one of them
             continue
-        if race not in BEASTS or u.get("hostile") is True or u.get("visitor") is True:
+        troop = race in troops and u.get("tame") is not True
+        if not (race in BEASTS or troop) or u.get("hostile") is True or u.get("visitor") is True:
             continue                # a hostile one is in the threats list already
         p = (u.get("x"), u.get("y"), u.get("z"))
         if whole(*p) and whole(*w):
