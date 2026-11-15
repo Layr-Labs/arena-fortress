@@ -46,6 +46,8 @@ MOOD_WORKSHOP = {
 PROG_FROM_DAY = 40      # wealth for the Hamlet rank (20 citizens and 5000 created wealth), full-year games only:
 PROG_WEALTH = 5500      #   from this day, until created wealth reaches this, a Craftsdwarfs and one daily order of
 PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress())
+POP_TARGET = 20         # population magnet: the Hamlet rank's citizens (the gameapi v0 kind list supports
+WAVE_RECENT_DAYS = 14   #   meeting_area); for this many days after a migrant wave, the layer stays on 1-day passes
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -130,6 +132,10 @@ class Overseer(OpenPlayRules):
         self.beast_spent = 0     # ... ticks spent shut from the first sight of one to the opening of the fort
         self.fell = None         # open play, the first felling: None undecided, {"since", "blind"} waiting for a
                                  #   large predator to leave, False no longer waiting
+        self.last_cit = None     # citizens at the last pass: the wave reader also works on the delta
+        self.max_wave = 0        # the largest wave the announcements' population jumps show (0: none seen)
+        self.wave_day = None     # the game day it arrived (WAVE_RECENT_DAYS after it, the passes stay at 1 day)
+        self.meeting_tried = False   # meeting_area: one attempt per game (opportunistic; DF marriages/births)
 
     def set_task(self, info):
         """Goal policies from the task's own public text (GET /task). A hands_off field means a lab task."""
@@ -254,6 +260,7 @@ class Overseer(OpenPlayRules):
             self.provision()
         self.furnish()
         self.rezone()
+        self.population_step()
         self.closer()
         self.progression_push()
 
@@ -480,8 +487,9 @@ class Overseer(OpenPlayRules):
         if (self.st.get("drink") or 0) < 3 * self.cit and not self.st.get("plants_brewable") and plants \
                 and not self.pending("brew_drink_from_fruit"):
             self.act("o_fruit", "add_order", {"recipe": "brew_drink_from_fruit", "amount": 3}, retry=4)
-        seats = math.ceil(self.cit / 2) + 2
-        bed_target = max(self.cit + 12, SURGE_BEDS) if self.surge else self.cit + 3
+        mag_beds, mag_seats = self.population_headroom()   # the magnet keeps the wave's beds and seats ready
+        seats = math.ceil(self.cit / 2) + 2 + mag_seats
+        bed_target = max(self.cit + 12, SURGE_BEDS) if self.surge else self.cit + 3 + mag_beds
         if self.open_task():          # dining furniture counted where it seats someone (real_seats)
             site = self.dine_site()
             tables, chairs = self.dine_stock("table", site), self.dine_stock("chair", site)
@@ -533,6 +541,57 @@ class Overseer(OpenPlayRules):
         """A repeating wood-crafts order the layer added is still standing: its recipe is None, so `standing()` can
         not see it, and the confirmed ids are the record."""
         return any(o.get("id") in self.craft_ids for o in self.orders)
+
+    # ---- the population magnet: the 20th citizen is the Hamlet rank's only other gate
+    def magnet_active(self):
+        """Open play on a full-year game below POP_TARGET citizens: the window the magnet works in (on a lab task,
+        a surge task or an inherited fort it does nothing). A 216-day game is scored on housing alone: no need."""
+        return self.open_task() and (self.days or 0) >= 336 and self.cit < POP_TARGET
+
+    def read_waves(self):
+        """Migrant-wave history from fields the observation already carries (no new query): a citizens jump while
+        the announcements mention migrants gives the wave's size. Keeps the largest and its game day."""
+        events = [e for e in lst(self.o.get("recent_events")) if isinstance(e, str) and "migrant" in e.lower()]
+        if events and self.last_cit is not None and self.cit > self.last_cit:
+            self.max_wave = max(self.max_wave, self.cit - self.last_cit)
+            self.wave_day = self.day
+        self.last_cit = self.cit
+
+    def wave_recent(self):
+        """True while a wave landed within WAVE_RECENT_DAYS: the layer's own passes (the model loop's open-advance
+        steps between them) stay at a day, so its orders catch the new beds and seats in time. Strictly
+        magnet-window behaviour: a lab, a surge, an inherited fort or a 216-day game keeps the base pacing."""
+        if not self.magnet_active():
+            return False
+        return (isinstance(self.wave_day, int) and isinstance(self.day, int)
+                and 0 <= self.day - self.wave_day <= WAVE_RECENT_DAYS)
+
+    def population_headroom(self):
+        """The extra furniture the magnet keeps ready for the next wave: to the usual cit+3 beds and
+        ceil(cit/2)+2 seats, beds cit + max(4, the largest wave seen), and two more seats. (0, 0) off the window."""
+        if not self.magnet_active():
+            return 0, 0
+        return max(1, max(6, self.max_wave) - 2), 2
+
+    def population_step(self):
+        """The magnet itself, once a pass, outside the closer: the wave history (for the target buffers and the
+        pacing), then, with people and beds to spare, one meeting_area zone - the gameapi v0 tool table lists
+        `meeting_area` among make_zone's kinds (gameapi/manual/MANUAL.md section 4; facts/tools.py ZONES), and DF
+        marries in meeting halls, so births are the +1 citizen no wave is needed for. One attempt per game: a
+        refused zone is not asked again this way."""
+        self.read_waves()
+        if self.meeting_tried or not self.magnet_active() or self.cit < 12:
+            return
+        if (self.placed.get("bed") or 0) < self.cit:
+            return                      # unmet beds first: a wave needs them placed
+        site = next((x for x in self.kind("A") if (x.get("open_tiles") or 0) >= 6
+                     and (x.get("w") or 0) <= ZONE_SIDE and (x.get("h") or 0) <= ZONE_SIDE), None)
+        if not site:
+            site = next(iter(self.dug_rooms()), None)
+        if not site or self.zone("meeting"):
+            return
+        self.meeting_tried = True       # exactly one try, accepted or refused (act's limit would only slow it)
+        self.act("z_meeting", "make_zone", {"kind": "meeting_area", "site": site["id"]}, retry=2)
 
     def closer(self):
         if self.in_endgame():
@@ -831,8 +890,9 @@ class Overseer(OpenPlayRules):
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
+        mag_beds, mag_seats = self.population_headroom()   # place ahead of the next wave too, not only the usual +2
         if dorm:
-            short = self.cit + 2 - (self.placed.get("bed") or 0)
+            short = self.cit + 2 + mag_beds - (self.placed.get("bed") or 0)
             n = min(self.free.get("bed") or 0, short, 30)
             if n > 0:
                 r = self.act("beds", "place_furniture", {"kind": "bed", "site": dorm["id"], "count": n},
@@ -865,7 +925,7 @@ class Overseer(OpenPlayRules):
         if dine and not self.beds_first and self.open_task():
             site = self.dine_site()
             if site:
-                want = math.ceil(self.cit / 2) + 1
+                want = math.ceil(self.cit / 2) + 1 + mag_seats
                 placed = []
                 for kind in ("table", "chair"):
                     n = min(self.free.get(kind) or 0, want - self.dining_kinds(site=site)[kind], 15)
@@ -876,7 +936,7 @@ class Overseer(OpenPlayRules):
         elif dine and not self.beds_first:
             if not self.zone("dining"):
                 self.act("z_dine", "make_zone", {"kind": "dining_hall", "site": dine["id"]}, retry=3)
-            want = math.ceil(self.cit / 2) + 1
+            want = math.ceil(self.cit / 2) + 1 + mag_seats
             for kind in ("table", "chair"):
                 n = min(self.free.get(kind) or 0, want - (self.placed.get(kind) or 0), 15)
                 if n > 0:
@@ -956,10 +1016,10 @@ class Overseer(OpenPlayRules):
                 self.alert_since = None
 
     def step_days(self):
-        """Game days between this layer's passes on open play: one while a hostile is in sight or a lockdown is
-        standing, else two."""
+        """Game days between this layer's passes on open play: one while a hostile is in sight, a lockdown stands
+        or a migrant wave is fresh, else two."""
         if d(self.o.get("threats")).get("visible_hostiles") or self.lock is not None or self.own_locks \
-                or self.beast_seen or self.thaw_alert or self.thaw_window(lead=2):
+                or self.beast_seen or self.thaw_alert or self.wave_recent() or self.thaw_window(lead=2):
             return 1
         return 2
 
