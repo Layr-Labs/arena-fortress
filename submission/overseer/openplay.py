@@ -32,7 +32,7 @@ FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
-HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
+HUNGER_FINAL = 1.5      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
                         #   earlier cull's meat rots all at once, and a game went from 14 food to none in three days
 FINAL_STRETCH = 30      # the scored 28 days plus the time a cull takes to become food
 HUNGER_GAP = 8          # days between hunger culls
@@ -93,7 +93,7 @@ BEAST_FOOD = 1          # ... and food per citizen
 BEAST_FAILS = 2         # looks that may fail in a row before the layer stops looking for a reason to shut the fort:
                         #   an unanswered query is retried by the client for minutes of the game's wall time
 HOLD_FAILS = 4          # ... and before it stops looking during a lockdown, which then runs to its limit
-BUTCHER_LEAD = 3        # with nobody hunting: days before the feast at which the Butchers is built
+BUTCHER_LEAD = 16       # with nobody hunting: days before the feast at which the Butchers is built
 CALM_TRIES = 5          # refusals of the labour plugin after which the inherited workshop rules return
 # Open play: the first felling. Measured in 51 recorded full-year games: the tree-felling plugin fells about 250
 # trees in the first week, 50 to 119 tiles from the wagon (146 of 152 sightings of a felling dwarf were over 30
@@ -137,15 +137,20 @@ class OpenPlayRules:
     def feast(self):
         self.cull("feast", FEAST_BATCH, smallest=False, retry=1)
         st = self.st
-        raw = (st.get("food_edible") or 0) - (st.get("prepared_meals") or 0) - (st.get("plants_total") or 0)
-        if raw >= COOK_RAW and not any(x.get("recipe") == "cook_meal" and not x.get("repeat")
-                                       and (x.get("left") or 0) > 0 for x in self.orders):
+        food = st.get("food_edible") or 0
+        drink = st.get("drink") or 0
+        raw = food - (st.get("prepared_meals") or 0) - (st.get("plants_total") or 0)
+        if (raw >= COOK_RAW and (food < 6 * self.cit or drink >= 25 * self.cit)
+                and not any(x.get("recipe") == "cook_meal" and not x.get("repeat")
+                            and (x.get("left") or 0) > 0 for x in self.orders)):
             self.act("o_cook_feast", "add_order", {"recipe": "cook_meal", "amount": int(min(6, max(2, raw // 10)))},
                      retry=1, limit=99)
-        drink = st.get("drink") or 0
-        if drink >= DRINK_SAFE * self.cit:
+        if (drink < 21 * self.cit and (st.get("plants_brewable") or 0) >= 2
+                and (st.get("barrels_empty") or 0) >= 1 and not self.pending("brew_drink")):
+            self.act("o_brew_feast", "add_order", {"recipe": "brew_drink", "amount": 4}, retry=1, limit=99)
+        if drink >= DRINK_SAFE * self.cit and food < 8 * self.cit:
             self.brew_stopped = True
-        elif self.brew_stopped and drink < DRINK_REOPEN * self.cit:
+        elif self.brew_stopped and (drink < DRINK_REOPEN * self.cit or food >= 8 * self.cit):
             self.brew_stopped = False        # the regular supply step adds its brew order again
         if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
             for oid in sorted(self.brew_own):
@@ -174,6 +179,9 @@ class OpenPlayRules:
             spare = herd[FEAST_KEEP:]
             if not spare and (self.st.get("food_edible") or 0) <= 0:
                 spare = herd
+            elif not spare and self.final_floor(len(herd)):
+                spare = herd[-1:]
+                n = min(n, 1)
             pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
@@ -181,11 +189,16 @@ class OpenPlayRules:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        if marked:
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
         return marked
+
+    def final_floor(self, herd_n):
+        """Emergency pre-feast food floor keeping at least one animal in reserve."""
+        return (self.open_play() and FEAST_DAYS < self.days_left <= FINAL_STRETCH and herd_n > 1
+                and (self.st.get("food_edible") or 0) <= max(3, (self.cit or 0) // 5))
 
     # ---- the first trees wait for the predators to leave
     def felling_waits(self):

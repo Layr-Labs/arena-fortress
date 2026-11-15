@@ -38,6 +38,7 @@ TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+NO_MODEL = True             # model-free branch adapted from published d1febd13 (0xplemonade)
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
@@ -182,6 +183,10 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
+        if NO_MODEL:
+            self.layer_only("no_model")
+            log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            return self.stats
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
