@@ -69,7 +69,8 @@ class Admission(Lockdown, unittest.TestCase):
 
     def test_not_while_the_danger_is_near_or_cannot_be_placed(self):
         near = shut(190, ADMIT_FAR - 4, 3)                           # the animal ADMIT_FAR tiles from the hatch
-        hostile = outside(threat_resp(190, 100, alert=True, inside=9), 3)   # a hostile of the API's, not wildlife
+        # a hostile of the API's near the hatch (d64: before d64, any within WILD_CLEAR of the wagon kept it shut)
+        hostile = outside(threat_resp(190, 100, alert=True, inside=9, at=(92 + ADMIT_FAR - 10, 100, 153)), 3)
         unsure = shut(190, 80, 3)
         unsure["others"].append({"id": 701})                         # a row that can't be read: the look is unsure
         unplaced = shut(190, 80, 3)
