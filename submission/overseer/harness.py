@@ -499,6 +499,40 @@ class Overseer(OpenPlayRules):
                 batch = 30 if self.surge and recipe == "make_bed" else 8
                 self.act("o_" + recipe, "add_order", {"recipe": recipe, "amount": min(batch, want - have)}, retry=1, limit=99)
 
+        self.surge_bed_pipeline_topup()
+
+    def surge_bed_pipeline_topup(self):
+        """One early finite top-up when existing plus pending beds cannot cover current migrants."""
+        key = "o_surge_bed_pipeline"
+        if (key in self.done or self.ordered_now("o_make_bed") or self.ordered_now("o_bed_close")
+                or not self.surge or not self.beds_first or not self.lab
+                or type(self.hands_off) is not int or self.hands_off <= WINDOW_PREP_DAYS
+                or type(self.cit) is not int or self.cit <= 0
+                or type(self.day) is not int or type(self.now) is not int):
+            return
+        beds = self.st.get("beds")
+        if type(beds) is not int or beds < 0 or not self.logs():
+            return
+        raw = self.o.get("orders")
+        if not isinstance(raw, list) or len(raw) != len(self.orders):
+            return
+        pending = [o for o in self.orders
+                   if o.get("recipe") == "make_bed" or o.get("job") == "ConstructBed"]
+        if not pending or any(o.get("repeat") or type(o.get("left")) is not int
+                              or o["left"] < 0 for o in pending):
+            return
+        remaining = sum(o["left"] for o in pending)
+        if remaining <= 0 or beds + remaining >= self.cit:
+            return
+        target = max(self.cit + 12, SURGE_BEDS)
+        amount = min(30, target - beds - remaining)
+        result = self.act(key, "add_order", {"recipe": "make_bed", "amount": amount}, retry=2, limit=3)
+        if result and result.get("ok"):
+            self.done.add(key)
+            log("surge_bed_pipeline", day=self.day, hands_off_in_days=self.hands_off,
+                citizens=self.cit, beds=beds, pending=remaining, target=target, amount=amount,
+                order_id=d(result.get("result")).get("order_id"))
+
     # ---- the closer: what the score reads at the end of the run
     def in_endgame(self):
         """Open-play tasks: the scored final stretch (the last quarter of the run, 7-28 days) is near."""
