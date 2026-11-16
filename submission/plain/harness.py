@@ -37,8 +37,13 @@ TOOL_RESULT_OLD = 300       # chars of an older tool result kept in the window (
 TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
-MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+MAX_API_STREAK = 8          # consecutive failed model turns before handing off to layer_only
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
+CONN_WORDS = ("unreachable", "name resolution", "connection refused", "timed out", "temporarily unavailable",
+              "bad gateway", "service unavailable", "gateway timeout", "502", "503", "504")
+CONN_SLEEP_MAX = 20.0
+CONN_SLEEP_TOTAL = 90.0
+WALL_MIN_RESERVE = 360.0    # seconds reserved so layer_only can finish advancing to the horizon without wall_capped
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
@@ -122,6 +127,15 @@ class Plain:
         self.guard_day = None
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
+        self.started_at = time.monotonic()
+        raw_wall = (getattr(task, "wall_seconds", None) or getattr(task, "timeout_s", None)
+                    or (task.task or {}).get("wall_seconds") or os.environ.get("DFBENCH_WALL_SECONDS"))
+        try:
+            self.wall_limit = float(raw_wall) if raw_wall else None
+        except (TypeError, ValueError):
+            self.wall_limit = None
+        self.call_s_ema = None
+        self.conn_slept = 0.0
 
     def setup(self):
         t = self.game.task()
@@ -158,6 +172,18 @@ class Plain:
 
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
+
+    def wall_reserve(self, resp):
+        left_days = resp.get("days_left") if isinstance(resp, dict) else None
+        sim_s = 2.2 * left_days if isinstance(left_days, (int, float)) and left_days > 0 else 180.0
+        call_s = 2.0 * (self.call_s_ema or 15.0)
+        return max(WALL_MIN_RESERVE, sim_s + max(45.0, call_s))
+
+    def wall_low(self, resp):
+        if not self.wall_limit or self.wall_limit <= 0:
+            return False
+        rem = self.wall_limit - (time.monotonic() - self.started_at)
+        return rem <= self.wall_reserve(resp)
 
     def layer_only(self, reason):
         """No model: run the deterministic layer alone to the horizon (the baseline exited here and left the fort
@@ -200,12 +226,19 @@ class Plain:
                 if not self.layer_only("budget"):   # no model left; the layer still runs
                     break
                 continue
+            if self.wall_low(resp):
+                if not self.layer_only("wall"):     # wall budget tight; let the fast deterministic layer finish
+                    break
+                continue
             self.stats["turns"] += 1
             obs = observation(resp, self.extra)
             self.messages.append({"role": "user", "content": self.user_message(resp, obs)})
             self.messages = window(self.messages)
             try:
+                t0 = time.monotonic()
                 msg = self.chat()
+                dt = max(0.0, time.monotonic() - t0)
+                self.call_s_ema = dt if self.call_s_ema is None else (0.3 * dt + 0.7 * self.call_s_ema)
             except BudgetExhausted as e:
                 log("budget_exhausted", error=str(e)[:200])
                 self.messages.pop()
@@ -221,6 +254,16 @@ class Plain:
                     if not self.layer_only("model_failing"):   # the model is unusable; the layer plays on
                         break
                     continue
+                err_low = str(e).lower()
+                if any(w in err_low for w in CONN_WORDS) and self.conn_slept < CONN_SLEEP_TOTAL:
+                    wait = min(CONN_SLEEP_MAX, 2.0 ** min(streak, 5), CONN_SLEEP_TOTAL - self.conn_slept)
+                    if self.wall_limit and self.wall_limit > 0:
+                        rem = self.wall_limit - (time.monotonic() - self.started_at) - self.wall_reserve(resp)
+                        wait = min(wait, max(0.0, rem))
+                    if wait >= 0.5:
+                        time.sleep(wait)
+                        self.conn_slept += wait
+                        continue
                 if not self.advance(1, "model_error"):
                     break
                 continue

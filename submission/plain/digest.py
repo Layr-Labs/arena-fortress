@@ -435,6 +435,13 @@ def _manager(c):
     active = adm.get("manager_active_for_orders")
     mgr = adm.get("MANAGER")
     office = adm.get("manager_office")
+    mgr_id = adm.get("MANAGER_id")
+    if mgr_id is not None and not (isinstance(office, dict) and office.get("chair")):
+        chaired = next((z for z in _l(obs.get("zones"))
+                        if "office" in str(z.get("type")).lower() and z.get("owner") == mgr_id
+                        and _d(z.get("furniture")).get("chair")), None)
+        if chaired is not None:
+            office = {"zone_id": chaired.get("id"), "chair": True}
     need_office = n >= OFFICE_FROM
     s = f"manager: {mgr if mgr else 'VACANT'}" + (f" (id {adm.get('MANAGER_id')})" if adm.get("MANAGER_id") is not None else "")
     if not active:
