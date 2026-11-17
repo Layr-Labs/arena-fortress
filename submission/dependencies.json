@@ -1,22 +1,931 @@
 [
-{"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "rationale": "Inherited through a9f894ea: i34-9's digest model loop, regular controller, closer, layer-only fallback, ownership checks and controller action report. This was the upstream author's direct base; a9f894ea is this follow-up's actual starting runtime.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/plain/harness.py", "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6", "startLine": 105, "endLine": 232}, {"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/plain/harness.py", "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6", "startLine": 309, "endLine": 334}, {"submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261", "path": "submission/overseer/harness.py", "fileSha256": "3763e1f2daf12bb03b5b274eb45cfce70330395c6c2f7a4068d3504af6c3ed9a", "startLine": 278, "endLine": 344}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 126, "endLine": 143}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 162, "endLine": 181}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 443, "endLine": 492}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 545, "endLine": 563}]},
-{"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "rationale": "Inherited through a9f894ea: kshitij-hash's STATUS digest, failed/recent-action memory, compact observation and model-loop structure.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "path": "submission/plain/digest.py", "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2", "startLine": 109, "endLine": 183}, {"submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9", "path": "submission/plain/harness.py", "fileSha256": "64c4ace37a51c7493ca7def53de4122e9ef706b180859d24ed64484e6c25e5b1", "startLine": 188, "endLine": 210}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 185, "endLine": 214}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 158, "endLine": 168}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 251, "endLine": 278}]},
-{"submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8", "rationale": "Inherited through a9f894ea: kshitij-hash's PLAYBOOK in the system prompt. The removed KNOWLEDGE block remains absent. The playbook's DEFENCE paragraph also says that a hatch on an E site plus lock_door seals the stair, the fortress's own dwarves included. This candidate's controller applies that seal itself when hostile wildlife is near; the conditions and the two-step release are new.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here. Additional target: Overseer.place_hatches() and Overseer.wildlife() in overseer/openplay.py, which build the stair hatch and lock it during a lockdown.", "citations": [{"submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8", "path": "submission/plain/prompt.py", "fileSha256": "71776b877f5014c276ba33ccf181e75bf1ffa3d27180da2bf7fe0b1030606773", "startLine": 35, "endLine": 104}, {"submissionId": null, "path": "submission/plain/prompt.py", "fileSha256": "6ecf6ec248404235dc614b2a76dee041655d4f343f3cba4b07aab31d30b0c488", "startLine": 36, "endLine": 103}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 288, "endLine": 306}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 372, "endLine": 572}]},
-{"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "rationale": "Inherited through a9f894ea: e-man07's deterministic controller for moods, defence, management, automation, workshops, digging, farms, supply, furniture and zones, including the Fishery rule already present in a9f894ea.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "path": "submission/overseer/harness.py", "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67", "startLine": 110, "endLine": 234}, {"submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa", "path": "submission/overseer/harness.py", "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67", "startLine": 324, "endLine": 336}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 245, "endLine": 258}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 260, "endLine": 275}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 966, "endLine": 978}]},
-{"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "rationale": "Inherited through a9f894ea: e-man07's dining-seat accounting, loose-furniture re-zoning and pacing into the hands-off window. No additional policy is imported directly in this follow-up.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 298, "endLine": 304}, {"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 356, "endLine": 372}, {"submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e", "path": "submission/overseer/harness.py", "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b", "startLine": 409, "endLine": 423}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 622, "endLine": 628}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 788, "endLine": 817}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 537, "endLine": 543}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 145, "endLine": 157}]},
-{"submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02", "rationale": "Inherited through a9f894ea: mpjunior92's end-window brewing-target and population/workshop ideas, already represented in the inherited closer and second-Carpenters policy.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02", "path": "submission/plain/caretaker.py", "fileSha256": "d41759eb2914781b9e1fb3ba4b1d0a4cd600e8f24a2836f3744cfdc4e8cb687f", "startLine": 99, "endLine": 106}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 545, "endLine": 563}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}]},
-{"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "rationale": "GordoAR is retained through the selected base lineage and also supplies the earlier office-first repair inherited by fa9c13cc: after creating an office, place a chair before later furniture consumes the floor. This submission takes that office sequence through fa9c13cc and narrows it to the migrant task. 5dfdcf15 also produced the trusted checkout used by the upstream a9f894ea author; goal-policy material is credited separately to 5ef22a35. Its coverage check (zone a placement site when furniture placed there lies outside every dining zone), kept by fa9c13cc, is the basis of this candidate's dining-zone step, which reads DF's zone membership instead of rectangles and zones each site a bounded number of times.", "evidence": "The cited source office() includes immediate chair placement after accepted office creation; the target office() retains that sequence behind the migrant flag. Other cited passages identify retained controller/model-loop ancestry. Additional source: covers() and Overseer.needs_zone() in overseer/harness.py of the trusted tree 1afa775. Additional target: covers(), Overseer.needs_zone(), Overseer.dine_site() and Overseer.zone_dining() in overseer/harness.py.", "citations": [{"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 40, "endLine": 43}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 146, "endLine": 173}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 184, "endLine": 190}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 257, "endLine": 303}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 332, "endLine": 366}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/plain/harness.py", "fileSha256": "9d939e177fd461811a5d4d7888c2ed301ae23cf9e95f1695004685958529a262", "startLine": 207, "endLine": 263}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/Dockerfile", "fileSha256": "061fabd4de826ee3386800255a58805cecaed6bddbb6bc43747ba15c9f8f89b4", "startLine": 1, "endLine": 14}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 277, "endLine": 305}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 307, "endLine": 320}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 913, "endLine": 956}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 293, "endLine": 338}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 40, "endLine": 43}, {"submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412", "path": "submission/overseer/harness.py", "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609", "startLine": 270, "endLine": 275}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 73, "endLine": 80}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 732, "endLine": 741}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 698, "endLine": 730}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 743, "endLine": 751}]},
-{"submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c", "rationale": "Retained declared lineage of a9f894ea: kshitij-hash's earlier archive of the cut-2 plain code, also represented by 9b597a76. No additional mechanism is introduced from this archive.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "514f4ac8-81e7-428a-b6d9-4ac3dfbad08c", "path": "submission/plain/digest.py", "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2", "startLine": 109, "endLine": 183}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 185, "endLine": 214}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 158, "endLine": 168}]},
-{"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "rationale": "Retained declared lineage of a9f894ea: e-man07's intermediate controller revision shares the inherited layer. No additional mechanism is imported from this revision.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "path": "submission/overseer/harness.py", "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9", "startLine": 298, "endLine": 304}, {"submissionId": "44352f28-6fb9-4c03-9a81-21f569629639", "path": "submission/overseer/harness.py", "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9", "startLine": 356, "endLine": 372}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 622, "endLine": 628}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 788, "endLine": 817}]},
-{"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "rationale": "Retained declared lineage of a9f894ea: GordoAR's earlier package shares the inherited controller and Dockerfile line. Its goal policies are credited separately to 5ef22a35.", "evidence": "Source citations identify the inherited material recorded in the selected base's lineage. Dependent citations were recomputed against this follow-up; this is retained ancestry rather than a claim that each source was independently copied here.", "citations": [{"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/overseer/harness.py", "fileSha256": "f0de982a4c93ff28ee31b7e98e7541ce6c05506087b55ac39747257ee485837b", "startLine": 161, "endLine": 203}, {"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/plain/harness.py", "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020", "startLine": 35, "endLine": 45}, {"submissionId": "41cfa9eb-6548-4618-96aa-fa4f3f990701", "path": "submission/plain/harness.py", "fileSha256": "63c98462e226c49811631a0d66a61eabcaab1f2fd4a6b761b0564b942ef59020", "startLine": 160, "endLine": 187}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 307, "endLine": 320}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 410, "endLine": 446}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 183, "endLine": 249}]},
-{"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "rationale": "GordoAR's public-goal detection, bed-only queue, bounded extra carpenter and actual-no-space alternate-area route are retained through a9f894ea. The treatment extends that same route to a measured remainder; it does not claim these concepts as new.", "evidence": "a9f894ea declares and credits 5ef22a35. Compare the source goal-policy methods with the retained target methods; partial-placement and depth/farm changes are separately credited to our published v4.", "citations": [{"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 57, "endLine": 63}, {"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 247, "endLine": 272}, {"submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f", "path": "submission/overseer/harness.py", "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a", "startLine": 304, "endLine": 331}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 134, "endLine": 140}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 832, "endLine": 884}]},
-{"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "rationale": "pepedesigner's published harness is the actual starting implementation. The client, plain model loop, digest, late population-gated progression push and all non-surge behavior are retained.", "evidence": "All 19 control files match the published Git blobs. Treatment changes are confined to surge behavior in overseer/harness.py plus tests/documentation/declarations; the replay checks non-surge actions.", "citations": [{"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/plain/harness.py", "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789", "startLine": 119, "endLine": 136}, {"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/plain/harness.py", "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789", "startLine": 280, "endLine": 323}, {"submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4", "path": "submission/overseer/harness.py", "fileSha256": "6b7cf8535c1ffeac984ad35a7a2d3716a87b52cb69b27067019fd42d1f6626ff", "startLine": 338, "endLine": 355}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 126, "endLine": 143}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 293, "endLine": 338}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 512, "endLine": 530}]},
-{"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "rationale": "Our published v4 supplies the surge early-bed target/batch, office-chair exception, deep dorm priority, dorm/farm box exclusion, extra-carpenter condition and partial-placement accounting idea. This is a port, not independent re-creation.", "evidence": "The transfer adapts v4 to a9f894ea's existing bed-only queue and single-alternate route. The office exception is narrowed to one chair, unknown receipts do not trigger overflow, and bounded stairs access enforces the depth rule.", "citations": [{"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 242, "endLine": 248}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 219, "endLine": 224}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 259, "endLine": 265}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 267, "endLine": 274}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 542, "endLine": 551}, {"submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2", "path": "submission/overseer/harness.py", "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2", "startLine": 363, "endLine": 374}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 369, "endLine": 377}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 379, "endLine": 383}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 385, "endLine": 390}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 832, "endLine": 884}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}]},
-{"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "rationale": "i34-9 produced the current promoted submission tree at 2f3abb30f6291e05a8d37a8c40c34a29732000b4, retained by trusted-tree HEAD b98e4e27474a69e5ab688d53c91646335f63ddf9. i34-9's office() supplies immediate chair placement after an accepted new office zone, before later furniture placement consumes that floor. This follow-up adapts it behind the migrant flag. The source's placement-coordinate response handling is also retained through our v4 port. Its progress() rule is taken for full-year games with its numbers: from day 40, until created wealth reaches 5,500, a Craftsdwarfs and one standing daily order of wood crafts that runs while 25 logs are in stock, for the Hamlet rank. It replaces this candidate's late population-gated push.", "evidence": "The office-first prerequisite was identified after the original a9f transfer's games. This separate follow-up adds that behavior and keeps the original played arms frozen. The source/target office and placement methods identify both reused mechanisms. Additional source: progress(), WEALTH_TARGET, PROGRESS_FROM_DAY and LOG_RESERVE in overseer/harness.py at 2f3abb30. Additional target: Overseer.progression_push(), PROG_FROM_DAY, PROG_WEALTH and PROG_LOGS in overseer/harness.py.", "citations": [{"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 453, "endLine": 461}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 392, "endLine": 405}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 184, "endLine": 212}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 277, "endLine": 305}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 414, "endLine": 431}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 30, "endLine": 30}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 31, "endLine": 31}, {"submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4", "path": "submission/overseer/harness.py", "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19", "startLine": 32, "endLine": 32}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 512, "endLine": 530}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 46, "endLine": 46}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 47, "endLine": 47}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 48, "endLine": 48}]},
-{"submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5", "rationale": "The earlier same-code predecessor of 7662723d supplies the retained layer digest; kept as explicit lineage for that material.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5", "path": "submission/plain/digest.py", "fileSha256": "27ecf05143f84829bbe9b846095792e4271f5fef546c17fc62abe5faba0ed523", "startLine": 556, "endLine": 573}, {"submissionId": null, "path": "submission/plain/digest.py", "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8", "startLine": 761, "endLine": 778}]},
-{"submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6", "rationale": "mpjunior92's larger regular bed-batch technique is reused through v4, narrowed here to the migrant task and the API's maximum 30.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6", "path": "submission/overseer/harness.py", "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc", "startLine": 373, "endLine": 383}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}]},
-{"submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca", "rationale": "The earlier source of the larger regular bed-batch technique is retained through f42cefb1 and our v4 transfer.", "evidence": "Source passages are retained from the previously verified declaration; dependent passages are selected afresh in this treatment.", "citations": [{"submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca", "path": "submission/overseer/harness.py", "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80", "startLine": 343, "endLine": 353}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 462, "endLine": 500}]},
-{"submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a", "rationale": "mpjunior92's population-scaled Carpenters idea, previously credited by v4, informs the three-shop surge variant. The original scaling code is not copied. The note published with this submission also points out that DFHack's legacy autolabor ties the fishing labour to a Fishery. This candidate uses that fact the other way round: it enables autolabor and builds no Fishery, so that nobody fishes. No code is taken.", "evidence": "Source scales Carpenters with population up to six. Target retains a fixed second shop and permits a third only for an observed migrant bed shortage with sufficient population/logs. Additional target: Overseer.no_fishing() in overseer/openplay.py. The source of the fact is DFHack's autolabor documentation, to which that note refers.", "citations": [{"submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a", "path": "submission/plain/caretaker.py", "fileSha256": "65775c868a583559433c6e72cf2c77bf6991ad57e3299d1ed55aae1034f3106b", "startLine": 84, "endLine": 95}, {"submissionId": null, "path": "submission/overseer/harness.py", "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983", "startLine": 349, "endLine": 367}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 237, "endLine": 263}]},
-{"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "rationale": "mpjunior92's published harness caps every model-requested advance at two days so that the deterministic controller keeps a one- or two-day cadence. This candidate uses that idea on tasks without a hands-off window. No code is taken: here one model call still decides the advance, and the harness walks it in two-day steps with a controller pass between them.", "evidence": "Source: the MAX_DAYS constant and cadence_days() in plain/harness.py at the published commit f5aa9fb2dc9e9758e5f920e4798e7a9c6db842c8. Target: Plain.open_advance(), which keeps the model's requested length and steps through it. The slaughter schedule itself does not come from this source.", "citations": [{"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "path": "submission/plain/harness.py", "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447", "startLine": 39, "endLine": 39}, {"submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09", "path": "submission/plain/harness.py", "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447", "startLine": 176, "endLine": 185}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 383, "endLine": 423}]},
-{"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "rationale": "mpjunior92's published harness does not enable the tree-felling plugin while an alligator is in sight, having measured a woodworker killed by one on the second day of a fresh fort. This candidate takes that idea for its open tasks. The code is this candidate's own: a wait that ends for good, its own bounds (35 days, drink or food per citizen, two failed looks) and a list of large predators in place of the one species.", "evidence": "Source: Overseer.scan_logging_risk() in overseer/harness.py and the autochop branch of Plain.refuse() in plain/harness.py at the published commit 2813f007432914456d7011144f8e921de3a699c8, and that submission's note. Target: felling_waits() in overseer/openplay.py and the autochop branch of Plain.refuse().", "citations": [{"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "path": "submission/overseer/harness.py", "fileSha256": "373cf08876eddec620ea9f8050419d4f70e2fe57a91cd62afef885e78efbccdf", "startLine": 186, "endLine": 206}, {"submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0", "path": "submission/plain/harness.py", "fileSha256": "14fd10f8a61b3a91571943d1d06ec75958a5b4c3bdd115b0eb82496cf4370157", "startLine": 401, "endLine": 431}, {"submissionId": null, "path": "submission/overseer/openplay.py", "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd", "startLine": 191, "endLine": 234}, {"submissionId": null, "path": "submission/plain/harness.py", "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f", "startLine": 443, "endLine": 492}]}
+  {
+    "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+    "rationale": "mpjunior92: inherited end-window brewing targets and population/workshop ideas represented in the closer and extra-Carpenters policy. The seed exception supplements the leader's standing order without changing its normal thresholds.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "0bc9b753-d53c-4c1d-b23f-92e645821a02",
+        "fileSha256": "d41759eb2914781b9e1fb3ba4b1d0a4cd600e8f24a2836f3744cfdc4e8cb687f",
+        "path": "submission/plain/caretaker.py",
+        "startLine": 99,
+        "endLine": 106
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 557,
+        "endLine": 575
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 350,
+        "endLine": 368
+      }
+    ]
+  },
+  {
+    "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+    "rationale": "mpjunior92: earlier source of the larger regular bed-batch technique retained through f42cefb1 and the migrant-housing port. No new bed-batch or placement policy is added here.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "0e538cbc-76b7-4a0a-af89-320ecd2232ca",
+        "fileSha256": "335cbbcef3937c78be21072609c4bf196461c800dd298fc89ed8f31f5aa46c80",
+        "path": "submission/overseer/harness.py",
+        "startLine": 343,
+        "endLine": 353
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 463,
+        "endLine": 512
+      }
+    ]
+  },
+  {
+    "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+    "rationale": "e-man07: inherited intermediate layer, housing and furniture structure carried through the promoted lineage. This is retained ancestry for shared material, not a claim that this earlier archive was independently copied during the seed patch.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+        "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9",
+        "path": "submission/overseer/harness.py",
+        "startLine": 298,
+        "endLine": 304
+      },
+      {
+        "submissionId": "44352f28-6fb9-4c03-9a81-21f569629639",
+        "fileSha256": "dfb4ace972272281e2105131927baa138ad6c9c612741592a4a5c141a7474bc9",
+        "path": "submission/overseer/harness.py",
+        "startLine": 356,
+        "endLine": 372
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 634,
+        "endLine": 640
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 800,
+        "endLine": 829
+      }
+    ]
+  },
+  {
+    "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+    "rationale": "GordoAR: inherited office-chair timing, furniture coverage/zoning and controller repairs. Also covers 41cfa9eb-6548-4618-96aa-fa4f3f990701's shared layer and accepted-only digging role assignment: the two digging methods are AST-identical. This candidate restores those accepted-only guards on the leader's non-surge farm and room paths; the two whole archives are not identical.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 40,
+        "endLine": 43
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 146,
+        "endLine": 173
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 184,
+        "endLine": 190
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 257,
+        "endLine": 303
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 332,
+        "endLine": 366
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "9d939e177fd461811a5d4d7888c2ed301ae23cf9e95f1695004685958529a262",
+        "path": "submission/plain/harness.py",
+        "startLine": 207,
+        "endLine": 263
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "061fabd4de826ee3386800255a58805cecaed6bddbb6bc43747ba15c9f8f89b4",
+        "path": "submission/Dockerfile",
+        "startLine": 1,
+        "endLine": 14
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 278,
+        "endLine": 306
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 308,
+        "endLine": 321
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 925,
+        "endLine": 968
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 293,
+        "endLine": 338
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 40,
+        "endLine": 43
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 270,
+        "endLine": 275
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 74,
+        "endLine": 81
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 744,
+        "endLine": 753
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 710,
+        "endLine": 742
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 755,
+        "endLine": 763
+      },
+      {
+        "submissionId": "5dfdcf15-9802-4fbf-a64f-9866323c1412",
+        "fileSha256": "cb1cbc74d8c6173650767d0c085f6f8258d0bba5f3d2e5b1e77480ce81a8a609",
+        "path": "submission/overseer/harness.py",
+        "startLine": 195,
+        "endLine": 220
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 411,
+        "endLine": 447
+      }
+    ]
+  },
+  {
+    "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+    "rationale": "GordoAR: inherited public-goal detection, bed-only queue, bounded extra carpenter and actual-no-space alternate-area route. These remain part of the leader's housing policy; this package adds no new housing overflow policy.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+        "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a",
+        "path": "submission/overseer/harness.py",
+        "startLine": 57,
+        "endLine": 63
+      },
+      {
+        "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+        "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a",
+        "path": "submission/overseer/harness.py",
+        "startLine": 247,
+        "endLine": 272
+      },
+      {
+        "submissionId": "5ef22a35-d413-4eb5-8332-1a80fbffa67f",
+        "fileSha256": "8d64925b2f69b0a18ec38750f3fef9c58231a7160636a0a492c856b49159c73a",
+        "path": "submission/overseer/harness.py",
+        "startLine": 304,
+        "endLine": 331
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 135,
+        "endLine": 141
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 463,
+        "endLine": 512
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 844,
+        "endLine": 896
+      }
+    ]
+  },
+  {
+    "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+    "rationale": "0xplemonade: exact immediate runtime base, including no-fishing, first-felling hold, wildlife/hatch/admission safeguards, spring-thaw alert, real dining seats, progression, workshop recovery and ALERT digest. All 15 runtime files are retained, with only the disclosed dig acceptance and bounded seed-brew edits in overseer/harness.py.",
+    "evidence": "Published source commit ab1668c0575c85ae1971d528b88bdaeb14b94b53. Other 14 runtime files match exactly; the controller diff contains one constant, an eleven-line supply branch and two accepted-only role guards. Source and target policy context is cited.",
+    "citations": [
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "fileSha256": "88fc30ef51e8d26e89a12c7a9a04b5f9225bd683e84865d15b3e570d4c47d983",
+        "path": "submission/overseer/harness.py",
+        "startLine": 410,
+        "endLine": 498
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 411,
+        "endLine": 510
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 574,
+        "endLine": 660
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 574,
+        "endLine": 660
+      },
+      {
+        "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
+        "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8",
+        "path": "submission/plain/digest.py",
+        "startLine": 293,
+        "endLine": 369
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8",
+        "path": "submission/plain/digest.py",
+        "startLine": 293,
+        "endLine": 369
+      }
+    ]
+  },
+  {
+    "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+    "rationale": "e-man07: inherited founding deterministic controller for moods, defense, management, automation, workshops, digging, farming, supply, furniture and zones, through the promoted leader. Later no-fishing behavior supersedes its original Fishery policy.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+        "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67",
+        "path": "submission/overseer/harness.py",
+        "startLine": 110,
+        "endLine": 234
+      },
+      {
+        "submissionId": "6e775ed2-93b1-4d27-b591-6d3b4f3de8aa",
+        "fileSha256": "4588a259ab9afeec9c9f6ef1104fc44581690163710d95f7d5b249fd8e19de67",
+        "path": "submission/overseer/harness.py",
+        "startLine": 324,
+        "endLine": 336
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 246,
+        "endLine": 259
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 261,
+        "endLine": 276
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 463,
+        "endLine": 512
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 978,
+        "endLine": 990
+      }
+    ]
+  },
+  {
+    "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+    "rationale": "i34-9: inherited digest/model-loop integration, regular controller, closer, ownership checks and controller action reports. Also covers aebddb9d-84c4-4fed-aeca-a30507f768e5: all 13 Python runtime files and Dockerfile are identical between the two published sources.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6",
+        "path": "submission/plain/harness.py",
+        "startLine": 105,
+        "endLine": 232
+      },
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "863386c8428f43bb7795d25540f38f49c5f2f5d79a7d62c46347274823e4d7e6",
+        "path": "submission/plain/harness.py",
+        "startLine": 309,
+        "endLine": 334
+      },
+      {
+        "submissionId": "7662723d-6c2d-4b44-add3-fc22131d2261",
+        "fileSha256": "3763e1f2daf12bb03b5b274eb45cfce70330395c6c2f7a4068d3504af6c3ed9a",
+        "path": "submission/overseer/harness.py",
+        "startLine": 278,
+        "endLine": 344
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 126,
+        "endLine": 143
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 162,
+        "endLine": 181
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 443,
+        "endLine": 492
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 557,
+        "endLine": 575
+      }
+    ]
+  },
+  {
+    "submissionId": "7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e",
+    "rationale": "akhilc08: inherited published fisherdwarf/alligator observation that the leader credits as a starting point for its no-fishing study. Retained as a measured-observation source; no code is claimed to be copied from it.",
+    "evidence": "The published public note returned by yukon submission-note 7ed9f09a-43e3-4544-aaab-ccbbbb0c0d3e, lines 162-164 and 191-193, reports a fisherdwarf killed by an alligator and discusses keeping the fisher indoors. Leader 65e60732's public note explicitly credits that observation; the inherited implementation is OpenPlayRules.no_fishing(). No invented archive-member citation is supplied for a note."
+  },
+  {
+    "submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09",
+    "rationale": "mpjunior92: inherited short advance cadence on open tasks. The leader preserves a model-requested advance but walks it in two-day steps with deterministic controller passes between them; this patch leaves that implementation unchanged.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09",
+        "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447",
+        "path": "submission/plain/harness.py",
+        "startLine": 39,
+        "endLine": 39
+      },
+      {
+        "submissionId": "937a7b6c-539d-4d44-8415-88421cd8ed09",
+        "fileSha256": "bfa81b53a5a8cf3747d51a7cd85ed82a0f8940d5b4454ecfe1e7d50bb58e3447",
+        "path": "submission/plain/harness.py",
+        "startLine": 176,
+        "endLine": 185
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 383,
+        "endLine": 423
+      }
+    ]
+  },
+  {
+    "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+    "rationale": "kshitij-hash: inherited STATUS digest, failed/recent-action memory, compact observation and model-loop structure. Also covers 514f4ac8-81e7-428a-b6d9-4ac3dfbad08c: all 10 Python runtime files and Dockerfile are identical in those two published sources.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+        "fileSha256": "34e6d1d4c7e114c2f536d9c92dffec79cb7a80c0c32c8b562b5ac540aa45fcc2",
+        "path": "submission/plain/digest.py",
+        "startLine": 109,
+        "endLine": 183
+      },
+      {
+        "submissionId": "9b597a76-9bf9-4923-a9d4-1c8ee83067a9",
+        "fileSha256": "64c4ace37a51c7493ca7def53de4122e9ef706b180859d24ed64484e6c25e5b1",
+        "path": "submission/plain/harness.py",
+        "startLine": 188,
+        "endLine": 210
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8",
+        "path": "submission/plain/digest.py",
+        "startLine": 185,
+        "endLine": 214
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "3344468941c4ed18b0404caa582f5ccbcba858e3d2dd7e8c2aa1567c5aaedec8",
+        "path": "submission/plain/digest.py",
+        "startLine": 158,
+        "endLine": 168
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 251,
+        "endLine": 278
+      }
+    ]
+  },
+  {
+    "submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0",
+    "rationale": "mpjunior92: inherited first-felling wait motivated by observed alligator danger. The leader applies its own bounded wait and broader predator list; no additional felling or wildlife behavior is introduced here.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0",
+        "fileSha256": "373cf08876eddec620ea9f8050419d4f70e2fe57a91cd62afef885e78efbccdf",
+        "path": "submission/overseer/harness.py",
+        "startLine": 186,
+        "endLine": 206
+      },
+      {
+        "submissionId": "a01ba5c4-0764-44fd-9299-23b0058cb3a0",
+        "fileSha256": "14fd10f8a61b3a91571943d1d06ec75958a5b4c3bdd115b0eb82496cf4370157",
+        "path": "submission/plain/harness.py",
+        "startLine": 401,
+        "endLine": 431
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 191,
+        "endLine": 234
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 443,
+        "endLine": 492
+      }
+    ]
+  },
+  {
+    "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+    "rationale": "pepedesigner: inherited upstream client, plain model loop, digest and deterministic controller carried by the promoted leader. The immediate runtime source of this package is 65e60732, not a fresh checkout of this older source.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+        "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789",
+        "path": "submission/plain/harness.py",
+        "startLine": 119,
+        "endLine": 136
+      },
+      {
+        "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+        "fileSha256": "4ad3363bca405ccadc19b380efecbca7d9057a4f45ba9f1f9e56fad50ac13789",
+        "path": "submission/plain/harness.py",
+        "startLine": 280,
+        "endLine": 323
+      },
+      {
+        "submissionId": "a9f894ea-c2db-4e37-9883-1ec1e14ec8d4",
+        "fileSha256": "6b7cf8535c1ffeac984ad35a7a2d3716a87b52cb69b27067019fd42d1f6626ff",
+        "path": "submission/overseer/harness.py",
+        "startLine": 338,
+        "endLine": 355
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 126,
+        "endLine": 143
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 293,
+        "endLine": 338
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 524,
+        "endLine": 542
+      }
+    ]
+  },
+  {
+    "submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a",
+    "rationale": "mpjunior92: inherited population-scaled Carpenters design input and the published fact that legacy autolabor ties fishing to a Fishery. The leader's no-fishing policy uses the latter fact by enabling autolabor while avoiding a Fishery; no source scaling code is newly copied.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "afd1d5b6-b2c0-4790-a7b8-c1e71e3dab4a",
+        "fileSha256": "65775c868a583559433c6e72cf2c77bf6991ad57e3299d1ed55aae1034f3106b",
+        "path": "submission/plain/caretaker.py",
+        "startLine": 84,
+        "endLine": 95
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 350,
+        "endLine": 368
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 237,
+        "endLine": 263
+      }
+    ]
+  },
+  {
+    "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+    "rationale": "kshitij-hash: inherited DF playbook and hatch-and-lock defensive seal idea, carried through the promoted lineage. The leader's later controller implements its own wildlife conditions, release and admission behavior; this patch changes none of them.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "d74e941b-d9b0-4fa8-bcec-3c79d548e3e8",
+        "fileSha256": "71776b877f5014c276ba33ccf181e75bf1ffa3d27180da2bf7fe0b1030606773",
+        "path": "submission/plain/prompt.py",
+        "startLine": 35,
+        "endLine": 104
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "6ecf6ec248404235dc614b2a76dee041655d4f343f3cba4b07aab31d30b0c488",
+        "path": "submission/plain/prompt.py",
+        "startLine": 36,
+        "endLine": 103
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 288,
+        "endLine": 306
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "409ad8313a2fc874ac0584d814e032b9d9f9f3473edbedb4cd774b2da97c0abd",
+        "path": "submission/overseer/openplay.py",
+        "startLine": 372,
+        "endLine": 572
+      }
+    ]
+  },
+  {
+    "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+    "rationale": "e-man07: inherited dining-seat accounting, loose-furniture re-zoning and pacing into the hands-off window. The later leader's real-seat and zone-membership implementation is retained through 65e60732.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+        "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+        "path": "submission/overseer/harness.py",
+        "startLine": 298,
+        "endLine": 304
+      },
+      {
+        "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+        "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+        "path": "submission/overseer/harness.py",
+        "startLine": 356,
+        "endLine": 372
+      },
+      {
+        "submissionId": "efac22bf-c49a-480c-95cd-3c252df6886e",
+        "fileSha256": "5c793d9ca66eae09cdd77389bcb54ad535c24854b6c06430bd134bc5b5b6c31b",
+        "path": "submission/overseer/harness.py",
+        "startLine": 409,
+        "endLine": 423
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 634,
+        "endLine": 640
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 800,
+        "endLine": 829
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 549,
+        "endLine": 555
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "2aa0f26483447fc4ac05ec5db68f28001c824a0508c3940366a65fce0a731f8f",
+        "path": "submission/plain/harness.py",
+        "startLine": 145,
+        "endLine": 157
+      }
+    ]
+  },
+  {
+    "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+    "rationale": "0xplemonade: inherited migrant-housing port, including early bed target/batch, office-chair exception, deep dorm priority, dorm/farm exclusion and partial-placement accounting. These are inherited implementations, not contributions of this patch.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 242,
+        "endLine": 248
+      },
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 219,
+        "endLine": 224
+      },
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 259,
+        "endLine": 265
+      },
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 267,
+        "endLine": 274
+      },
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 542,
+        "endLine": 551
+      },
+      {
+        "submissionId": "eff7d3c7-4af6-4ada-9a4f-957414fb99e2",
+        "fileSha256": "a783c0e32e0c2b4c845f6ed31daa7ef56eeac90b190c94279576f928233aabe2",
+        "path": "submission/overseer/harness.py",
+        "startLine": 363,
+        "endLine": 374
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 463,
+        "endLine": 512
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 370,
+        "endLine": 378
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 380,
+        "endLine": 384
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 386,
+        "endLine": 391
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 844,
+        "endLine": 896
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 350,
+        "endLine": 368
+      }
+    ]
+  },
+  {
+    "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+    "rationale": "mpjunior92: inherited larger regular bed-batch technique, later narrowed to the migrant task and the API cap. Its earlier published source 0e538cbc is separately retained as a declaration.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "f42cefb1-76a9-458b-880d-755a47b967e6",
+        "fileSha256": "9c85dc963f290dbae0fa6f88a6d4f632213aec3bb534996957edb33db9471efc",
+        "path": "submission/overseer/harness.py",
+        "startLine": 373,
+        "endLine": 383
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 463,
+        "endLine": 512
+      }
+    ]
+  },
+  {
+    "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+    "rationale": "0xplemonade: inherited malformed tool-name/cancel-ID regression cases and validate-before-cache inspiration explicitly credited in submission/tests/test_typed_arguments.py. The source's entire controller and recursive validator are not copied.",
+    "evidence": "Exact published source commit 62195aa386b9cfa0be8f95029198116bbe588c9b; source model_allowed validation and local regression cases identify the material design input.",
+    "citations": [
+      {
+        "submissionId": "f577e8a7-5faa-4ce5-b83f-8717cd1399f9",
+        "fileSha256": "b17f3f68784cd5ca0d8053cff1ebd0715aad58445bc7ee5752bae7512ce61a35",
+        "path": "submission/plain/harness.py",
+        "startLine": 87,
+        "endLine": 117
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "0be0fe384bfcbbc5b71b94272ba6fb65b409fea0137a6a91c7cab5b1bdab8dc9",
+        "path": "submission/tests/test_typed_arguments.py",
+        "startLine": 1,
+        "endLine": 86
+      }
+    ]
+  },
+  {
+    "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+    "rationale": "i34-9: inherited office immediate-chair sequence, placement-coordinate handling and full-year wood-crafts progression with day 40, wealth 5500, logs 25 and amount 3. These production constants and the leader's progression rule are unchanged.",
+    "evidence": "Exact published source files were checked against the board's submissionCommitSha; retained dependent passages were re-anchored to this frozen runtime. The material is inherited through leader 65e60732. This is bounded source/feature coverage, not certification of the ancestry graph.",
+    "citations": [
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 453,
+        "endLine": 461
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 393,
+        "endLine": 406
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 184,
+        "endLine": 212
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 278,
+        "endLine": 306
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 414,
+        "endLine": 431
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 30,
+        "endLine": 30
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 31,
+        "endLine": 31
+      },
+      {
+        "submissionId": "fa9c13cc-2503-4df4-b989-6a0f49b3cbd4",
+        "fileSha256": "ee13a95e6663fc4b6facc7872b43d7764d1df37c40be540cdb3c7d7b75db3e19",
+        "path": "submission/overseer/harness.py",
+        "startLine": 32,
+        "endLine": 32
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 524,
+        "endLine": 542
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 47,
+        "endLine": 47
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 48,
+        "endLine": 48
+      },
+      {
+        "submissionId": null,
+        "fileSha256": "b0376f0fc6eed3b63c98b51e0c072b0ca0ac9cb8c8b8f2243f201db05defed4c",
+        "path": "submission/overseer/harness.py",
+        "startLine": 49,
+        "endLine": 49
+      }
+    ]
+  }
 ]

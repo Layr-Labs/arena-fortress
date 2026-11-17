@@ -30,6 +30,7 @@ DAY = 1200
 MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
+SEED_RESERVE = 10       # a small seed-recovery brew may run above the drink ceiling, before the final feast
 MEAL_CAP = 200
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
@@ -431,7 +432,7 @@ class Overseer(OpenPlayRules):
                     self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), 9, 7)
             elif r.get("soil") and farms < self.farm_target():
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
-                if result and (not self.surge or result.get("ok")):
+                if result and result.get("ok"):
                     self.roles[rid] = "farm"
                     farms += 1
             elif need:
@@ -440,7 +441,7 @@ class Overseer(OpenPlayRules):
                     continue
                 size = {"dorm": {"w": 9, "h": 7}, "dine": {"w": 7, "h": 5}, "office": {}}[role]
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, **size}, retry=3, limit=2)
-                if result and (not self.surge or result.get("ok")):
+                if result and result.get("ok"):
                     self.roles[rid] = role
                     if self.surge and role == "dorm":
                         self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), 9, 7)
@@ -470,6 +471,17 @@ class Overseer(OpenPlayRules):
                 when.insert(0, {"stock": "drink", "below": DRINK_CAP})
             key = "o_brew_growth" if self.drink_growth else "o_brew"
             self.act(key, "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": when}, retry=3)
+        # Brewing returns seeds even when drink is plentiful. A cap-blocked Still must not leave scarce seeds
+        # waiting for raw eating or rot. One job can consume a whole plant stack; never queue another behind it.
+        seeds = self.st.get("seeds")
+        if (self.open_play() and self.days_left > FEAST_DAYS and not self.brew_stopped
+                and isinstance(seeds, int) and 0 <= seeds < SEED_RESERVE
+                and (self.st.get("drink") or 0) >= DRINK_CAP
+                and (self.st.get("plants_brewable") or 0) >= 2
+                and (self.st.get("barrels_empty") or 0) >= 1
+                and not any(x.get("recipe") == "brew_drink" and not x.get("repeat")
+                            and (x.get("left") or 0) > 0 for x in self.orders)):
+            self.act("o_brew_seeds", "add_order", {"recipe": "brew_drink", "amount": 1}, retry=4, limit=99)
         if not self.standing("make_barrel"):
             self.act("o_barrel", "add_order", {"recipe": "make_barrel", "amount": 2, "repeat": "daily", "when": [
                 {"stock": "barrels_empty", "below": 4}, {"stock": "logs", "at_least": 2}]}, retry=3)

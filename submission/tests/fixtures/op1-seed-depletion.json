@@ -1,0 +1,368 @@
+{
+  "provenance": {
+    "path": "leader-native-op1/OP1-0/game/harness-0.api.jsonl",
+    "line": 359,
+    "sha256": "0bdb3985e93fe4690d09f76aab2e98f7070fa1b90e7df6b2baea9ac737c46a32",
+    "projection": "Public day/tick/days_left, stocks, orders, farm_plots, administrators, workshops, plugins only",
+    "scaffolding": "map.sites=[] suppresses unrelated furniture-site work; it is not a raw full-response replay"
+  },
+  "response": {
+    "day": 133,
+    "tick": 983300,
+    "days_left": 202,
+    "observation": {
+      "date": {
+        "abs_tick": 983300,
+        "day_of_year": 148,
+        "season": "summer",
+        "year": 2
+      },
+      "stocks": {
+        "barrels_empty": 8,
+        "barrels_total": 47,
+        "beds": 17,
+        "bins": 0,
+        "boulders": 0,
+        "boulders_usable": 0,
+        "chairs": 11,
+        "charcoal": 0,
+        "drink": 307,
+        "food_any_good": 23,
+        "food_edible": 12,
+        "furniture_free": {
+          "bed": 2,
+          "chair": 2,
+          "container": 0,
+          "door": 0,
+          "table": 1
+        },
+        "logs_unusable": 8,
+        "logs_usable": 310,
+        "plants_brewable": 10,
+        "plants_by_kind": {
+          "plump helmet": {
+            "brewable": true,
+            "cookable": true,
+            "n": 10
+          }
+        },
+        "plants_rotten": 19,
+        "plants_total": 10,
+        "prepared_meals": 2,
+        "seeds": 0,
+        "seeds_by_kind": {},
+        "tables": 10
+      },
+      "orders": [
+        {
+          "active": false,
+          "id": 0,
+          "job": "CustomReaction",
+          "jobs_in_progress": 0,
+          "left": 3,
+          "reaction": "BREW_DRINK_FROM_PLANT",
+          "repeat": "daily",
+          "total": 3,
+          "validated": true,
+          "when": [
+            {
+              "item_type": "DRINK",
+              "test": "LessThan",
+              "value": 300,
+              "flags": [],
+              "stock": "drink"
+            },
+            {
+              "flags": [
+                "unrotten"
+              ],
+              "item_type": "PLANT",
+              "reaction_product": "DRINK_MAT",
+              "test": "AtLeast",
+              "value": 2,
+              "stock": "plants_brewable"
+            },
+            {
+              "flags": [
+                "empty"
+              ],
+              "item_type": "BARREL",
+              "test": "AtLeast",
+              "value": 1,
+              "stock": "barrels_empty"
+            }
+          ],
+          "recipe": "brew_drink",
+          "created_tick": 823200
+        },
+        {
+          "active": false,
+          "id": 1,
+          "job": "MakeBarrel",
+          "jobs_in_progress": 0,
+          "left": 2,
+          "material_category": [
+            "wood"
+          ],
+          "repeat": "daily",
+          "total": 2,
+          "validated": true,
+          "when": [
+            {
+              "flags": [
+                "empty"
+              ],
+              "item_type": "BARREL",
+              "test": "LessThan",
+              "value": 4,
+              "stock": "barrels_empty"
+            },
+            {
+              "item_type": "WOOD",
+              "test": "AtLeast",
+              "value": 2,
+              "flags": [],
+              "stock": "logs"
+            }
+          ],
+          "recipe": "make_barrel",
+          "created_tick": 823200
+        },
+        {
+          "active": true,
+          "id": 2,
+          "job": "PrepareMeal",
+          "jobs_in_progress": 1,
+          "left": 2,
+          "meal_kind": -1,
+          "repeat": "daily",
+          "total": 2,
+          "validated": true,
+          "when": [
+            {
+              "item_type": "FOOD",
+              "test": "LessThan",
+              "value": 200,
+              "flags": [],
+              "stock": "prepared_meals"
+            },
+            {
+              "flags": [
+                "unrotten"
+              ],
+              "item_type": "PLANT",
+              "test": "AtLeast",
+              "value": 10,
+              "stock": "plants_total"
+            }
+          ],
+          "recipe": "cook_meal",
+          "created_tick": 823200
+        },
+        {
+          "active": true,
+          "id": 8,
+          "job": "MakeCrafts",
+          "jobs_in_progress": 1,
+          "left": 3,
+          "material_category": [
+            "wood"
+          ],
+          "repeat": "daily",
+          "total": 3,
+          "validated": true,
+          "when": [
+            {
+              "item_type": "WOOD",
+              "test": "AtLeast",
+              "value": 25,
+              "flags": []
+            }
+          ],
+          "created_tick": 875200
+        },
+        {
+          "active": true,
+          "id": 10,
+          "job": "ConstructBed",
+          "jobs_in_progress": 1,
+          "left": 1,
+          "material_category": [
+            "wood"
+          ],
+          "total": 8,
+          "validated": true,
+          "recipe": "make_bed",
+          "created_tick": 961700
+        }
+      ],
+      "farm_plots": [
+        {
+          "built": true,
+          "crops": {
+            "autumn": "none",
+            "spring": "none",
+            "summer": "none",
+            "winter": "none"
+          },
+          "crop_this_season": "none",
+          "h": 3,
+          "id": 2,
+          "seeds_or_crops_in_plot": 0,
+          "subterranean": true,
+          "w": 3,
+          "x": 91,
+          "y": 97,
+          "z": 105
+        },
+        {
+          "built": true,
+          "crops": {
+            "autumn": "none",
+            "spring": "none",
+            "summer": "none",
+            "winter": "none"
+          },
+          "crop_this_season": "none",
+          "h": 3,
+          "id": 3,
+          "seeds_or_crops_in_plot": 0,
+          "subterranean": true,
+          "w": 3,
+          "x": 95,
+          "y": 97,
+          "z": 105
+        },
+        {
+          "built": true,
+          "crops": {
+            "autumn": "none",
+            "spring": "none",
+            "summer": "none",
+            "winter": "none"
+          },
+          "crop_this_season": "none",
+          "h": 3,
+          "id": 4,
+          "seeds_or_crops_in_plot": 0,
+          "subterranean": true,
+          "w": 3,
+          "x": 91,
+          "y": 97,
+          "z": 104
+        },
+        {
+          "built": true,
+          "crops": {
+            "autumn": "none",
+            "spring": "none",
+            "summer": "none",
+            "winter": "none"
+          },
+          "crop_this_season": "none",
+          "h": 3,
+          "id": 5,
+          "seeds_or_crops_in_plot": 0,
+          "subterranean": true,
+          "w": 3,
+          "x": 95,
+          "y": 97,
+          "z": 104
+        }
+      ],
+      "administrators": {
+        "BOOKKEEPER": "VACANT",
+        "BROKER": "VACANT",
+        "CHIEF_MEDICAL_DWARF": "VACANT",
+        "citizens": 16,
+        "EXPEDITION_LEADER": "Rovod Uzolerar, expedition leader",
+        "EXPEDITION_LEADER_id": 93,
+        "MANAGER": "Zulban Eribudil, manager",
+        "manager_active_for_orders": true,
+        "MANAGER_id": 87,
+        "manager_office": {
+          "chair": false,
+          "zone_id": 31
+        },
+        "manager_required_office": 1
+      },
+      "workshops": [
+        {
+          "built": true,
+          "id": 1,
+          "job_details": [
+            {
+              "by_manager": true,
+              "job": "ConstructBed",
+              "order_id": 10,
+              "worker_id": 197
+            }
+          ],
+          "jobs": [
+            "ConstructBed(order)"
+          ],
+          "type": "Carpenters",
+          "x": 95,
+          "y": 91,
+          "z": 106
+        },
+        {
+          "built": true,
+          "id": 6,
+          "job_details": [],
+          "jobs": [],
+          "type": "Still",
+          "x": 97,
+          "y": 99,
+          "z": 106
+        },
+        {
+          "built": true,
+          "id": 11,
+          "job_details": [
+            {
+              "by_manager": true,
+              "job": "PrepareMeal",
+              "order_id": 2
+            }
+          ],
+          "jobs": [
+            "PrepareMeal(order)"
+          ],
+          "type": "Kitchen",
+          "x": 99,
+          "y": 93,
+          "z": 106
+        },
+        {
+          "built": true,
+          "id": 27,
+          "job_details": [
+            {
+              "by_manager": true,
+              "job": "MakeCrafts",
+              "order_id": 8
+            }
+          ],
+          "jobs": [
+            "MakeCrafts(order)"
+          ],
+          "type": "Craftsdwarfs",
+          "x": 89,
+          "y": 93,
+          "z": 106
+        }
+      ],
+      "plugins": {
+        "autochop": "on",
+        "autofarm": "on",
+        "seedwatch": "on",
+        "autolabor": "on",
+        "autoclothing": "off"
+      },
+      "map": {
+        "sites": []
+      }
+    }
+  }
+}
