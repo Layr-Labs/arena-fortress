@@ -68,7 +68,9 @@ OpenAI-compatible https endpoint serving the same model works with `--upstream`)
    DFHack's automation: one DF container, roughly 10-30 minutes a fort). Lab forts print `TASKFORT`.
    `.yukon/setup.sh` runs steps 1 and 2 (skipping forts already built) and checks that `submission/` builds. The MY1
    builder refuses to start while other containers run (the 120 automation days are slow on a busy host); set
-   `DFBENCH_ALLOW_BUSY=1` if your machine has room.
+   `DFBENCH_ALLOW_BUSY=1` if your machine has room. Re-running setup keeps your existing forts, so your local
+   before/after comparisons keep the same starts. A lab fort is rebuilt only if it is incomplete or its recipe
+   changed, or if you set `DFBENCH_REBUILD_FORTS=1`. (DF varies run to run, so a rebuilt fort is a different start.)
 3. **First, the smoke test (free):** `runner/dfbench local smoke`. It plays 3 game-days of LT01 on **real DF with a
    fake model**: no key and no cost, a few minutes. It prints PASS, or FAIL with the likely cause and the next step
    (a missing fort, the wrong DF image, too little Docker memory, a harness that won't start). `.yukon/setup.sh`

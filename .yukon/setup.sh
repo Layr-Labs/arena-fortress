@@ -12,6 +12,8 @@
 #      DFBENCH_PUBLIC_SEEDS  public pool seeds for the lab forts (default 2001,2002,2005)
 #      DFBENCH_MY1_SEEDS     public seeds for the MY1 day-120 forts (default 2001,2002,2005; the MY1 task files name
 #                            these three)
+#      DFBENCH_REBUILD_FORTS=1  rebuild the public lab forts even if they exist (they are kept by default: DF varies
+#                            run to run, so a rebuilt fort is a different start and breaks local before/after comparisons)
 #      DFBENCH_SMOKE=0       skip the closing smoke game (real DF, fake model, 3 game-days of LT01, $0, a few minutes)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -50,7 +52,9 @@ say "building the gateway image"
 docker build -q -t dfbench-gateway:local gateway/ >/dev/null
 
 say "public lab forts (seeds $SEEDS)"
-docker/task_forts.sh --image "$BASE" --seeds "$SEEDS" --recipes worked-y1,neglected-y1 --out scenarios/snapshots
+KEEP=(--skip-existing); [ "${DFBENCH_REBUILD_FORTS:-}" = 1 ] && KEEP=()
+docker/task_forts.sh --image "$BASE" --seeds "$SEEDS" --recipes worked-y1,neglected-y1 --out scenarios/snapshots \
+  ${KEEP[@]+"${KEEP[@]}"}
 
 if [ ! -d scenarios/snapshots/embark-default-fort-12345 ]; then
   say "OP1 start fort (embark-default-fort-12345)"
