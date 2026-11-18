@@ -676,7 +676,8 @@ def _threats(c):
     s += f"; weapons_free {_n(mil.get('weapons_free'))}"
     # the civilian alert and the stair hatches are the layer's (the model's calls are refused): never suggested here
     if hostiles and not lock:
-        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles; " if sq else "")
+        raid = any(_d(v).get("invader") for v in _d(th.get("by_race")).values())
+        c["next"].insert(0, "HOSTILES VISIBLE: " + ("equip_squad weapon_only then squad_order attack if armed >= hostiles; " if sq and raid else "")
                          + ("the layer sounds the civilian alert itself" if shelter
                             else "create_burrow on an A site (the shelter); the layer sounds the civilian alert itself"))
     return s

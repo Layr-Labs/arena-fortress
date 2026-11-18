@@ -933,11 +933,16 @@ class Overseer(OpenPlayRules):
             self.place_hatches()
         invaders = [h for h in lst(th.get("hostiles")) if d(h).get("invader")]
         hostile = th.get("visible_hostiles") or 0
+        targets = None
+        if self.open_task():
+            targets = [d(h).get("id") for h in invaders if isinstance(d(h).get("id"), int)]
+            hostile = len(targets)
         orders = lst((squad or {}).get("orders"))
         holding = self.lock is not None and self.lock["phase"] == "hold"   # civilians are below: the squad stays in
         ours = (self.lock is not None and self.lock["why"] != "invaders") or self.thaw_alert   # this layer's to clear
         if hostile and squad and (squad.get("armed") or 0) >= 1 and not orders and not holding:
-            self.act("attack", "squad_order", {"order": "attack"}, retry=1, limit=99)
+            args = {"order": "attack", "target_ids": targets[:20]} if targets else {"order": "attack"}
+            self.act("attack", "squad_order", args, retry=1, limit=99)
         if (not hostile or holding) and orders:
             self.act("stand_down", "squad_order", {"order": "stand_down"}, retry=1, limit=99)
         near = (th.get("nearest_hostile_dist_to_wagon") or 10 ** 6) <= 45

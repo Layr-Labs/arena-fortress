@@ -88,8 +88,8 @@ insanity, which is a lost dwarf. Keep everyone else fed and sleeping meanwhile.
 DEFENCE. threats.hostiles lists visible hostiles. Large wild animals that hunt dwarves (carnotaurus, alligator,
 bears, big cats) are not in it unless the game marks one hostile: an ALERT line in STATUS names them. Unarmed civilians fight with their fists, and
 an armed party can kill a fortress in a day. In peace: create_squad size=4-6 once there are 10+ dwarves (members keep
-working). When hostiles appear: equip_squad weapon_only, then squad_order attack only if military.armed >= hostiles;
-never send a squad against a large wild animal. The layer makes the Shelter burrow, puts a hatch on each surface
+working). When invaders appear: equip_squad weapon_only, then squad_order attack with target_ids = the invaders' ids
+only if military.armed >= hostiles; never send a squad against a beast or a large wild animal. The layer makes the Shelter burrow, puts a hatch on each surface
 stair, sounds and clears the civilian alert, and locks and unlocks those hatches (your civilian_alert, and lock_door
 on those hatches, are refused). A dwarf dying to a wild animal or thirst costs more than any production gains.
 

@@ -1,9 +1,9 @@
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+wildlife lockdown, no fishing and first-felling wait). It changes six things, and this revision a seventh.
+All but the third and fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining
+and wealth steps, have no lockdown, and send the squad at any danger as before):
 
 - Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
   dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
@@ -27,6 +27,10 @@ have no lockdown):
   lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
   hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
   the civilian alert, a Fishery or Butchers on a calm fort).
+- The squad is sent only at invaders, by id, and stands down when the only dangers in sight are beasts
+  (forgotten beasts, night creatures, agitated animals): those are the lockdown's. An untargeted attack
+  order lists every danger on the map, and four dwarves in leather lose to most of them. The digest and
+  the prompt suggest an attack only against invaders.
 
 Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
 GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
