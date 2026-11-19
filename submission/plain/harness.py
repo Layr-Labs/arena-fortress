@@ -39,7 +39,9 @@ MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
-CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
+NO_MODEL = True             # measurement build: the deterministic layer plays the whole game and the model is
+                            #   never called (layer_only, as after a failed model); False restores the model loop
+CHURN_DAYS = 3             # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
 LAYER_TOOLS = ("civilian_alert",)   # the deterministic layer owns these: the model's calls are refused locally
@@ -182,6 +184,10 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
+        if NO_MODEL:   # measurement build: no model call at all; the layer plays to the horizon
+            self.layer_only("no_model")
+            log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            return self.stats
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
