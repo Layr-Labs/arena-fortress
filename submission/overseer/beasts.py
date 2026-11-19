@@ -17,7 +17,13 @@ BEASTS = frozenset((
     "CRETACEOUS_QUETZALCOATLUS", "JURASSIC_TORVOSAURUS", "JURASSIC_ALLOSAURUS", "JURASSIC_AFROVENATOR",
     "JURASSIC_CERATOSAURUS", "JURASSIC_DILOPHOSAURUS", "CENOZOIC_ANDREWSARCHUS", "CENOZOIC_MEGALANIA",
     "CENOZOIC_SMILODON", "CENOZOIC_KELENKEN", "PERMIAN_ANTEOSAURUS", "PERMIAN_DIMETRODON", "OGRE", "YETI",
-    "SASQUATCH", "BLIZZARD_MAN", "BEAK_DOG", "NIGHTWING", "GRIMELING"))
+    "SASQUATCH", "BLIZZARD_MAN", "BEAK_DOG", "NIGHTWING", "GRIMELING",
+    # d68: the cougar, below this list's size rule (it was kept for the first felling only, in openplay.PREDATORS).
+    # Measured: one roamed the surface 55 tiles from the wagon for two weeks of a full local OP1 year while the
+    # beast look, reading this set, never saw it; on day 200 it fought a dwarf (ten strike details, exhaustion,
+    # knocked out) and the dwarf died - survival 0.762, the year O 67.5, tier 0. A lockdown inside WILD_NEAR
+    # would have shut the stair and kept everyone below the surface while it passed.
+    "COUGAR"))
 # ... of which these keep to the water's edge: they count only when close to the wagon
 LURKERS = frozenset(("ALLIGATOR", "CROCODILE_SALTWATER", "ANACONDA", "CRETACEOUS_SPINOSAURUS_MIRABILIS",
                      "CRETACEOUS_SPINOSAURUS_AEGYPTIACUS", "GRIMELING"))
