@@ -442,6 +442,18 @@ class Plain:
 
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
+        if name in ("dig_room", "dig_stairs"):
+            try:
+                safe = self.guard.dry_dig(name, args)
+            except Exception:
+                safe = args
+            if safe is None:
+                return {"ok": False, "error_code": "water_near", "error": (
+                    "not run: revealed water lies next to this dig (within 1 tile of the room or of the stair's "
+                    "first level). Digging beside it lets the water into the fort, and dwarves drown. Pick "
+                    "another site.")}
+            if safe != args:
+                args.update(safe)   # cut back clear of the water: the result shows what was designated
         if name == "slaughter" and self.open_play():
             return {"ok": False, "error_code": "layer_owned", "error": (
                 "not run: the deterministic layer schedules slaughter on this task. Food rots in about 17 days here, "

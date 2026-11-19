@@ -24,12 +24,17 @@ import sys
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameClient, GameOver, HandsOff, load_task
-from overseer.openplay import OpenPlayRules, BUTCHER_LEAD, FEAST_DAYS
+from overseer.openplay import OpenPlayRules, BUTCHER_LEAD, FEAST_DAYS, FINAL_STRETCH
 
 DAY = 1200
 MAX_PER_PASS = 12
 MAX_PASSES = 3
 DRINK_CAP = 300
+BREW_KEEP = 6           # full-year embarks: plants left unbrewed as food. Their brew order has no drink ceiling: with
+                        #   one, drink reached DRINK_CAP near day 80, brewing stopped, and the harvest lay on the
+                        #   plots until it rotted (17 rotten to 4 fresh on one fort at day 147 in a live game). A
+                        #   rotten plant gives no seed back, and the seeds in the plots fell from 25 to 7-9 by
+                        #   midsummer, so the farms ran a quarter planted into the scored winter
 MEAL_CAP = 200
 ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
                         #   the supply slope over it must be >= 0, so production is raised a month before it starts
@@ -52,11 +57,23 @@ ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be
 ZONE_TRIES = 3          #   outside every dining zone, at most this many times a site
 ZONE_FAILS = 3          # refusals of a site's dining make_zone after which it is not asked again
 STUCK_DAYS = 3          # a workshop construction suspended this long is built again elsewhere (no tool resumes it;
-STUCK_REBUILDS = 2      #   a stuck Carpenters left a full-year fort with no bed, table or chair), this many times
+STUCK_REBUILDS = 2      #   a stuck Carpenters left a full-year fort with no bed, table or chair), this many times.
+                        #   A Butchers counts as stuck after the same days unbuilt, suspended or not: on some sites
+                        #   nobody ever took the job, in every recorded game that used them (0 of 16 built, never
+                        #   suspended; in a live game no log could be walked to from the site), while the other
+                        #   sites of the same maps were built on within two days. And it is built again for as long
+                        #   as a free site is listed, not STUCK_REBUILDS times: it is ordered months in, when the
+                        #   logs near the wagon are used up, and on a river map each job reserved a log on the far
+                        #   bank and kept it once suspended (three stuck shops held three logs of one felled tree),
+                        #   so the next job takes another log
 
 SURGE_BEDS = 50
 SURGE_CARPENTERS = 3
 SURGE_DORM_DEPTH = 3
+WATER_RING = 1          # revealed liquid within this many tiles of a dig (a room's box on its own level, a stair
+                        #   shaft level by level) cuts the dig back clear of it, or stops it. A 9x7
+                        #   dormitory dug from a 3x3 site one level below the surface took in the bed of a brook, and
+                        #   three dwarves drowned in it within a week (local MY1 game, leader's harness, 2026-11-15)
 
 def log(kind, **kw):
     print(json.dumps({"t": round(time.time(), 2), "kind": kind, **kw}, default=str), flush=True)
@@ -105,11 +122,13 @@ class Overseer(OpenPlayRules):
         self.done = set()        # closer keys whose order was accepted once: never re-added
         self.full_sites = set()  # W site ids a workshop was built on, so the next build takes another site
         self.stuck_since = {}    # (workshop id, type, x, y, z) -> tick its construction was first seen suspended
+        self.unbuilt_since = {}  # the same key -> tick a Butchers was first seen listed and not yet built
         self.built_n = {}        # workshop type -> build_workshop calls the game accepted
         self.dorm_box = None
         self.lab = False         # the task has a hands-off window (set_task); open play is everything else
         self.culled = {}         # cull key -> tick of its last pass
         self.brew_stopped = False
+        self.stretch_rest = False   # a full-year embark's one stop of brewing at DRINK_REOPEN was used (brew_rest)
         self.sheltered = {}      # A site id -> its open tiles when it was last added to the shelter burrow
         self.stairs = {}         # E site id -> (x, y, z): every surface stair ever listed
         self.surface_seen = None   # the surface level (the wagon's z) as last reported: kept through a reply without it
@@ -130,6 +149,9 @@ class Overseer(OpenPlayRules):
         self.beast_spent = 0     # ... ticks spent shut from the first sight of one to the opening of the fort
         self.fell = None         # open play, the first felling: None undecided, {"since", "blind"} waiting for a
                                  #   large predator to leave, False no longer waiting
+        self.wet_sites = set()   # site ids not dug at all: revealed liquid lies within WATER_RING of them
+        self.dug_size = {}       # site id -> (w, h) of the room box the game accepted (after any cut for water)
+        self.wet_seen, self.wet_tick = {}, None   # map query answers of this tick, by box
 
     def set_task(self, info):
         """Goal policies from the task's own public text (GET /task). A hands_off field means a lab task."""
@@ -151,9 +173,20 @@ class Overseer(OpenPlayRules):
         """One rate-limited action. Returns the response if it ran, else None."""
         if key in self.done or not self.may(key, retry, limit):
             return None
+        if tool in ("dig_room", "dig_stairs"):
+            safe = self.dry_dig(tool, args)
+            if safe is None:
+                self.wet_sites.add(args.get("site"))
+                log("dig_wet", key=key, tool=tool, args=args)
+                return None
+            if safe != args:
+                log("dig_cut", key=key, tool=tool, asked=args, now=safe)
+                args = safe
         self.tries[key] = self.tries.get(key, 0) + 1
         self.last[key] = self.now
         r = self.game.act(tool, args)
+        if tool == "dig_room" and r.get("ok") and isinstance(args, dict):
+            self.dug_size[args.get("site")] = (args.get("w") or 3, args.get("h") or 3)
         self.count += 1
         log("act", key=key, tool=tool, args=args, ok=r.get("ok"), code=r.get("error_code"),
             err=str(r.get("error") or "")[:160])
@@ -201,7 +234,7 @@ class Overseer(OpenPlayRules):
             if isinstance(f, dict):
                 self.placed[f.get("kind")] = self.placed.get(f.get("kind"), 0) + 1
         if isinstance(self.o.get("workshops"), list):
-            seen = set()
+            seen, unbuilt = set(), set()
             for w in lst(self.o.get("workshops")):
                 w = d(w)
                 if w.get("id") is not None and not w.get("built") and any(
@@ -209,9 +242,14 @@ class Overseer(OpenPlayRules):
                     key = self.shop_key(w)
                     self.stuck_since.setdefault(key, self.now)
                     seen.add(key)
+                if w.get("id") is not None and not w.get("built") and w.get("type") == "Butchers":
+                    self.unbuilt_since.setdefault(self.shop_key(w), self.now)
+                    unbuilt.add(self.shop_key(w))
             self.stuck_since = {k: v for k, v in self.stuck_since.items() if k in seen}
+            self.unbuilt_since = {k: v for k, v in self.unbuilt_since.items() if k in unbuilt}
         else:
             self.stuck_since = {}    # an unreadable listing breaks the record: suspensions are timed afresh
+                                     # (a shop does not go back to unbuilt, so unbuilt_since keeps its ticks)
         self.surface = self.map.get("surface_z")
         if isinstance(self.surface, int) and not isinstance(self.surface, bool):
             self.surface_seen = self.surface
@@ -236,6 +274,79 @@ class Overseer(OpenPlayRules):
 
     def undug_rooms(self):
         return [r for r in self.kind("R") if not r.get("designated")]
+
+    # ---- digging clear of water
+    def wet_near(self, x, y, z_top, z_bot, radius):
+        """Revealed liquid tiles {(x, y, z)} within `radius` of (x, y) on levels z_bot..z_top (the map query, at
+        most 5 levels a call), or None when the query fails or its answer can't be read."""
+        if self.wet_tick != self.now:
+            self.wet_seen, self.wet_tick = {}, self.now
+        key = (x, y, z_top, z_bot, radius)
+        if key not in self.wet_seen:
+            try:
+                q = d(self.game.query("map", x=x, y=y, z=z_top, z2=z_bot, radius=radius))
+                res = d(q.get("result")) if isinstance(q.get("result"), dict) else q
+                liq = res.get("liquid")
+                self.wet_seen[key] = None if not isinstance(liq, list) else {
+                    (t.get("x"), t.get("y"), t.get("z")) for t in liq if isinstance(t, dict)}
+            except Exception as e:     # a failed look leaves the dig as asked (the inherited behaviour)
+                log("wet_query_error", error=repr(e)[:160])
+                self.wet_seen[key] = None
+        return self.wet_seen[key]
+
+    def dry_dig(self, tool, args):
+        """A dig_room or dig_stairs as it may go ahead clear of revealed liquid, or None to dig nothing.
+
+        A room box (from the site's top-left, as large as asked) is cut back to the largest box, no smaller than
+        the site's own 3x3, with no liquid within WATER_RING tiles of it on its own level; None if there is none.
+        (Water on the level above stays there: the leader's harness dug a room under a brook without a flood.) A
+        stair stops above the first level of its shaft with liquid within WATER_RING; None if that is its first
+        level. What the map can't show (hidden tiles, an aquifer not yet breached) is not judged here; a failed
+        look leaves the dig as asked."""
+        if tool not in ("dig_room", "dig_stairs") or not isinstance(args, dict):
+            return args
+        site = next((s for s in self.sites if s.get("id") == args.get("site")), None)
+        if not site or not all(type(site.get(k)) is int for k in ("x", "y", "z")):
+            return args
+        x0, y0, z, ring = site["x"], site["y"], site["z"], WATER_RING
+        if tool == "dig_room":
+            try:
+                w, h = max(1, min(15, int(args.get("w") or 3))), max(1, min(15, int(args.get("h") or 3)))
+            except (TypeError, ValueError):
+                return args
+            wet = self.wet_near(x0 + w // 2, y0 + h // 2, z, z, min(20, max(w, h) // 2 + ring + 1))
+            if wet is None:
+                return args
+
+            def clear(ww, hh):     # its own level only: a room dug under water keeps the floor of the level above
+                return not any(zz == z and x0 - ring <= x <= x0 + ww - 1 + ring
+                               and y0 - ring <= y <= y0 + hh - 1 + ring for x, y, zz in wet)
+            if clear(w, h):
+                return args
+            fits = [(ww * hh, ww, hh) for ww in range(w, min(3, w) - 1, -1) for hh in range(h, min(3, h) - 1, -1)
+                    if clear(ww, hh)]          # never below the site's own 3x3: a sliver beside water is no room
+            if not fits:
+                return None
+            _, ww, hh = max(fits)
+            return {**args, "w": ww, "h": hh}
+        try:
+            bottom = int(args.get("z_bottom", z - 1))
+        except (TypeError, ValueError):
+            return args
+        if bottom >= z:
+            return args
+        wet = set()
+        for top in range(z, bottom - 1, -5):
+            part = self.wet_near(x0, y0, top, max(bottom, top - 4), ring + 1)
+            if part is None:
+                return args
+            wet |= part
+        levels = {zz for x, y, zz in wet if abs(x - x0) <= ring and abs(y - y0) <= ring and bottom <= zz <= z}
+        if not levels:
+            return args
+        if z in levels or max(levels) + 1 >= z:
+            return None
+        return {**args, "z_bottom": max(levels) + 1}
 
     def dug_rooms(self, role=None):
         return [r for r in self.kind("R") if r.get("dug") and r.get("free", True)
@@ -321,17 +432,20 @@ class Overseer(OpenPlayRules):
 
     def shops(self):
         """Listed workshop types, except one whose every copy has had its construction suspended for STUCK_DAYS (build
-        it elsewhere), until STUCK_REBUILDS more are listed or 1 + STUCK_REBUILDS builds were accepted."""
+        it elsewhere), until STUCK_REBUILDS more are listed or 1 + STUCK_REBUILDS builds were accepted. A Butchers
+        left unbuilt for STUCK_DAYS is stuck too, suspended or not, and has no such limit."""
         rows = [d(w) for w in lst(self.o.get("workshops"))]
         have, stuck = set(), {}
         for w in rows:
             since = self.stuck_since.get(self.shop_key(w))
-            if since is not None and self.now - since >= STUCK_DAYS * DAY:
+            idle = self.unbuilt_since.get(self.shop_key(w))
+            if (since is not None and self.now - since >= STUCK_DAYS * DAY) \
+                    or (idle is not None and self.now - idle >= STUCK_DAYS * DAY):
                 stuck[w.get("type")] = stuck.get(w.get("type"), 0) + 1
             else:
                 have.add(w.get("type"))
         for t, n in stuck.items():
-            if t not in have and (n > STUCK_REBUILDS or self.built_n.get(t, 0) > STUCK_REBUILDS):
+            if t not in have and t != "Butchers" and (n > STUCK_REBUILDS or self.built_n.get(t, 0) > STUCK_REBUILDS):
                 have.add(t)
         return have
 
@@ -358,8 +472,9 @@ class Overseer(OpenPlayRules):
                 and (self.calm is False if self.open_task() else True):
             self.build("Fishery")
         if open_play and "Butchers" not in have and have >= {"Carpenters", "Still", "Kitchen"} \
-                and (self.calm is False or self.days_left <= FEAST_DAYS + BUTCHER_LEAD):
-            self.build("Butchers")   # the feast must not wait for a workshop (building one took a week in game)
+                and (self.calm is False or self.days_left <= FEAST_DAYS + BUTCHER_LEAD or "Butchers" in listed):
+            self.build("Butchers")   # the feast must not wait for a workshop (building one took a week in game);
+                                     # one that was started and is stuck is not left to the next cull either
         if self.beds_first or self.surge:
             n = sum(1 for w in lst(self.o.get("workshops")) if isinstance(w, dict) and w.get("type") == "Carpenters")
             target = SURGE_CARPENTERS if self.surge and self.beds_unmet() and self.cit >= 15 and self.logs() >= 5 else 2
@@ -421,14 +536,14 @@ class Overseer(OpenPlayRules):
         farms = len(lst(self.o.get("farm_plots"))) + sum(1 for r, v in self.roles.items() if v == "farm" and not any(z.get("id") == r and z.get("used_by") for z in self.kind("R")))
         for r in self.undug_rooms():
             rid = r["id"]
-            if rid in self.roles:
+            if rid in self.roles or rid in self.wet_sites:
                 continue
             need = [x for x in ("dorm", "dine", "office") if x not in self.roles.values()]
             if self.surge and "dorm" in need and self.dorm_depth_ok(r):
                 result = self.act("dig_" + rid, "dig_room", {"site": rid, "w": 9, "h": 7}, retry=3, limit=2)
                 if result and result.get("ok"):
                     self.roles[rid] = "dorm"
-                    self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), 9, 7)
+                    self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), *self.dug_size.get(rid, (9, 7)))
             elif r.get("soil") and farms < self.farm_target():
                 result = self.act("dig_" + rid, "dig_room", {"site": rid}, retry=3, limit=2)
                 if result and (not self.surge or result.get("ok")):
@@ -443,7 +558,7 @@ class Overseer(OpenPlayRules):
                 if result and (not self.surge or result.get("ok")):
                     self.roles[rid] = role
                     if self.surge and role == "dorm":
-                        self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), 9, 7)
+                        self.dorm_box = (r.get("x"), r.get("y"), r.get("z"), *self.dug_size.get(rid, (9, 7)))
 
     def farms(self):
         plots = lst(self.o.get("farm_plots"))
@@ -466,7 +581,9 @@ class Overseer(OpenPlayRules):
         brew = self.standing("brew_drink") or (self.drink_growth and bool(self.brew_own)) or self.brew_stopped
         if not brew:
             when = [{"stock": "plants_brewable", "at_least": 2}, {"stock": "barrels_empty", "at_least": 1}]
-            if not self.drink_growth:
+            if self.full_year():
+                when[0] = {"stock": "plants_brewable", "at_least": BREW_KEEP}
+            elif not self.drink_growth:
                 when.insert(0, {"stock": "drink", "below": DRINK_CAP})
             key = "o_brew_growth" if self.drink_growth else "o_brew"
             self.act(key, "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": when}, retry=3)
@@ -554,6 +671,15 @@ class Overseer(OpenPlayRules):
             self.act("o_brew_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
                 {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
                 {"stock": "barrels_empty", "at_least": 1}]}, retry=3, limit=4)
+            if self.open_play() and self.days_left <= FINAL_STRETCH:
+                # the scored stretch itself: drink must not fall across it. The regular order stops at DRINK_CAP and
+                # the order above waits for `reserve` plants, so drink that came into the stretch above DRINK_CAP
+                # slid back to it with plants in stock (local OP1: 328 -> 301, 300 days projected, supply 0.947).
+                # Here a brew needs two plants, unless edible food is short: then the plants stay food.
+                self.act("o_brew_final", "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": [
+                    {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": 2},
+                    {"stock": "barrels_empty", "at_least": 1},
+                    {"stock": "food_edible", "at_least": max(10, self.cit)}]}, retry=3, limit=4)
         self.act("o_barrel_end", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 8}, {"stock": "logs", "at_least": 4}]}, retry=3, limit=4)
         self.act("o_cook_end", "add_order", {"recipe": "cook_meal", "amount": 2, "repeat": "daily", "when": [
@@ -568,6 +694,10 @@ class Overseer(OpenPlayRules):
         does not depend on whether this reply carries the task clock."""
         return (self.hands_off is None and not self.lab
                 and not self.surge and not self.beds_first and not self.drink_growth)
+
+    def full_year(self):
+        """A full-year game on a new embark."""
+        return self.open_task() and (self.days or 0) >= 336
 
     def open_play(self):
         """An open task on a reply that has its clock: everything timed in days left needs this one."""

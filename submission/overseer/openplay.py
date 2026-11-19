@@ -6,7 +6,7 @@ import json
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameOver, HandsOff
-from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, whole
+from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, THIEVES, in_sight, scale, whole
 
 DAY = 1200
 
@@ -100,8 +100,9 @@ CALM_TRIES = 5          # refusals of the labour plugin after which the inherite
 # tiles out), and every later bed or barrel means fetching one of those logs. On the training embarks that start
 # with alligators at the river (two of eight), the alligators were in sight for the first two to five weeks and
 # never after. They are not listed as hostile, and in short test games they killed or mauled dwarves in that time.
-PREDATORS = BEASTS | {"COUGAR", "WOLF"}
-                        # the large predators of overseer/beasts.py and two smaller ones, by the id the units
+PREDATORS = (BEASTS - THIEVES) | {"COUGAR", "WOLF"}
+                        # the large predators of overseer/beasts.py (not its troop thieves: one in sight would hold
+                        #   the felling for weeks) and two smaller ones, by the id the units
                         #   query gives. Alligators and a carnotaurus were seen to attack in test games; the
                         #   others are listed on what the game's creature definitions say of them
 FELL_WAIT_DAYS = 35     # the longest the first felling waits for them to leave
@@ -129,6 +130,8 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
+            if self.full_year():
+                self.brew_rest(stretch=True)   # no drink ceiling there: the whole scored stretch can go unbrewed
             if food < max(8, HUNGER_FINAL * self.cit):
                 self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
@@ -142,9 +145,19 @@ class OpenPlayRules:
                                        and (x.get("left") or 0) > 0 for x in self.orders):
             self.act("o_cook_feast", "add_order", {"recipe": "cook_meal", "amount": int(min(6, max(2, raw // 10)))},
                      retry=1, limit=99)
-        drink = st.get("drink") or 0
+        self.brew_rest(stretch=self.full_year())
+
+    def brew_rest(self, stretch=False):
+        """Brewing stops while drink is at DRINK_SAFE per citizen, so the plants harvested from then on stay in the
+        food count, and is allowed again below DRINK_REOPEN. On a full-year embark (`stretch`) it also stops once
+        at DRINK_REOPEN: a dwarf drinks about once in 20 days, so 336 days of drink is 17 per citizen, and the
+        stretch without brewing uses 1.5 more. Forts of 15 and 20 dwarves came into the stretch with 23 to 25
+        each, under DRINK_SAFE, kept brewing, and stood at 0 food for three days before the feast's meat landed."""
+        drink = self.st.get("drink") or 0
         if drink >= DRINK_SAFE * self.cit:
             self.brew_stopped = True
+        elif stretch and not self.stretch_rest and drink >= DRINK_REOPEN * self.cit:
+            self.brew_stopped = self.stretch_rest = True
         elif self.brew_stopped and drink < DRINK_REOPEN * self.cit:
             self.brew_stopped = False        # the regular supply step adds its brew order again
         if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
@@ -422,7 +435,7 @@ class OpenPlayRules:
         if holding or (open_play and sealed and not self.wild_off):
             beasts, sure = self.look_for_beasts(holding)
             try:      # for the model loop's digest only, in tiles from the wagon: it must never stop this pass
-                rows = [((b["dist"] // LURK_SCALE if b["race"] in LURKERS else b["dist"]) if b["x"] is not None
+                rows = [((b["dist"] // scale(b["race"])) if b["x"] is not None
                          else None, b["race"]) for b in beasts]
                 self.beast_view = {"day": self.day, "sure": sure,
                                    "seen": sorted(rows, key=lambda t: (t[0] is None, t[0] or 0, str(t[1])))}
@@ -697,7 +710,7 @@ class OpenPlayRules:
     def reach(self, x, h):
         """How far a hostile or large predator counts as being from hatch h (a lurker at LURK_SCALE times)."""
         s = self.span(x, h)
-        return s * LURK_SCALE if x.get("beast") and x.get("race") in LURKERS else s
+        return s * scale(x.get("race")) if x.get("beast") else s
 
     def status(self):
         """What the model loop's digest says of these rules: the large predators the last look found, the standing
