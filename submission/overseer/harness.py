@@ -434,8 +434,8 @@ class Overseer(OpenPlayRules):
         plugins = d(self.o.get("plugins"))
         for name in ("autochop", "seedwatch"):
             if plugins.get(name) != "on":
-                if name == "autochop" and self.open_task() and self.felling_waits():
-                    continue          # open play: the first trees wait while a large predator is in sight
+                if name == "autochop" and (self.open_task() or self.brew_in_window) and self.felling_waits():
+                    continue          # open play and LT01: first trees wait while a large predator is in sight
                 self.act("plug_" + name, "enable_automation", {"name": name}, retry=5)
         if self.o.get("farm_plots") and plugins.get("autofarm") != "on":
             self.act("plug_autofarm", "enable_automation", {"name": "autofarm"}, retry=5)
@@ -1287,12 +1287,14 @@ class Overseer(OpenPlayRules):
         return next((s for s in self.kind("A") if s.get("z") not in taken), None)
 
     def meeting_area(self):
-        """Full-year embarks (OP1) and short calm labs (LT01, LT02): an underground meeting_area zone draws idle
-        dwarves off the surface wagon (#171). On OP1, wait until every surface stair has a built hatch cover so idle
-        dwarves are never herded into an unsealed dead-end underground pit before lockdowns can seal the stairs.
-        Excluded on mid-year handed-over forts (MY1), where an underground meeting_area pulls the unpastured grazing
-        herd indoors off surface grass and starves the feast herd before FEAST_DAYS."""
-        if not (self.full_year() or self.no_fish_lab) or self.zone("meeting") or self.surface_seen is None:
+        """Underground meeting_area draws idle dwarves off the surface wagon (#171).
+        - Full-year embarks (OP1): wait until every surface stair has a built hatch cover.
+        - Short calm labs (LT01, LT02): activate immediately (horizon ends before grazers can starve).
+        - Mid-year handed-over forts (MY1): wait until days_left <= 45 (30d before FEAST_DAYS, well below the
+          ~84d grazer starvation time) so grazers stay well-fed on grass while idle dwarves shelter indoors
+          through late-winter freezes and the scored final stretch."""
+        my1_late = self.open_play() and not self.full_year() and self.days_left <= 45
+        if not (self.full_year() or self.no_fish_lab or my1_late) or self.zone("meeting") or self.surface_seen is None:
             return
         if self.full_year() and not self.surface_hatches()[0]:
             return
@@ -1325,7 +1327,7 @@ class Overseer(OpenPlayRules):
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
-        if self.full_year() or self.no_fish_lab:
+        if self.open_task() or self.no_fish_lab:
             self.meeting_area()
         if self.open_task():
             short = self.cit + 2 - (self.placed.get("bed") or 0)

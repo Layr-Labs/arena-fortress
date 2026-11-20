@@ -401,7 +401,8 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"],
                          [{"kind": "meeting_area", "site": "A_ug"}])
 
-        # On MY1 (days=216), meeting_area MUST NOT activate underground (keeps grazing feast herd on surface grass)
+        # On MY1 (days=216), meeting_area stays OFF while days_left > 45 (keeps grazing feast herd on grass),
+        # then activates at days_left <= 45 (30d before FEAST_DAYS: shelters dwarves from winter freezes/weather)
         r_my = resp(200, 16, food=60, drink=120, cit=10)
         r_my["observation"]["map"]["surface_z"] = 152
         r_my["observation"]["map"]["sites"] = o["map"]["sites"]
@@ -411,6 +412,15 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov_my.days = 216
         ov_my.furnish()
         self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"], [])
+        r_my_late = resp(45, 171, food=60, drink=120, cit=10)
+        r_my_late["observation"]["map"]["surface_z"] = 152
+        r_my_late["observation"]["map"]["sites"] = o["map"]["sites"]
+        r_my_late["observation"]["doors"] = {"list": []}
+        r_my_late["observation"]["zones"] = o["zones"]
+        ov_my.load(r_my_late)
+        ov_my.furnish()
+        self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"],
+                         [{"kind": "meeting_area", "site": "A_ug"}])
 
         # On LT01/LT02 (no_fish_lab=True), meeting_area activates underground immediately
         r_lab = resp(50, 10, food=60, drink=120, cit=7, hands_off=29)
@@ -455,7 +465,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertFalse(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [])
 
-        # Caravan departs, MY1 drink=300 (30/cit >= DRINK_SAFE=28): stops brewing to protect food plants!
+        # Caravan departs, MY1 low food=15 (< 6*cit) and drink=300 (30/cit >= DRINK_SAFE=28): stops brewing!
         r2 = resp(10, 206, food=15, drink=300, cit=10, orders=[order])
         r2["observation"]["recent_events"] = [
             "The merchants from TestCiv have embarked on their journey.",
@@ -467,6 +477,12 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov.feast()
         self.assertTrue(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [{"order_id": 7}])
+
+        # Once MY1 feast meat lifts food >= 6*cit (e.g. food=80) and drink < 42*cit, reopens brewing to protect drink slope!
+        r3 = resp(8, 208, food=80, drink=300, cit=10, orders=[])
+        ov.load(r3)
+        ov.feast()
+        self.assertFalse(ov.brew_stopped)
 
     def test_lt02_enables_no_fishing_and_fisher_hold(self):
         cits = [
