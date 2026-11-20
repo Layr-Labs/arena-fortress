@@ -38,6 +38,7 @@ TOOL_RESULT_MAX = 4000      # chars of the latest tool result
 MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
+NO_MODEL_OPEN = True        # open play (OP1, MY1) runs deterministic layer_only(); labs keep the proven hybrid loop
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
 CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
@@ -173,7 +174,11 @@ class Plain:
             if resp.get("day") != self.guard_day:
                 self.guard_day = resp.get("day")
                 try:
-                    self.guard.step(resp)
+                    if self.guard.step(resp):
+                        resp = self.game.observe()
+                        if resp.get("game_over"):
+                            self.stop_reason = "game_over"
+                            return False
                 except (HandsOff, GameOver) as e:
                     self.stop_reason = type(e).__name__
                     return False
@@ -182,6 +187,10 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
+        if NO_MODEL_OPEN and self.guard.open_task():
+            self.layer_only("no_model_open")
+            log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            return self.stats
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
@@ -442,6 +451,18 @@ class Plain:
 
     def refuse(self, name, args, tick):
         """The layer's ownership guard and the order-churn guard: a local refusal (no API call), or None."""
+        if name in ("dig_room", "dig_stairs"):
+            try:
+                safe = self.guard.dry_dig(name, args)
+            except Exception:
+                safe = args
+            if safe is None:
+                return {"ok": False, "error_code": "water_near", "error": (
+                    "not run: revealed water lies next to this dig (within 1 tile of the room or of the stair's "
+                    "first level). Digging beside it lets the water into the fort, and dwarves drown. Pick "
+                    "another site.")}
+            if safe != args:
+                args.update(safe)   # cut back clear of the water: the result shows what was designated
         if name == "slaughter" and self.open_play():
             return {"ok": False, "error_code": "layer_owned", "error": (
                 "not run: the deterministic layer schedules slaughter on this task. Food rots in about 17 days here, "
@@ -465,6 +486,10 @@ class Plain:
         if name == "build_workshop" and isinstance(args, dict) and args.get("type") in CALM_WORKSHOPS \
                 and self.guard_calm():
             return {"ok": False, "error_code": "layer_owned", "error": CALM_WORKSHOPS[args["type"]]}
+        if name == "squad_order" and isinstance(getattr(self.guard, "fisher_hold", None), dict):
+            return {"ok": False, "error_code": "layer_owned", "error": (
+                "not run: the deterministic layer is holding the starting fisherdwarf at the wagon for one day "
+                "until autolabor removes the fishing labor.")}
         if name in LAYER_TOOLS:
             return {"ok": False, "error_code": "layer_owned", "error": (
                 f"not run: {name} is handled by the deterministic layer (it sounds and clears the alert itself; a long "
