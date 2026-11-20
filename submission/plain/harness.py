@@ -39,7 +39,9 @@ MAX_DAYS = 14               # advance_days cap (the API allows 28)
 STALL_AFTER = 10            # consecutive actions without an advance before the harness advances 1 day itself
 MAX_API_STREAK = 5          # consecutive failed model turns before the harness exits
 BUDGET_STOP = 0.92          # stop calling the model at this fraction of the game's credits
-CHURN_DAYS = 3              # order-churn guard: no identical re-add within this many days of a cancel,
+NO_MODEL = True             # measurement build: the deterministic layer plays the whole game and the model is
+                            #   never called (layer_only, as after a failed model); False restores the model loop
+CHURN_DAYS = 3             # order-churn guard: no identical re-add within this many days of a cancel,
 FRESH_DAYS = 2              #   and no cancel of an order this harness added under this many days ago
 ORDER_TOOLS = ("add_order", "add_manager_order")
 LAYER_TOOLS = ("civilian_alert",)   # the deterministic layer owns these: the model's calls are refused locally
@@ -120,6 +122,7 @@ class Plain:
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
         self.guard = Overseer(game, goal=(task.task or {}).get("goal", ""), days=(task.task or {}).get("days") or task.days)
         self.guard_day = None
+        self.last_stop = None   # d64: the last harness advance's `stopped` (a tripwire), for layer_only
         self.units = None     # the last `units` query result (citizens), for the digest's labor check
         self.units_day = None
 
@@ -170,7 +173,17 @@ class Plain:
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 return False
-            if resp.get("day") != self.guard_day:
+            # d64: an advance the game stopped early (a tripwire: a hostile in sight, closing in or near a citizen, a
+            # death, an invasion, rising water, an announcement) gets a pass of its own on open play, even within the
+            # same game day. Before d64 the layer ran only when the day changed, so such a stop was followed straight
+            # by the next advance: v58 MY1 1004 stopped four times on day 132 as harpies closed from 127 to 82 tiles,
+            # nothing looked until day 133.9, and an unarmed recruit died the next day (the model loop of PR #124 saw
+            # every stop). Lab tasks keep the once-a-day pass.
+            stopped, self.last_stop = self.last_stop, None
+            again = bool(stopped) and resp.get("day") == self.guard_day and self.open_play()
+            if resp.get("day") != self.guard_day or again:
+                if again:
+                    log("tripwire_pass", day=resp.get("day"), stopped=stopped)
                 self.guard_day = resp.get("day")
                 try:
                     self.guard.step(resp)
@@ -182,6 +195,10 @@ class Plain:
 
     def run(self, max_turns=None):
         self.setup()
+        if NO_MODEL:   # measurement build: no model call at all; the layer plays to the horizon
+            self.layer_only("no_model")
+            log("done", reason=self.stop_reason, stats=self.stats, usage=self.model.usage, spent=round(self.spent(), 4))
+            return self.stats
         idle = streak = 0
         while max_turns is None or self.stats["turns"] < max_turns:
             resp = self.game.observe()
@@ -522,6 +539,8 @@ class Plain:
             self.stop_reason = type(e).__name__
             return False
         self.stats["advances"] += bool(resp.get("ok"))
+        result = resp.get("result") if isinstance(resp.get("result"), dict) else {}
+        self.last_stop = result.get("stopped") or None      # d64: layer_only gives a stopped advance its own pass
         log("harness_advance", reason=reason, ok=resp.get("ok"))
         if resp.get("game_over"):
             self.stop_reason = "game_over"
