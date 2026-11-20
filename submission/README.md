@@ -1,3 +1,31 @@
+# The promoted PR #124 harness with the model on, plus the #145/#154 layer: beds and dining seats that outgrow their rooms, the manager's office from the start, an underground meeting area and the supply fixes
+
+This build is the promoted PR #124 harness (submission `65e60732`, published 96.02) playing with the model on —
+its model loop, digest, prompt and `plain/harness.py` are kept verbatim — with the deterministic-layer
+improvements of the PR #145/#154 line (submission `307ced15`) merged onto the same base. From that line this
+build takes, on the long open tasks (MY1, OP1) only:
+
+- beds and dining seats that outgrow their rooms: beds go to the next site the game takes them on when the
+  dormitory level is too wide for furniture or full, and when no site can take more beds or dining seats one
+  more 3x3 room is dug for them (one at a time, at most four a game);
+- the manager's office is set up from the start, on a dug room (a level from day 10), never on a farm level, a site
+  the game refuses its chair on is retired, any office the manager owns counts, and its chair comes first: from
+  about 20 citizens DF validates no manager order without one;
+- one meeting area below ground on the dining or dormitory level, so idle dwarves wait there and not at the wagon;
+- the standing brew order runs from one brewable plant; the first staircase avoids nearby water; two animals per
+  hunger cull in the final stretch for a fort of 15 or more; drink and barrels for the last winter from about 150
+  days before the end of a full-year game.
+
+The lab tasks run exactly as PR #124 (its office step verbatim, the two-plant brew order, the usual staircase
+site): the merged layer gates every new step behind the open-task check, and the office step keeps PR #124's
+`office_lab` path for lab tasks.
+
+The one edit of ours outside the merge is `plain/harness.py`: PR #154's measurement flag `NO_MODEL = True` and its
+early `layer_only` return are removed, so the build plays with the model the way PR #124 does. The reasoning is in
+our note: on the private MY1 forts the model was patching a housing gap the layer alone left open (PR #142's four
+short-of-housing MY1 games against PR #124's one tier-1 game), and the leader's published 96.02 was reached with
+the model on. The rest of this file describes the PR #124 build.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
