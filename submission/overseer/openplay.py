@@ -6,7 +6,7 @@ import json
 import time
 
 from dfbench_client import ActionLimit, GameAPIError, GameOver, HandsOff
-from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, in_sight, whole
+from overseer.beasts import BEASTS, LURK_SCALE, LURKERS, THIEVES, in_sight, scale, whole
 
 DAY = 1200
 
@@ -27,9 +27,11 @@ def lst(v):
 # perishable (raw meat, cleaned fish, plants, prepared meals too) rots 16-19 days after it is made. The food count is
 # therefore a moving sum of the last two and a half weeks' production, and an animal slaughtered a month before the
 # horizon becomes a drop inside the scored final stretch. Live animals are the one food store that can't rot.
-FEAST_DAYS = 14         # animals are slaughtered from this many days before the horizon: none of that meat can rot in time
+FEAST_DAYS = 15         # animals are slaughtered from this many days before the horizon: none of that meat can rot in time
 FEAST_BATCH = 3         # animals marked per pass during the feast
-FEAST_KEEP = 3          # the largest animals a hunger cull leaves alone, so a feast is left to have
+FEAST_KEEP = 3          # the largest non-grazing animals a hunger cull leaves alone, so a feast is left to have
+GRAZERS = frozenset(("WATER_BUFFALO", "YAK", "COW", "HORSE", "CAMEL_1_HUMP", "CAMEL_2_HUMP",
+                     "MULE", "DONKEY", "REINDEER", "LLAMA", "ALPACA", "SHEEP", "GOAT", "RABBIT", "CAVY"))
 HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
 HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
@@ -100,8 +102,9 @@ CALM_TRIES = 5          # refusals of the labour plugin after which the inherite
 # tiles out), and every later bed or barrel means fetching one of those logs. On the training embarks that start
 # with alligators at the river (two of eight), the alligators were in sight for the first two to five weeks and
 # never after. They are not listed as hostile, and in short test games they killed or mauled dwarves in that time.
-PREDATORS = BEASTS | {"COUGAR", "WOLF"}
-                        # the large predators of overseer/beasts.py and two smaller ones, by the id the units
+PREDATORS = (BEASTS - THIEVES) | {"COUGAR", "WOLF"}
+                        # the large predators of overseer/beasts.py (not its troop thieves: one in sight would hold
+                        #   the felling for weeks) and two smaller ones, by the id the units
                         #   query gives. Alligators and a carnotaurus were seen to attack in test games; the
                         #   others are listed on what the game's creature definitions say of them
 FELL_WAIT_DAYS = 35     # the longest the first felling waits for them to leave
@@ -129,8 +132,11 @@ class OpenPlayRules:
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
+            if self.full_year():
+                self.brew_rest(stretch=True)   # no drink ceiling there: the whole scored stretch can go unbrewed
             if food < max(8, HUNGER_FINAL * self.cit):
-                self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP_FINAL)
+                urgent = food <= 6 and self.cit >= 15
+                self.cull("hunger", 2 if urgent else 1, smallest=True, retry=3 if urgent else HUNGER_GAP_FINAL)
         elif food < max(3, HUNGER * self.cit):
             self.cull("hunger", 1, smallest=True, retry=HUNGER_GAP)
 
@@ -142,9 +148,19 @@ class OpenPlayRules:
                                        and (x.get("left") or 0) > 0 for x in self.orders):
             self.act("o_cook_feast", "add_order", {"recipe": "cook_meal", "amount": int(min(6, max(2, raw // 10)))},
                      retry=1, limit=99)
-        drink = st.get("drink") or 0
+        self.brew_rest(stretch=self.full_year())
+
+    def brew_rest(self, stretch=False):
+        """Brewing stops while drink is at DRINK_SAFE per citizen, so the plants harvested from then on stay in the
+        food count, and is allowed again below DRINK_REOPEN. On a full-year embark (`stretch`) it also stops once
+        at DRINK_REOPEN: a dwarf drinks about once in 20 days, so 336 days of drink is 17 per citizen, and the
+        stretch without brewing uses 1.5 more. Forts of 15 and 20 dwarves came into the stretch with 23 to 25
+        each, under DRINK_SAFE, kept brewing, and stood at 0 food for three days before the feast's meat landed."""
+        drink = self.st.get("drink") or 0
         if drink >= DRINK_SAFE * self.cit:
             self.brew_stopped = True
+        elif stretch and not self.stretch_rest and drink >= DRINK_REOPEN * self.cit:
+            self.brew_stopped = self.stretch_rest = True
         elif self.brew_stopped and drink < DRINK_REOPEN * self.cit:
             self.brew_stopped = False        # the regular supply step adds its brew order again
         if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
@@ -171,10 +187,16 @@ class OpenPlayRules:
         herd.sort(key=lambda a: (-size(a), str(a.get("id"))))          # largest first
         pick = herd
         if smallest:
-            spare = herd[FEAST_KEEP:]
+            # Keep FEAST_KEEP non-grazers first (grazers starve mid-year without grass, so eating them before they
+            # starve preserves a live herd for the feast); pad with largest grazers if fewer non-grazers exist.
+            non_g = [a for a in herd if str(a.get("race")) not in GRAZERS]
+            grz = [a for a in herd if str(a.get("race")) in GRAZERS]
+            keep_ids = {a["id"] for a in (non_g + grz)[:FEAST_KEEP]}
+            spare = [a for a in herd if a["id"] not in keep_ids]
             if not spare and (self.st.get("food_edible") or 0) <= 0:
                 spare = herd
-            pick = sorted(spare, key=lambda a: (size(a) < 1, size(a), str(a.get("id"))))
+            pick = sorted(spare, key=lambda a: (size(a) < 1, str(a.get("race")) not in GRAZERS,
+                                                size(a), str(a.get("id"))))
         marked = 0
         for a in pick:                # an animal the API refuses does not block the next one
             if marked >= n:
@@ -262,6 +284,97 @@ class OpenPlayRules:
                     self.calm = False                                    # so the catch needs its Fishery again
                     log("calm", on=False, why="autolabor did not turn on")
 
+    def fisher_check(self):
+        """Open play, fresh embark: identify starting citizens with FISH labor before appoint_manager runs so
+        appoint_manager does not pick the fisherdwarf (create_squad refuses citizens with positions)."""
+        if self.fisher_hold is not None or not self.open_task() or (self.day or 0) > 2:
+            return
+        if self.calm is False:
+            self.fisher_hold = False
+            return
+        ws = self.o.get("workshops")
+        if isinstance(ws, list) and ({"Fishery", "Butchers"} & {d(w).get("type") for w in ws}):
+            self.fisher_hold = False
+            return
+        if lst(d(self.o.get("military")).get("squads")):
+            self.fisher_hold = False
+            return
+        try:
+            q = self.game.query("units", kind="citizens")
+            units = d(d(q).get("result")).get("units")
+        except (GameOver, HandsOff):
+            raise
+        except Exception as e:
+            log("fisher_query_error", error=repr(e)[:160])
+            return
+        if not isinstance(units, list):
+            return
+        fishers = [u["id"] for u in units if isinstance(u, dict) and u.get("id") is not None
+                   and "FISH" in (u.get("labors") or []) and not u.get("positions") and u.get("adult", True)]
+        self.fisher_ids = set(fishers)
+        if not fishers:
+            self.fisher_hold = False
+
+    def fisher_protect(self):
+        """Hold starting fisherdwarves stationed at the wagon for ~1 day until autolabor strips the FISH labor,
+        preventing Day 1-3 river walks into alligators/lampreys."""
+        if not self.open_task():
+            return
+        if isinstance(self.fisher_hold, dict):
+            self.fisher_release()
+            return
+        if self.fisher_hold is not None or self.calm is not True or (self.day or 0) > 2:
+            return
+        if lst(d(self.o.get("military")).get("squads")):
+            self.fisher_hold = False
+            return
+        if not self.fisher_ids:
+            self.fisher_check()
+        if not self.fisher_ids:
+            return
+        wagon = d(self.map.get("wagon"))
+        if not whole(wagon.get("x"), wagon.get("y"), wagon.get("z")):
+            return
+        ids = sorted(self.fisher_ids)
+        r = self.act("fisher_squad", "create_squad", {"dwarf_ids": ids}, retry=0, limit=2)
+        if r and r.get("ok"):
+            r2 = self.act("fisher_station", "squad_order",
+                          {"order": "station", "x": wagon["x"], "y": wagon["y"], "z": wagon["z"]}, retry=0, limit=3)
+            if r2 and r2.get("ok"):
+                self.fisher_hold = {"since": self.now, "ids": ids}
+                log("fisher_hold", event="on", day=self.day, ids=ids)
+            else:
+                self.fisher_hold = False
+        elif r is not None:
+            self.fisher_hold = False
+
+    def fisher_release(self):
+        """Release the stationed fisherdwarf once autolabor removes FISH (normally 1 day) or after 4 days."""
+        hold = self.fisher_hold
+        if not isinstance(hold, dict):
+            return
+        age = self.now - hold["since"]
+        if age < DAY:
+            return
+        done = age >= 4 * DAY
+        if not done:
+            try:
+                q = self.game.query("units", kind="citizens")
+                units = d(d(q).get("result")).get("units")
+                if isinstance(units, list):
+                    by_id = {u.get("id"): u for u in units if isinstance(u, dict)}
+                    still = any("FISH" in (d(by_id.get(i)).get("labors") or []) for i in hold["ids"] if i in by_id)
+                    done = not still
+            except (GameOver, HandsOff):
+                raise
+            except Exception as e:
+                log("fisher_release_query_error", error=repr(e)[:160])
+        if done:
+            r = self.act("fisher_release", "squad_order", {"order": "stand_down"}, retry=0, limit=5)
+            if r and r.get("ok"):
+                self.fisher_hold = False
+                log("fisher_hold", event="off", day=self.day, days=round(age / DAY, 1))
+
     # ---- open play: dangerous wildlife
     def surface_hatches(self):
         """(sealed, hatches): the built hatch over each surface stair this layer has ever seen listed. Sealed only
@@ -301,7 +414,7 @@ class OpenPlayRules:
         want = max(len(gaps), 2 - (len(stairs) - len(gaps)))
         if free < want and "Carpenters" in have and self.logs() >= 3 and not self.pending("make_hatch_cover"):
             self.act("o_hatch", "add_order", {"recipe": "make_hatch_cover", "amount": min(3, want - free)},
-                     retry=4, limit=4)
+                     retry=2, limit=8)
         for s in gaps[:free]:
             self.act("hatch_%s" % s["id"], "build_door", {"kind": "hatch", "site": s["id"]}, retry=3, limit=3)
 
@@ -331,6 +444,8 @@ class OpenPlayRules:
             if not isinstance(q.get("units"), list):
                 raise ValueError("no unit list in the answer")
             found, sure = in_sight(q.get("units"), q.get("total"), self.map.get("wagon"))
+            if not self.full_year():
+                found = [b for b in found if b.get("race") != "SNAPPING TURTLE"]
             told = sorted({b["race"] for b in found})
             if told != self.beast_told:
                 log("beasts", day=self.day, seen=told, nearest=min((b["dist"] for b in found), default=None))
@@ -422,7 +537,7 @@ class OpenPlayRules:
         if holding or (open_play and sealed and not self.wild_off):
             beasts, sure = self.look_for_beasts(holding)
             try:      # for the model loop's digest only, in tiles from the wagon: it must never stop this pass
-                rows = [((b["dist"] // LURK_SCALE if b["race"] in LURKERS else b["dist"]) if b["x"] is not None
+                rows = [((b["dist"] // scale(b["race"])) if b["x"] is not None
                          else None, b["race"]) for b in beasts]
                 self.beast_view = {"day": self.day, "sure": sure,
                                    "seen": sorted(rows, key=lambda t: (t[0] is None, t[0] or 0, str(t[1])))}
@@ -520,7 +635,13 @@ class OpenPlayRules:
                 why = self.beast_limit(lock)     # these two limits need the threats and the stocks, not the doors
             if why is None:
                 indoors = (shelter or {}).get("citizens_inside") or 0
-                if known and (lock["due"] is not None or indoors >= self.cit - 1 or age >= DAY):
+                if self.full_year():
+                    at_hatch = any(whole(x.get("x"), x.get("y"), x.get("z")) and whole(h.get("x"), h.get("y"), h.get("z"))
+                                   and self.span(x, h) <= 12 for x in hostiles for h in hatches)
+                    ready = indoors >= self.cit or age >= DAY or (at_hatch and indoors >= self.cit - 1)
+                else:
+                    ready = indoors >= self.cit - 1 or age >= DAY
+                if known and (lock["due"] is not None or ready):
                     if lock["due"] is None:
                         lock["due"] = self.now
                     keep = self.admit(lock, hatches, hostiles, api_seen, api_dist, listed, sure)
@@ -697,7 +818,7 @@ class OpenPlayRules:
     def reach(self, x, h):
         """How far a hostile or large predator counts as being from hatch h (a lurker at LURK_SCALE times)."""
         s = self.span(x, h)
-        return s * LURK_SCALE if x.get("beast") and x.get("race") in LURKERS else s
+        return s * scale(x.get("race")) if x.get("beast") else s
 
     def status(self):
         """What the model loop's digest says of these rules: the large predators the last look found, the standing
@@ -732,6 +853,12 @@ class OpenPlayRules:
         The alert is cleared and each owned hatch unlocked, every call on its own, and a call that is refused or
         fails is tried again, RELEASE_ROUNDS times in all. When the day's actions are spent, a day is advanced to
         get new ones. What is still not confirmed after that stays as it is."""
+        if isinstance(self.fisher_hold, dict):
+            try:
+                if d(self.game.act("squad_order", {"order": "stand_down"})).get("ok"):
+                    self.fisher_hold = False
+            except Exception as e:
+                log("release_error", tool="squad_order", error=repr(e)[:120])
         clear = self.lock is not None or self.alert_pending or self.thaw_alert
         for n in range(RELEASE_ROUNDS):
             if not clear and not self.own_locks:
