@@ -51,10 +51,12 @@ MOOD_WORKSHOP = {
 PROG_FROM_DAY = 40      # wealth for the Hamlet rank (20 citizens and 5000 created wealth), full-year games only:
 PROG_WEALTH = 5500      #   from this day, until created wealth reaches this, a Craftsdwarfs and one daily order of
 PROG_LOGS = 25          #   wood crafts that runs only while this many logs are in stock (i34-9's fa9c13cc progress())
-WEALTH_FROM_DAY = 5     # full-year embarks: build created wealth via wooden Wheelbarrows/Minecarts/Stepladders
-WEALTH_STOP_DAY = 202   #   (all 50 base value in DF 53.16) before the autumn caravan departs (~day 192-200) and
+WEALTH_FROM_DAY = 5     # full-year embarks: build created wealth via wooden tools
+WEALTH_STOP_DAY = 202   #   before the autumn caravan departs (~day 192-200) and
 WEALTH_TARGET = 250000  #   reports home, maximizing Wave 2 migrant rolls; stop once caravan departs
-WEALTH_LOGS = 60        #   minimum usable logs (>= 3 * 15 batch) so Butchers/housing/barrels are NEVER log-starved
+WEALTH_LOG_RESERVE = 25 # usable logs to leave for essentials when budgeting new tool orders
+WEALTH_JOBS_PER_SHOP = 5
+WEALTH_MIN_BATCH = 3
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -167,7 +169,7 @@ class Overseer(OpenPlayRules):
         self.bad_office_chair_sites = set()# site ids refused for office chair placement
         self.bed_full = {}                 # site id -> fill_mark when bed placement failed or hit no_space
         self.w_used_now, self.w_used_tick = set(), None   # W site ids consumed on this tick (open play)
-        self.wealth_ids = {}               # order id -> key for repeating MakeTool wealth orders
+        self.wealth_ids = set()            # ids of our finite wooden tool orders
         self.caravan_out = False           # full-year embark: autumn caravan departure seen in recent_events
         self.caravan_in = False            # visiting caravan on map: stocks.food_edible/drink include caravan goods (#173)
         self.caravan_in_since = None       # tick caravan presence was first observed (42-day auto-expire safety net)
@@ -224,9 +226,8 @@ class Overseer(OpenPlayRules):
             if oid is not None and isinstance(args, dict) and args.get("job") == "MakeCrafts" \
                     and args.get("repeat") == "daily":
                 self.craft_ids.add(oid)
-            if oid is not None and isinstance(args, dict) and args.get("job") == "MakeTool" \
-                    and args.get("repeat") == "daily":
-                self.wealth_ids[oid] = key
+            if oid is not None and key == "o_wealth_tools":
+                self.wealth_ids.add(oid)
             if args.get("repeat") and key.startswith("o_") and key.endswith(("_end", "_win", "_final")):
                 self.done.add(key)   # a standing closer order is added once per game
         self.report = (self.report + [{"day": self.day, "tool": tool, "args": args, "ok": bool(r.get("ok")),
@@ -251,7 +252,7 @@ class Overseer(OpenPlayRules):
             present = {x.get("id") for x in self.orders}
             self.brew_own.intersection_update(present)
             self.craft_ids.intersection_update(present)
-            self.wealth_ids = {oid: k for oid, k in self.wealth_ids.items() if oid in present}
+            self.wealth_ids.intersection_update(present)
         evs = [ev.lower() for ev in lst(self.o.get("recent_events")) if isinstance(ev, str)]
         if any("have embarked on their journey" in ev or "caravan has left" in ev for ev in evs):
             self.caravan_out = True
@@ -848,12 +849,8 @@ class Overseer(OpenPlayRules):
 
     # ---- the growth push: created wealth for Hamlet + autumn Wave 2 boost on full-year games
     def progression_push(self):
-        """Full-year games: build extra Carpenters early (accelerating housing, hatches, and wealth) while reserving
-        free W sites for Butchers, then run up to six daily wooden MakeTool orders (Wheelbarrows, Minecarts,
-        Stepladders — all 50 base value in DF 53.16, amount=30) from WEALTH_FROM_DAY until the autumn caravan leaves
-        (or WEALTH_STOP_DAY / WEALTH_TARGET), pausing whenever housing or surface hatches need carpenters. Saturating
-        multiple workshops keeps autolabor assigning idle dwarves to CARPENTRY without diluting into lower-value jobs."""
-        if self.hands_off is not None or self.lab or self.beds_first or (self.days or 0) < 336:
+        """Expand carpentry and use spare logs for pre-caravan production, after housing and hatches."""
+        if not self.full_year():
             return
         if not isinstance(self.day, int) or self.cit < 7:
             return
@@ -870,35 +867,19 @@ class Overseer(OpenPlayRules):
                 self.act("wealth_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=4)
         # Scale Carpenters early once core shops are up, reserving W sites for Butchers
         core_up = {"Carpenters", "Still", "Kitchen"} <= self.shops()
+        carpenters = [w for w in lst(self.o.get("workshops")) if d(w).get("type") == "Carpenters"]
         if core_up and not self.caravan_out and 4 <= self.day <= 185 and w_cr < WEALTH_TARGET:
-            carp = sum(1 for w in lst(self.o.get("workshops"))
-                       if isinstance(w, dict) and w.get("type") == "Carpenters")
             keep_w = 1 if "Butchers" in self.shops() else 2
             free_w = sum(1 for s in self.kind("W") if s.get("free", True) and not lst(s.get("used_by"))
                          and s.get("id") not in self.w_used_now and (s.get("id"), "Carpenters") not in self.full_sites)
             target = 4 if self.logs() >= 40 else 1
-            if housing_ok and hatches_ok and self.logs() >= WEALTH_LOGS:
+            if housing_ok and hatches_ok and self.logs() >= 60:
                 target = min(8, max(4, self.cit - 2))
-            if carp < target and self.built_n.get("Carpenters", 0) < 9 and free_w > keep_w:
+            if len(carpenters) < target and self.built_n.get("Carpenters", 0) < 9 and free_w > keep_w:
                 self.build("Carpenters", retry=1, key="ws_carp_extra")
         if in_window:
-            if not core_up or not housing_ok or not hatches_ok:
-                return
-            carp = sum(1 for w in lst(self.o.get("workshops"))
-                       if isinstance(w, dict) and w.get("type") == "Carpenters")
-            active_keys = set(self.wealth_ids.values())
-            slots = (
-                (1, "o_wheelbarrow", "ITEM_TOOL_WHEELBARROW", WEALTH_LOGS),
-                (2, "o_minecart", "ITEM_TOOL_MINECART", WEALTH_LOGS + 5),
-                (3, "o_stepladder", "ITEM_TOOL_STEPLADDER", WEALTH_LOGS + 10),
-            )
-            for min_carp, key, sub, min_logs in slots:
-                if carp >= min_carp and key not in active_keys:
-                    self.act(key, "add_manager_order",
-                             {"job": "MakeTool", "item_subtype": sub,
-                              "material_category": ["wood"], "amount": 15, "repeat": "daily",
-                              "when": [{"item_type": "WOOD", "at_least": min_logs}]},
-                             retry=3, limit=20)
+            if core_up and housing_ok and hatches_ok:
+                self.queue_wealth_tools(sum(w.get("built") is True for w in carpenters))
             return
         if self.day < PROG_FROM_DAY or w_cr >= PROG_WEALTH:
             return
@@ -910,6 +891,24 @@ class Overseer(OpenPlayRules):
             self.act("o_crafts", "add_manager_order",
                      {"job": "MakeCrafts", "amount": 3, "repeat": "daily", "material_category": ["wood"],
                       "when": [{"item_type": "WOOD", "at_least": PROG_LOGS}]}, retry=4, limit=6)
+
+    def queue_wealth_tools(self, built_carpenters):
+        """Budget all unfinished tool jobs against one usable-log reserve, without renewing orders in DF."""
+        if not isinstance(self.o.get("orders"), list):
+            return
+        outstanding = 0
+        for order in self.orders:
+            if order.get("id") in self.wealth_ids:
+                left = order.get("left")
+                if type(left) is not int or left < 0:
+                    return
+                outstanding += left
+        capacity = min(30, built_carpenters * WEALTH_JOBS_PER_SHOP)
+        amount = min(capacity, self.logs() - WEALTH_LOG_RESERVE) - outstanding
+        if amount >= WEALTH_MIN_BATCH:
+            self.act("o_wealth_tools", "add_manager_order",
+                     {"job": "MakeTool", "item_subtype": "ITEM_TOOL_WHEELBARROW",
+                      "material_category": ["wood"], "amount": amount}, retry=1, limit=6)
 
     def craft_standing(self):
         """A repeating wood-crafts order the layer added is still standing: its recipe is None, so `standing()` can

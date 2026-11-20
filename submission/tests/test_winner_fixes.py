@@ -184,19 +184,19 @@ class WealthEngineTests(unittest.TestCase):
         ov.progression_push()
         self.assertEqual(g.tools("add_manager_order"), [])  # must wait for surface hatches!
 
-        # Once stair hatch is built (sealed), Wheelbarrow + Minecart + Stepladder start cleanly
+        # Once the stair hatch is built, queue the first finite batch.
         r["observation"]["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 153}]}
         ov.load(r)
         ov.progression_push()
         orders = g.tools("add_manager_order")
-        self.assertEqual([o.get("item_subtype") for o in orders],
-                         ["ITEM_TOOL_WHEELBARROW", "ITEM_TOOL_MINECART", "ITEM_TOOL_STEPLADDER"])
-        self.assertEqual(len(ov.wealth_ids), 3)
+        self.assertEqual(orders, [{"job": "MakeTool", "item_subtype": "ITEM_TOOL_WHEELBARROW",
+                                  "material_category": ["wood"], "amount": 15}])
+        self.assertEqual(len(ov.wealth_ids), 1)
 
         # Pause if chairs fall short after migrants arrive
         oids = sorted(ov.wealth_ids)
         r_short = resp(200, 136, food=40, drink=200, cit=14, workshops=("Carpenters", "Carpenters", "Carpenters", "Still", "Kitchen"),
-                       orders=[{"id": i, "job": "MakeTool", "repeat": "daily"} for i in oids])
+                       orders=[{"id": i, "job": "MakeTool", "left": 5} for i in oids])
         r_short["observation"]["map"]["sites"] = [{"id": "E1", "kind": "E", "x": 92, "y": 100, "z": 153}]
         r_short["observation"]["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 153}]}
         r_short["observation"]["stocks"]["beds"] = 14
@@ -220,7 +220,38 @@ class WealthEngineTests(unittest.TestCase):
         ov.load(r2)
         ov.progression_push()
         self.assertTrue(ov.caravan_out)
-        self.assertEqual(len(g.tools("add_manager_order")), 3)  # no new wealth orders after caravan leaves
+        self.assertEqual(len(g.tools("add_manager_order")), 1)  # no new wealth orders after caravan leaves
+
+    def test_wealth_replenishment_budgets_all_outstanding_orders(self):
+        r = resp(300, 36, food=60)
+        r["observation"]["stocks"]["logs_usable"] = 36
+        ov, g = overseer(r)
+        ov.wealth_ids.update({7, 8})
+        ov.orders = [{"id": 7, "left": 4}, {"id": 8, "left": 2}]
+        ov.queue_wealth_tools(3)
+        self.assertEqual([a["amount"] for a in g.tools("add_manager_order")], [5])
+
+    def test_unbuilt_carpenters_do_not_add_queue_capacity(self):
+        r = resp(276, 60, food=40, drink=100, cit=7,
+                 workshops=("Carpenters", "Carpenters", "Still", "Kitchen"))
+        r["observation"]["workshops"][1]["built"] = False
+        r["observation"]["stocks"].update({"logs_usable": 60, "beds": 10, "tables": 5, "chairs": 6})
+        ov, g = overseer(r)
+        ov.progression_push()
+        self.assertEqual([a["amount"] for a in g.tools("add_manager_order")], [5])
+
+    def test_wealth_does_not_queue_on_missing_orders_or_no_shop(self):
+        r = resp(300, 36, food=60)
+        r["observation"]["stocks"]["logs_usable"] = 100
+        ov, g = overseer(r)
+        ov.queue_wealth_tools(0)
+        ov.wealth_ids.add(7)
+        ov.orders = [{"id": 7, "left": None}]
+        ov.queue_wealth_tools(3)
+        r["observation"]["orders"] = "ERR"
+        ov.load(r)
+        ov.queue_wealth_tools(3)
+        self.assertEqual(g.tools("add_manager_order"), [])
 
     def test_extra_carpenters_reserve_w_sites_for_butchers_and_cap_at_five(self):
         r = resp(316, 20, food=40, drink=100, cit=7, workshops=("Carpenters", "Still", "Kitchen"))
@@ -510,7 +541,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         for f in ("make_bed", "make_table", "make_chair"):
             self.assertNotIn(f, recipes)
 
-    def test_three_slot_amount15_maketool_wealth_engine_cancels_on_caravan_out(self):
+    def test_wealth_queue_caps_at_30_and_cancels_owned_orders_on_caravan_out(self):
         r = resp(300, 36, food=60, drink=200, cit=10,
                  workshops=("Carpenters",) * 6 + ("Still", "Kitchen"))
         r["observation"]["stocks"].update({"logs_usable": 80, "beds": 12, "tables": 7, "chairs": 8})
@@ -520,16 +551,14 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov, g = overseer(r)
         ov.progression_push()
         orders = g.tools("add_manager_order")
-        self.assertEqual(len(orders), 3)
-        self.assertTrue(all(o.get("job") == "MakeTool" and o.get("amount") == 15 for o in orders))
-        self.assertEqual([o["when"][0]["at_least"] for o in orders], [60, 65, 70])
+        self.assertEqual([o["amount"] for o in orders], [30])
         all_ids = sorted(ov.wealth_ids)
-        self.assertEqual(len(all_ids), 3)
+        self.assertEqual(len(all_ids), 1)
 
-        # Caravan departs -> all 3 wealth orders cancelled
+        # Caravan departs -> cancel only the controller's remaining tool orders.
         r2 = resp(140, 196, food=60, drink=200, cit=10,
                   workshops=("Carpenters",) * 6 + ("Still", "Kitchen"),
-                  orders=[{"id": i, "job": "MakeTool", "repeat": "daily"} for i in all_ids])
+                  orders=[{"id": i, "job": "MakeTool", "left": 7} for i in all_ids + [999]])
         r2["observation"]["recent_events"] = ["The merchants from TestCiv have embarked on their journey."]
         ov.load(r2)
         ov.progression_push()
