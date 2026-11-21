@@ -1,3 +1,73 @@
+# No model, real food, the office that never was, the plant balance, day-by-day final stretch, the cougar
+
+This is 0xplemonade's PR #163 tree (submission `8c28e5dc`: the promoted PR #124 harness with the model switched
+off as in PR #142, `NO_MODEL = True` in `plain/harness.py`, the deterministic layer plays the whole game with no
+model call), plus this package's changes, each traced to a failure measured on the public forts or in the official
+draws (the long note, `NOTE.md`, has the full evidence):
+
+- **the office (d62, d63).** The office site search counted a dug room only while it had no role, and never a
+  level holding a farm: on forts whose farms went to the F sites, or whose plots landed after the room was dug,
+  no office was ever made, and from 20 citizens the manager validated no new order - beds froze at 19 of 22
+  (O 89.2, tier 3; 90.6 with them). A stale-farm room is free when nothing uses it, no plot overlaps it, no
+  `build_farm` was sent for it and the farm quota is met; a level fits by the tiles it has clear of plots and
+  farm rooms. A pending plot counts (its `used_by` lags the build, and a zone over it can never take its chair);
+- **the plant balance (d65).** The endgame brew orders held a plant reserve of max(12, citizens) and the cook
+  order ate plants to 10, so a lean fort (8-25 plants) never brewed in the final stretch and its drink drained
+  (330 to 300 over the quarter, supply 0.889, O 91.7 tier 1). The reserve is adaptive now, the cook order leaves
+  a brewable reserve, and the pre-stretch hunger buffer is 0.5 food per citizen;
+- **the final stretch (d64, d67).** The layer passes once a game day from 90 days out (the scored quarter is 84
+  days on OP1, 54 on MY1) and the aggressive supply opens there too, so a decline cannot build unseen in the
+  days before the old 64-day endgame began;
+- **the drought task's own policy (d66).** LT01's goal never matched the base's `drink_growth` phrase (that is
+  LT08's): the drought task now brews from one plant (its predicates read drink only) and preps 21 days out;
+- **the cougar (d68).** It was kept only for the first felling's wait, below the lockdown list's size rule, and
+  a measured year lost a dwarf to one at day 200 (O 67.5, tier 0). It is a lockdown beast now;
+- **real food (d61).** The hunger cull triggers read the food a dwarf can eat: the five brewed-or-milled crops
+  (issue #140) are meal ingredients, not a fed fort.
+
+Open tasks only, except the LT01 policy; the other labs keep PR #124's path. Standard-library Python, the game
+API and the fixed GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`
+(173 green).
+
+The base tree's own changes are described below, unchanged and still in force.
+
+- beds and dining seats that outgrow their rooms: beds go to the next site the game takes them on when the
+  dormitory level is too wide for furniture or full, and when no site can take more beds or dining seats one
+  more 3x3 room is dug for them (one at a time, at most four a game);
+- the manager's office is set up from the start, on a dug room (a level from day 10), never on a farm level, a site
+  the game refuses its chair on is retired, any office the manager owns counts, and its chair comes first: from
+  about 20 citizens DF validates no manager order without one;
+- one meeting area below ground on the dining or dormitory level, so idle dwarves wait there and not at the wagon;
+- the standing brew order runs from one brewable plant; the first staircase avoids nearby water; two animals per
+  hunger cull in the final stretch for a fort of 15 or more; drink and barrels for the last winter from about 150
+  days before the end of a full-year game;
+- the civilian alert also holds around the thaw of the water near the wagon: deep water seen in autumn and gone
+  from the observation (ice is not water) records a freeze, the thaw is expected at the freeze's mirror image
+  about day 293 of the year (both mirror each other on every fort where we saw the water freeze), and the alert
+  runs from a day before it to two days after the water is seen again, besides the window at the start of spring;
+- placed furniture that was unbuilt when DF reported a suspended construction, and is still unbuilt ten days
+  later, is not counted as coming, so free items are placed in its stead (no tool resumes a suspended job); the
+  last bed order of the game counts such beds as missing;
+- rooms are dug only where the map shows no water, ice or magma in the box or beside it on its level: `dig_room`
+  measures the box from the site's corner, and a 9x7 dormitory reached a river one level down and drowned a dwarf.
+  A wet box shrinks from the same corner (7x5, 5x5, 5x3, 3x3); a room with no dry box is left undug and the next
+  room takes its role; a failed map query digs as before;
+- a hunger cull takes grazers first, the oldest first: no tool makes a pasture, so they starve (every local
+  full-year game lost three to nine, all grazers), and the animals kept for the feast are the largest others;
+- the feast starts 15 days before the end (was 14), the day before the spring alert would keep the butcher in
+  the shelter;
+- from 30 days before the end until the feast, when nothing but the animals kept for the feast is left and the
+  food is at most 3 (or a fifth of the citizens), the smallest of them goes, one a pass, never the last: a cull
+  waited for 0 food, the pass sees the food every two days, and food stood at 0 for up to seven scored days;
+- a W site a workshop was placed on is not offered to another workshop type in the same pass (yukonautominer's
+  `bbbb6c26`): the observation is a pass old, and the Still and Kitchen were refused on the Carpenters' site and
+  came on day 4 to 8.
+
+The lab tasks run exactly as PR #124 (its office step verbatim, the two-plant brew order, the usual staircase site,
+no map query before digging, the old workshop-site and bed counts; the slaughter schedule is open play only).
+The model loop, prompt and digest are still in the package, unused while `NO_MODEL` is on. The rest of this file
+describes the PR #124 build.
+
 # Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
 
 The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
