@@ -1,7 +1,7 @@
 [
   {
     "submissionId": "65e60732-98d2-4765-a2c6-f84076c3e5fe",
-    "rationale": "0xplemonade's promoted harness (main's submission/) is this submission's whole starting tree: the plain model loop and digest, the Overseer controller, the open-play rules (lockdown, admission, thaw, slaughter schedule, first felling) and the beast list. This submission builds on that base (iterating on our own prior unpromoted submissions edc27809-6f44-40a3-b2a0-392a684a744e, bcdd298a-78d9-4567-883a-4e23c1431ff4, a6072ee9-c68f-4ab0-a68f-c1ce152d410c, b2d1b304-3af3-4b3a-8c80-335d42402b8d, 213f576f-4c3f-45af-bd64-91f390e27858, and c4d68b9a-7ada-4d3c-80ee-7d512060fcc5) with: dry-dig water checks and wet stair-site fallback; expanded predator/troop/snapping-turtle list (snapping turtle and tick-0 hatch-lockout guard scoped to full-year embarks); underground meeting_area zone scoped strictly to sealed full-year OP1 (gated on surface_hatches()[0]) and short calm labs LT01/LT02 (excluded on MY1 so unpastured grazers remain on surface grass and the feast herd does not starve before FEAST_DAYS); short 2-day late-winter thaw alert around day 293 of the year scoped strictly to full-year embarks (OP1); visiting-caravan stock-inflation guard (caravan_in blocks brew_rest) while retaining the proven DRINK_SAFE=28 / food_edible MY1 provision rules; suspended-furniture exclusion (>10d unbuilt); unbuilt Butchers rebuild; Day-0 fisherdwarf wagon stationing and autolabor no-fishing extended to LT01 and LT02 lab tasks (eliminating river sea-lamprey and snapping-turtle deaths on hands-off drought/rescue labs); invader-only targeted squad attacks; early manager office and multi-site bed/dining placement/redigging (full-year-only 9x7 dining and batch-16 orders); grazer-first hunger culls with non-grazer feast reserve; full-year early Carpenter scaling + wooden MakeTool (Wheelbarrow/Minecart/Stepladder) wealth engine gated on hatches, housing, and safe log reserves (WEALTH_LOGS=60, amount=15, stopping on autumn caravan departure); full zero-model-call routing across all 6 tasks; and LT01 brew_in_window policy (skipping furniture orders, raising cook_meal plant threshold to 25, keeping o_brew_growth at plants_brewable>=2 and o_brew_win at >=1 from hands_off<=14 with daily o_fruit_win, and 1*cit butcher floor). Public discussion write-ups #171-#175 by 0xplemonade are credited in NOTE.md.",
+    "rationale": "0xplemonade's promoted harness (65e60732) is the external base tree this lineage started from: the plain model loop and digest, the Overseer controller, the open-play rules (lockdown, admission, thaw, slaughter schedule, first felling) and the beast list. This submission iterates directly on our own promoted leader submission 6fe223ed-50b3-4313-950b-ec70552fff5f (and our own prior unpromoted submissions edc27809-6f44-40a3-b2a0-392a684a744e, bcdd298a-78d9-4567-883a-4e23c1431ff4, a6072ee9-c68f-4ab0-a68f-c1ce152d410c, b2d1b304-3af3-4b3a-8c80-335d42402b8d, 213f576f-4c3f-45af-bd64-91f390e27858, c4d68b9a-7ada-4d3c-80ee-7d512060fcc5, and 23bf80b1-b1e0-4bcd-a469-95fb33100ef8) with: dry-dig water checks and wet stair-site fallback; expanded predator/troop/snapping-turtle list (snapping turtle and tick-0 hatch-lockout guard scoped to full-year embarks); underground meeting_area zone (gated on surface_hatches()[0] on full-year OP1, immediate on short calm labs LT01/LT02, and late-window days_left<=45 on MY1 so grazing herds stay fed on surface grass while idle dwarves shelter indoors before late-winter freezes and through the scored final stretch); MY1 brew_rest drink-slope lock (safe=42*cit when food_edible>=6*cit, keeping drink rising through FEAST_DAYS); short 2-day late-winter thaw alert around day 293 scoped strictly to full-year embarks (OP1); visiting-caravan stock-inflation guard (caravan_in blocks brew_rest); suspended-furniture exclusion (>10d unbuilt); unbuilt Butchers rebuild; Day-0 fisherdwarf wagon stationing and autolabor no-fishing extended to LT01 and LT02; invader-only targeted squad attacks; early manager office and multi-site bed/dining placement/redigging (full-year-only 9x7 dining and batch-16 orders); grazer-first hunger culls with non-grazer feast reserve; full-year early Carpenter scaling + log-safe 3-slot wooden MakeTool wealth engine (WEALTH_LOGS=45, amount=15, stopping on autumn caravan departure); full zero-model-call routing across all 6 tasks; and LT01 brew_in_window plant-conservation policy (capping pre-window o_brew at drink<max(45,3*cit) and activating o_brew_win/o_fruit_win at hands_off<=6). Public discussion write-ups #171-#175 by 0xplemonade are credited in NOTE.md.",
     "evidence": "submission/ against main's submission/ (65e60732, commit ab1668c): overseer/harness.py (WATER_RING, wet_near, dry_dig; BREW_KEEP, full_year, o_brew_final; unbuilt_since and Butchers rebuild; farm_overlap, office_sites_in, office_zone_candidates, office_needs_free_chair, open-play office; w_used_now in build; extra_room_needs in digging; bed_sites and multi-site bed/dining furnish; invader-only defend and fisher_hold guards; WEALTH_* MakeTool wheelbarrow/minecart/stepladder progression_push; brew_in_window goal policy in set_task/supply/window_supply), overseer/beasts.py (COUGAR, WOLF, THIEVES, ALLIGATOR SNAPPING TURTLE, SNAPPING TURTLE, scale), overseer/openplay.py (GRAZERS grazer-first cull, urgent stretch cull, fisher_check/protect/release, brew_rest stretch_rest, FEAST_DAYS=15, o_hatch retry, full-year-scoped snapping turtle and tick-0 hatch lockout guard), plain/harness.py (NO_MODEL -> layer_only across all tasks, dry_dig and fisher_hold refusals)."
   },
   {
@@ -89,9 +89,9 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 927,
-        "endLine": 953
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 930,
+        "endLine": 956
       },
       {
         "submissionId": "aebddb9d-84c4-4fed-aeca-a30507f768e5",
@@ -173,16 +173,16 @@
       {
         "submissionId": null,
         "path": "submission/overseer/openplay.py",
-        "fileSha256": "4b3a22e3d3cac73cae31edd79ced65e3c90ea14658d8244e0094fd068d046e72",
-        "startLine": 406,
-        "endLine": 424
+        "fileSha256": "875d3ba6f7f638551e7ef0b02137965853eba480a24a072259cf6896df05d36d",
+        "startLine": 411,
+        "endLine": 429
       },
       {
         "submissionId": null,
         "path": "submission/overseer/openplay.py",
-        "fileSha256": "4b3a22e3d3cac73cae31edd79ced65e3c90ea14658d8244e0094fd068d046e72",
-        "startLine": 492,
-        "endLine": 698
+        "fileSha256": "875d3ba6f7f638551e7ef0b02137965853eba480a24a072259cf6896df05d36d",
+        "startLine": 497,
+        "endLine": 703
       }
     ]
   },
@@ -208,30 +208,30 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 407,
         "endLine": 420
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 422,
         "endLine": 445
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 791,
-        "endLine": 838
+        "endLine": 841
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1505,
-        "endLine": 1517
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1511,
+        "endLine": 1523
       }
     ]
   },
@@ -264,23 +264,23 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1024,
-        "endLine": 1030
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1028,
+        "endLine": 1034
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1209,
-        "endLine": 1242
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1213,
+        "endLine": 1246
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 919,
-        "endLine": 925
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 922,
+        "endLine": 928
       },
       {
         "submissionId": null,
@@ -306,14 +306,14 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 927,
-        "endLine": 953
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 930,
+        "endLine": 956
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 647,
         "endLine": 666
       }
@@ -376,23 +376,23 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 518,
         "endLine": 596
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 598,
         "endLine": 615
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1443,
-        "endLine": 1494
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1449,
+        "endLine": 1500
       },
       {
         "submissionId": null,
@@ -418,30 +418,30 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 95,
         "endLine": 102
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1153,
-        "endLine": 1162
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1157,
+        "endLine": 1166
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1105,
-        "endLine": 1151
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1109,
+        "endLine": 1155
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1164,
-        "endLine": 1172
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1168,
+        "endLine": 1176
       }
     ]
   },
@@ -467,16 +467,16 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1024,
-        "endLine": 1030
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1028,
+        "endLine": 1034
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1209,
-        "endLine": 1242
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1213,
+        "endLine": 1246
       }
     ]
   },
@@ -509,14 +509,14 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 598,
         "endLine": 615
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 728,
         "endLine": 775
       },
@@ -558,23 +558,23 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 175,
         "endLine": 183
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 791,
-        "endLine": 838
+        "endLine": 841
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1326,
-        "endLine": 1414
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1332,
+        "endLine": 1420
       }
     ]
   },
@@ -621,9 +621,9 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 850,
-        "endLine": 912
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 853,
+        "endLine": 915
       }
     ]
   },
@@ -677,42 +677,42 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 791,
-        "endLine": 838
+        "endLine": 841
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 668,
         "endLine": 676
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 678,
         "endLine": 682
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 684,
         "endLine": 689
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 1326,
-        "endLine": 1414
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 1332,
+        "endLine": 1420
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 647,
         "endLine": 666
       }
@@ -733,7 +733,7 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 691,
         "endLine": 704
       },
@@ -747,7 +747,7 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 518,
         "endLine": 596
       },
@@ -782,28 +782,28 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
-        "startLine": 850,
-        "endLine": 912
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
+        "startLine": 853,
+        "endLine": 915
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 51,
         "endLine": 51
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 52,
         "endLine": 52
       },
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 53,
         "endLine": 53
       }
@@ -824,9 +824,9 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 791,
-        "endLine": 838
+        "endLine": 841
       }
     ]
   },
@@ -845,9 +845,9 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 791,
-        "endLine": 838
+        "endLine": 841
       }
     ]
   },
@@ -866,16 +866,16 @@
       {
         "submissionId": null,
         "path": "submission/overseer/harness.py",
-        "fileSha256": "0fc45d66905c5f6349991b61f3cc7a29acdf87d74879a28bef22b5b84c60d9ba",
+        "fileSha256": "d2ccd2df191e1a660c2a953b8885a33c53ebf65442b85083157e62afa123a69d",
         "startLine": 647,
         "endLine": 666
       },
       {
         "submissionId": null,
         "path": "submission/overseer/openplay.py",
-        "fileSha256": "4b3a22e3d3cac73cae31edd79ced65e3c90ea14658d8244e0094fd068d046e72",
-        "startLine": 264,
-        "endLine": 290
+        "fileSha256": "875d3ba6f7f638551e7ef0b02137965853eba480a24a072259cf6896df05d36d",
+        "startLine": 269,
+        "endLine": 295
       }
     ]
   },
@@ -929,9 +929,9 @@
       {
         "submissionId": null,
         "path": "submission/overseer/openplay.py",
-        "fileSha256": "4b3a22e3d3cac73cae31edd79ced65e3c90ea14658d8244e0094fd068d046e72",
-        "startLine": 218,
-        "endLine": 261
+        "fileSha256": "875d3ba6f7f638551e7ef0b02137965853eba480a24a072259cf6896df05d36d",
+        "startLine": 223,
+        "endLine": 266
       },
       {
         "submissionId": null,

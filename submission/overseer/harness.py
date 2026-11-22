@@ -54,7 +54,7 @@ PROG_LOGS = 25          #   wood crafts that runs only while this many logs are 
 WEALTH_FROM_DAY = 5     # full-year embarks: build created wealth via wooden Wheelbarrows/Minecarts/Stepladders
 WEALTH_STOP_DAY = 202   #   (all 50 base value in DF 53.16) before the autumn caravan departs (~day 192-200) and
 WEALTH_TARGET = 250000  #   reports home, maximizing Wave 2 migrant rolls; stop once caravan departs
-WEALTH_LOGS = 60        #   minimum usable logs (>= 3 * 15 batch) so Butchers/housing/barrels are NEVER log-starved
+WEALTH_LOGS = 45        #   minimum usable logs (>= 3 * 15 batch) so sparse-wood forts ramp wealth without log starvation
 ZONE_SIDE = 20          # make_zone refuses a site box wider or taller than this
 PLACE_SIDE = 40         # place_furniture refuses a site box wider or taller than this
 ZONE_RECHECK = 3        # days after which a dining site this layer zoned may be zoned again for furniture still
@@ -792,14 +792,17 @@ class Overseer(OpenPlayRules):
         """Standing orders that keep working in a hands-off window, then one-shot furniture sized to the population.
         Goal policies: with the "drink must not end lower" goal the brew order keeps no drink ceiling (the window
         must see batches brewed); with the placed-bed goal the carpenters' queue holds beds only."""
-        brew = self.standing("brew_drink") or ((self.drink_growth or self.brew_in_window) and bool(self.brew_own)) or self.brew_stopped
+        brew = self.standing("brew_drink") or (self.drink_growth and bool(self.brew_own)) or self.brew_stopped
         if not brew:
             when = [{"stock": "plants_brewable", "at_least": 2}, {"stock": "barrels_empty", "at_least": 1}]
             if self.full_year():
                 when[0] = {"stock": "plants_brewable", "at_least": BREW_KEEP}
-            elif not self.drink_growth and not self.brew_in_window:
+            elif self.brew_in_window:
+                # LT01: cap pre-window drink so brewable plants are preserved for the hands-off window [39, 60]
+                when.insert(0, {"stock": "drink", "below": max(45, 3 * self.cit)})
+            elif not self.drink_growth:
                 when.insert(0, {"stock": "drink", "below": DRINK_CAP})
-            key = "o_brew_growth" if (self.drink_growth or self.brew_in_window) else "o_brew"
+            key = "o_brew_growth" if self.drink_growth else "o_brew"
             self.act(key, "add_order", {"recipe": "brew_drink", "amount": 3, "repeat": "daily", "when": when}, retry=3)
         if not self.standing("make_barrel"):
             b_amt, b_below = (3, 6) if self.full_year() else (2, 4)
@@ -975,12 +978,13 @@ class Overseer(OpenPlayRules):
         half a plant per citizen stays unbrewed. Barrels are the usual limit: an extra barrel order runs alongside.
         Beds come first in the carpenters' queue on a migrant task, with a second Carpenters to make them."""
         plant_min = 1 if self.brew_in_window else max(3, self.cit // 2)
-        self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
-            {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": plant_min},
-            {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
-        if self.brew_in_window:
-            self.act("o_fruit_win", "add_order", {"recipe": "brew_drink_from_fruit", "amount": 3, "repeat": "daily", "when": [
-                {"stock": "drink", "below": 2000}, {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
+        if not self.brew_in_window or (isinstance(self.hands_off, int) and self.hands_off <= 6):
+            self.act("o_brew_win", "add_order", {"recipe": "brew_drink", "amount": 5, "repeat": "daily", "when": [
+                {"stock": "drink", "below": 2000}, {"stock": "plants_brewable", "at_least": plant_min},
+                {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
+            if self.brew_in_window:
+                self.act("o_fruit_win", "add_order", {"recipe": "brew_drink_from_fruit", "amount": 3, "repeat": "daily", "when": [
+                    {"stock": "drink", "below": 2000}, {"stock": "barrels_empty", "at_least": 1}]}, retry=2, limit=5)
         self.act("o_barrel_win", "add_order", {"recipe": "make_barrel", "amount": 3, "repeat": "daily", "when": [
             {"stock": "barrels_empty", "below": 10}, {"stock": "logs", "at_least": 3}]}, retry=2, limit=5)
         butcher_floor = (1 if self.brew_in_window else 4) * self.cit
@@ -1287,12 +1291,14 @@ class Overseer(OpenPlayRules):
         return next((s for s in self.kind("A") if s.get("z") not in taken), None)
 
     def meeting_area(self):
-        """Full-year embarks (OP1) and short calm labs (LT01, LT02): an underground meeting_area zone draws idle
-        dwarves off the surface wagon (#171). On OP1, wait until every surface stair has a built hatch cover so idle
-        dwarves are never herded into an unsealed dead-end underground pit before lockdowns can seal the stairs.
-        Excluded on mid-year handed-over forts (MY1), where an underground meeting_area pulls the unpastured grazing
-        herd indoors off surface grass and starves the feast herd before FEAST_DAYS."""
-        if not (self.full_year() or self.no_fish_lab) or self.zone("meeting") or self.surface_seen is None:
+        """Underground meeting_area draws idle dwarves off the surface wagon (#171).
+        - Full-year embarks (OP1): wait until every surface stair has a built hatch cover.
+        - Short calm labs (LT01, LT02): activate immediately (horizon ends before grazers can starve).
+        - Mid-year handed-over forts (MY1): wait until days_left <= 45 (30d before FEAST_DAYS, well below the
+          ~84d grazer starvation time) so grazers stay well-fed on grass while idle dwarves shelter indoors
+          through late-winter freezes and the scored final stretch."""
+        my1_late = self.open_play() and not self.full_year() and self.days_left <= 45
+        if not (self.full_year() or self.no_fish_lab or my1_late) or self.zone("meeting") or self.surface_seen is None:
             return
         if self.full_year() and not self.surface_hatches()[0]:
             return
@@ -1325,7 +1331,7 @@ class Overseer(OpenPlayRules):
 
     def furnish(self):
         dorm, dine = self.room_for("dorm"), self.room_for("dine") or self.room_for("dorm")
-        if self.full_year() or self.no_fish_lab:
+        if self.open_task() or self.no_fish_lab:
             self.meeting_area()
         if self.open_task():
             short = self.cit + 2 - (self.placed.get("bed") or 0)

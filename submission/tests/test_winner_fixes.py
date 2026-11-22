@@ -348,7 +348,7 @@ class WealthEngineTests(unittest.TestCase):
             self.assertEqual(p.guard.brew_in_window, label == "LT01", label)
 
     def test_lt01_brew_in_window_brews_at_one_plant_plus_fruit_and_avoids_early_butcher(self):
-        r = resp(35, 25, food=40, drink=350, cit=19, hands_off=14)
+        r = resp(27, 33, food=40, drink=350, cit=19, hands_off=6)
         r["observation"]["stocks"]["logs_usable"] = 30
         ov, g = overseer(r)
         ov.days = 60
@@ -401,7 +401,8 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"],
                          [{"kind": "meeting_area", "site": "A_ug"}])
 
-        # On MY1 (days=216), meeting_area MUST NOT activate underground (keeps grazing feast herd on surface grass)
+        # On MY1 (days=216), meeting_area stays OFF while days_left > 45 (keeps grazing feast herd on grass),
+        # then activates at days_left <= 45 (30d before FEAST_DAYS: shelters dwarves from winter freezes/weather)
         r_my = resp(200, 16, food=60, drink=120, cit=10)
         r_my["observation"]["map"]["surface_z"] = 152
         r_my["observation"]["map"]["sites"] = o["map"]["sites"]
@@ -411,6 +412,15 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov_my.days = 216
         ov_my.furnish()
         self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"], [])
+        r_my_late = resp(45, 171, food=60, drink=120, cit=10)
+        r_my_late["observation"]["map"]["surface_z"] = 152
+        r_my_late["observation"]["map"]["sites"] = o["map"]["sites"]
+        r_my_late["observation"]["doors"] = {"list": []}
+        r_my_late["observation"]["zones"] = o["zones"]
+        ov_my.load(r_my_late)
+        ov_my.furnish()
+        self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"],
+                         [{"kind": "meeting_area", "site": "A_ug"}])
 
         # On LT01/LT02 (no_fish_lab=True), meeting_area activates underground immediately
         r_lab = resp(50, 10, food=60, drink=120, cit=7, hands_off=29)
@@ -455,7 +465,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertFalse(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [])
 
-        # Caravan departs, MY1 drink=300 (30/cit >= DRINK_SAFE=28): stops brewing to protect food plants!
+        # Caravan departs, MY1 low food=15 (< 6*cit) and drink=300 (30/cit >= DRINK_SAFE=28): stops brewing!
         r2 = resp(10, 206, food=15, drink=300, cit=10, orders=[order])
         r2["observation"]["recent_events"] = [
             "The merchants from TestCiv have embarked on their journey.",
@@ -467,6 +477,12 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov.feast()
         self.assertTrue(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [{"order_id": 7}])
+
+        # Once MY1 feast meat lifts food >= 6*cit (e.g. food=80) and drink < 42*cit, reopens brewing to protect drink slope!
+        r3 = resp(8, 208, food=80, drink=300, cit=10, orders=[])
+        ov.load(r3)
+        ov.feast()
+        self.assertFalse(ov.brew_stopped)
 
     def test_lt02_enables_no_fishing_and_fisher_hold(self):
         cits = [
@@ -494,7 +510,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertEqual(g.tools("create_squad"), [{"dwarf_ids": [83]}])
         self.assertEqual(g.tools("squad_order"), [{"order": "station", "x": 95, "y": 95, "z": 151}])
 
-    def test_lt01_brew_in_window_skips_furniture_orders(self):
+    def test_lt01_brew_in_window_skips_furniture_and_preserves_plants_until_window(self):
         r = resp(35, 25, food=80, drink=100, cit=15, hands_off=14)
         r["observation"]["stocks"]["logs_usable"] = 30
         r["observation"]["stocks"]["beds"] = 0
@@ -506,9 +522,20 @@ class Win7BreakthroughTests(unittest.TestCase):
                      "goal": "Keep drink in stock, brew at least one batch of drink inside it."})
         ov.supply()
         ov.housing_check()
+        ov.window_supply()
         recipes = [o.get("recipe") for o in g.tools("add_order")]
         for f in ("make_bed", "make_table", "make_chair"):
             self.assertNotIn(f, recipes)
+        # Pre-window o_brew caps drink at max(45, 3*cit)=45; o_brew_win holds until hands_off <= 6
+        brews = [o for o in g.tools("add_order") if o.get("recipe") == "brew_drink"]
+        self.assertEqual(len(brews), 1)
+        self.assertEqual(brews[0]["when"][0], {"stock": "drink", "below": 45})
+        r_late = resp(27, 33, food=80, drink=100, cit=15, hands_off=6)
+        ov.load(r_late)
+        ov.window_supply()
+        brews2 = [o for o in g.tools("add_order") if o.get("recipe") == "brew_drink"]
+        self.assertEqual(len(brews2), 2)
+        self.assertEqual(brews2[1]["when"][0], {"stock": "drink", "below": 2000})
 
     def test_three_slot_amount15_maketool_wealth_engine_cancels_on_caravan_out(self):
         r = resp(300, 36, food=60, drink=200, cit=10,
@@ -522,7 +549,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         orders = g.tools("add_manager_order")
         self.assertEqual(len(orders), 3)
         self.assertTrue(all(o.get("job") == "MakeTool" and o.get("amount") == 15 for o in orders))
-        self.assertEqual([o["when"][0]["at_least"] for o in orders], [60, 65, 70])
+        self.assertEqual([o["when"][0]["at_least"] for o in orders], [45, 50, 55])
         all_ids = sorted(ov.wealth_ids)
         self.assertEqual(len(all_ids), 3)
 
