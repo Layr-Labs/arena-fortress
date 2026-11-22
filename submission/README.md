@@ -1,32 +1,48 @@
-# Dining seats, Hamlet wealth, stuck workshops, a lockdown's shut-out citizens and the spring thaw
+# PR #243's three trees, with an office below ground for the expedition leader on the handed-over fort
 
-The model loop, digest and controller are our PR #115 build (pepedesigner's a9f894ea line, with its
-wildlife lockdown, no fishing and first-felling wait). This build changes six things. All but the third and
-fifth apply to the long open tasks only (MY1, OP1; lab tasks keep the earlier dining and wealth steps and
-have no lockdown):
+This package holds three complete harness trees and a dispatcher that picks one per task. It is our PR #243 with one
+change, marked `h4` in the code: on the handed-over fort (MY1) the expedition leader gets an office of his own in a
+dug room below ground. The fresh embark (OP1) and the four labs are played exactly as in PR #243.
 
-- Dining seats are counted the way DF lists them (a table or chair inside a dining zone, each once),
-  dining furniture goes only where a dining zone covers it or can be made, and tables and chairs are
-  ordered against that count. GordoAR's coverage check (5dfdcf15) zones a site after placement.
-- Full-year games make wood crafts from day 40 while 25 logs are in stock, until created wealth is
-  5,500: i34-9's rule (fa9c13cc) for the Hamlet rank.
-- A workshop whose construction DF suspended for three days is built again on another site, at most
-  twice per type (a core workshop that is missing altogether takes a free site first): no tool resumes a
-  suspended job.
-- A citizen on the surface when a wildlife lockdown's hatch is due to lock (asleep, or a migrant who
-  arrives later) is let in: the nearest hatch that every hostile and large predator in sight is more than
-  60 tiles from stays open, or is opened again; it locks when they are below, when the danger comes nearer,
-  or after two days, at most three times a lockdown, and at once if invaders take the alert over. The
-  alert stays on throughout.
-- The civilian alert holds from the last day of winter to the third day of spring (no hatch is locked):
-  ice thaws then, and a woodcrafter idle in a frozen river bed drowned at the thaw in a local full-year
-  game. A lockdown can still start meanwhile and takes the alert over; the day above ground owed after a
-  full lockdown comes first.
-- The STATUS digest starts with ALERT lines for dangers to life (a citizen's death or fight with a large
-  predator in the latest reports, a large predator in reach of the wagon, citizens shut out), stating the
-  lockdown as the observation shows it. Its threats line says that ordinary wild animals are not listed as
-  hostiles, and it no longer suggests steps the harness refuses (autochop while the first felling waits,
-  the civilian alert, a Fishery or Butchers on a calm fort).
+- `dispatch/` reads the task from `DFBENCH_TASK`.
+  - A task with a hands-off window, which is each of the four labs, is played by the harness in `labs/`.
+  - An open task (no hands-off window) shorter than a year, the handed-over fort (MY1, 216 days), is played by the
+    harness in `ours/`.
+  - Every other task, which is the fresh embark (OP1, 336 days), is played by the harness at `plain/` and `overseer/`.
+    A task it can't read, or a tree that is not in place, also goes there; that harness plays every task.
+  The chosen harness then runs as in its own package: `python -m plain`, in a fresh interpreter, from its own folder,
+  with the shared `dfbench_client/` on the path. The first line of the harness log names the choice
+  (`{"kind": "dispatch", "controller": "main" | "ours" | "labs"}`).
+- `plain/`, `overseer/`, `tests/`: main's `submission/`, newjordan's `6fe223ed` (PR #233), with these changes, all
+  marked `h2` in the code:
+  - `overseer/openplay.py` (`reconnect`, `reindex_site`): when a wildlife lockdown is released, one Carpenters, one
+    Masons and one Farmers workshop are ordered on free surface sites, and the release is watched until one of
+    those kinds is seen finished: a finished workshop makes DF rebuild the path index that the API's `lock_door`
+    leaves stale (challenge issue #238; `tests/test_h2_reconnect.py`);
+  - `overseer/harness.py` (`meeting_area`): no underground meeting area on a full-year embark;
+    `tests/test_winner_fixes.py` says so;
+  - `overseer/harness.py` (`progression_push`): the wood-tool orders pause while a released lockdown waits for its
+    workshop, as they already do for housing and hatch covers (`tests/test_h2_push.py`);
+  - `plain/harness.py` (`read`, `attempt`, `look`, `advance_failed`, `seen`) and `Overseer.step`: a failing read of
+    the game server is tried again for up to five minutes, and a lost answer to an advance is followed by a look
+    at the clock, instead of ending the harness (`tests/test_h2_loop.py`).
+  `tests/test_dispatch.py` is from PR #237, extended for the third tree.
+- `ours/plain/`, `ours/overseer/`, `ours/tests/`: 0xplemonade's `e884d63b` (PR #229, arm d81), with the first and
+  the last of those changes (its workshops are ordered Farmers, Carpenters, Masons) and, marked `h4`, the expedition
+  leader's office (`ours/overseer/harness.py`: `leader_wants_office`, `leader_office`, and lines in `digging`,
+  `reserved` and `office_chair_needed`): one more 3x3 room is dug after the others, zoned as an office and assigned
+  to the expedition leader once the manager has a chair or a usable office zone of his own, and given a chair after
+  the manager's has one. Nothing is done while the manager's post is vacant, when the leader is the manager, or on a
+  lab; an unowned office is left to the manager until his has its chair; a room another zone took first is given
+  up and one more is dug, two rooms and two zones at most (`ours/tests/test_h4_leader_office.py`).
+- `labs/plain/`, `labs/overseer/`: main's `submission/plain/` and `submission/overseer/` at `d0929e6`, byte for byte.
+  Nothing of ours is in them (`tests/test_dispatch.py` checks that no `h2` or `h4` mark is).
+- `dfbench_client/`: the challenge's client, the same for all three.
 
-Declarations and citations are in dependencies.json. Standard-library Python, the game API and the fixed
-GLM gateway only. Tests: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests`.
+All three play with no model calls (`NO_MODEL = True` in each `plain/harness.py`). Standard-library Python, the game
+API and the fixed gateway only. Sources and citations are in `dependencies.json`.
+
+Tests:
+
+    PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests
+    cd ours && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.. python3 -B -m unittest discover -s tests
