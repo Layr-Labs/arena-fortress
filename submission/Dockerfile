@@ -10,5 +10,10 @@ WORKDIR /harness
 COPY dfbench_client/ dfbench_client/
 COPY plain/ plain/
 COPY overseer/ overseer/
+COPY ours/plain/ ours/plain/
+COPY ours/overseer/ ours/overseer/
+COPY labs/plain/ labs/plain/
+COPY labs/overseer/ labs/overseer/
+COPY dispatch/ dispatch/
 USER nobody
-ENTRYPOINT ["python", "-m", "plain"]
+ENTRYPOINT ["python", "-m", "dispatch"]
