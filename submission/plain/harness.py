@@ -20,6 +20,7 @@ workshop job_details are summarised by the digest instead). The loop, the guards
 Run: python -m plain   (reads DFBENCH_TASK)
 """
 import copy
+import http.client
 import json
 import os
 import sys
@@ -54,6 +55,13 @@ CALM_WORKSHOPS = {      # refused while the layer keeps the fort from fishing an
 CHAT = {"tool_choice": "required", "temperature": 0, "max_tokens": 4000, "reasoning": {"effort": "low"}}
 ENVELOPE = ("day", "tick", "days_left", "game_over", "hands_off_in_days")
 DAY = 1200                  # ticks per game day
+SERVER_WAIT = 300.0         # h2: seconds a read may go on failing, time inside the client included, before the
+                            #   harness gives the game up as it did at the first failure before h2
+ADVANCE_FAILS = 30          # h2: advances in a row whose answer may be lost, with no progress seen between them,
+                            #   before it does
+# h2: what a request to the game server can raise besides the rule rejections: the client's own errors, and what
+# escapes it (a body cut short while an HTTP error is being read raises http.client.IncompleteRead)
+SERVER_ERRORS = (GameAPIError, OSError, http.client.HTTPException, ValueError)
 UNITS_EVERY = 10            # game days between `units` queries (labor coverage for the digest)
 
 
@@ -116,6 +124,8 @@ class Plain:
         self.stats = {"turns": 0, "actions": 0, "rejected": 0, "advances": 0, "stall_advances": 0,
                       "churn_refused": 0, "api_errors": 0, "no_tool_call": 0, "context_trims": 0}
         self.stop_reason = None
+        self.advance_fails = 0   # h2: advances in a row whose answer was lost or refused (advance_failed)
+        self.unsure = None       # h2: the tick before an advance whose answer was lost (the game may have moved)
         self.added = {}       # order id -> (signature, tick) of orders this harness added
         self.cancelled = []   # (tick, signature, order id) of orders this harness cancelled
         self.memory = digest.Memory()   # cut 2: failed/recent actions, advance stops, order ages, supply trend
@@ -125,7 +135,7 @@ class Plain:
         self.units_day = None
 
     def setup(self):
-        t = self.game.task()
+        t = self.read(self.game.task, lambda r: True, "task")         # h2: waited for, as observations are
         self.tools = prepare_tools(t.get("tools") or [])
         self.tool_names = {(x.get("function") or {}).get("name") for x in self.tools}
         self.messages = [{"role": "system", "content": prompt.system_prompt(t.get("manual"), self.tool_names)}]
@@ -160,6 +170,81 @@ class Plain:
     def spent(self):
         return self.model.usage.get("cost_usd") or 0.0
 
+    def read(self, fetch, usable, what):
+        """h2: a read the loop cannot go on without, retried while the game server fails. Before h2 one HTTP 500, one
+        body that was not JSON, or a time-out that outlasted the client's own retries on GET /observe ended the
+        harness (main() returned 1). The runner then has the server finish the game unmanaged (POST /finish:
+        runner/dfbenchlib/game.py), and the game is scored like any other. Now the read is tried again for up to
+        SERVER_WAIT seconds from its first try, time inside the client included; after that the harness ends as
+        before (GameAPIError): a server gone that long is not coming back, and waiting on would use up the game's
+        wall time. The first try is the client's own, with its retries; later tries are single ones, cut to what is
+        left of the wait."""
+        t0, delay, left = time.monotonic(), 0.5, None
+        while True:
+            try:
+                r = self.attempt(fetch, left)
+                if isinstance(r, dict) and usable(r):
+                    return r
+                err = "unusable answer"
+            except (HandsOff, GameOver):
+                raise
+            except SERVER_ERRORS as e:
+                err = repr(e)[:200]
+            waited = time.monotonic() - t0
+            if waited >= SERVER_WAIT:
+                log("server_gone", what=what, error=err, waited=round(waited, 1))
+                raise GameAPIError("%s failed for %d s: %s" % (what, waited, err))
+            log("server_wait", what=what, error=err, waited=round(waited, 1))
+            time.sleep(min(delay, SERVER_WAIT - waited))
+            delay = min(delay * 2, 15.0)
+            left = max(1.0, SERVER_WAIT - (time.monotonic() - t0))
+
+    def attempt(self, fetch, left):
+        """h2: one try of a read. With `left` (seconds of the wait that remain) the client is held to a single
+        request of at most that long, where it is the challenge's client (its `retries` and `timeout`)."""
+        g = self.game
+        if left is None or not isinstance(getattr(g, "retries", None), int) \
+                or not isinstance(getattr(g, "timeout", None), (int, float)):
+            return fetch()
+        keep = g.retries, g.timeout
+        g.retries, g.timeout = 0, min(g.timeout, left)
+        try:
+            return fetch()
+        finally:
+            g.retries, g.timeout = keep
+
+    def look(self):
+        """h2: the observation for the layer's loop, waited for (read). One without its clock is not usable: the
+        loop goes by the tick."""
+        return self.read(self.game.observe, lambda r: r.get("game_over") is True or (
+            isinstance(r.get("observation"), dict) and isinstance(r.get("tick"), int)
+            and not isinstance(r.get("tick"), bool)), "observe")
+
+    def advance_failed(self, error, lost):
+        """h2: an advance whose answer was lost (`lost`), or was refused. A refusal is answered: it is paced, so that
+        the loop cannot spin on one tick, and asked again. After a lost answer the game may have advanced or not;
+        the next look tells (seen()). True to go on."""
+        self.advance_fails += 1
+        log("harness_advance_error", error=error, n=self.advance_fails, lost=lost)
+        time.sleep(min(15.0, 0.5 * self.advance_fails))
+        return True
+
+    def seen(self, resp):
+        """h2: the first observation after an advance whose answer was lost: its clock says whether the game moved.
+        If it did, the run of failed advances is over, and the lost answer may have named a stop (a hostile closing
+        in), which a controller that gives such stops a pass of their own is told of (`last_stop`). If it did not,
+        and ADVANCE_FAILS answers in a row have been lost that way, the server is taken for gone (GameAPIError, as
+        the first lost answer was before h2)."""
+        if self.unsure is None:
+            return
+        if resp.get("game_over") is True or resp.get("tick") > self.unsure:
+            self.advance_fails = 0
+            if resp.get("game_over") is not True and getattr(self, "last_stop", 0) is None:
+                self.last_stop = "answer lost"
+        elif self.advance_fails > ADVANCE_FAILS:
+            raise GameAPIError("advance_days: %d answers lost in a row and the game has not moved" % self.advance_fails)
+        self.unsure = None
+
     def layer_only(self, reason):
         """No model: run the deterministic layer alone to the horizon (the baseline exited here and left the fort
         unmanaged). The layer runs once per game day; between its passes a day or two passes. False when the game is
@@ -167,7 +252,8 @@ class Plain:
         self.stop_reason = reason
         log("layer_only", reason=reason)
         while True:
-            resp = self.game.observe()
+            resp = self.look()
+            self.seen(resp)
             if resp.get("game_over"):
                 self.stop_reason = "game_over"
                 return False
@@ -175,14 +261,19 @@ class Plain:
                 self.guard_day = resp.get("day")
                 try:
                     if self.guard.step(resp):
-                        resp = self.game.observe()
+                        resp = self.look()
                         if resp.get("game_over"):
                             self.stop_reason = "game_over"
                             return False
                 except (HandsOff, GameOver) as e:
                     self.stop_reason = type(e).__name__
                     return False
-            if not self.advance(self.quiet_days(resp), reason):
+            try:
+                days = self.quiet_days(resp)
+            except Exception as e:       # h2: the pacing must never stop the loop
+                log("pace_error", error=repr(e)[:200])
+                days = 1
+            if not self.advance(days, reason):
                 return False
 
     def run(self, max_turns=None):
@@ -541,16 +632,23 @@ class Plain:
 
     def advance(self, days, reason):
         """A harness-initiated advance. False when the game is over or the hands-off window has started."""
+        before = self.tick()
         try:
             resp = self.game.act("advance_days", {"days": days})
         except (HandsOff, GameOver) as e:
             self.stop_reason = type(e).__name__
             return False
+        except SERVER_ERRORS as e:       # h2: the answer was lost or unreadable: not the end of the game
+            self.unsure = before if isinstance(before, int) and not isinstance(before, bool) else -1
+            return self.advance_failed(repr(e)[:200], True)
         self.stats["advances"] += bool(resp.get("ok"))
         log("harness_advance", reason=reason, ok=resp.get("ok"))
         if resp.get("game_over"):
             self.stop_reason = "game_over"
             return False
+        if not resp.get("ok"):           # h2: refused: counted and paced, so the loop cannot spin on one tick
+            return self.advance_failed(str(resp.get("error_code")), False)
+        self.advance_fails = 0
         return True
 
     def tick(self):

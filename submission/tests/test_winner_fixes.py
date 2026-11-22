@@ -379,7 +379,7 @@ class WealthEngineTests(unittest.TestCase):
 
 
 class Win7BreakthroughTests(unittest.TestCase):
-    def test_underground_meeting_area_sealed_op1_and_labs_only_excludes_my1(self):
+    def test_underground_meeting_area_labs_only_excludes_op1_and_my1(self):
         r = resp(300, 36, food=60, drink=120, cit=10)
         o = r["observation"]
         o["map"]["surface_z"] = 152
@@ -394,12 +394,12 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov.furnish()
         self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"], [])
 
-        # Once stair hatch is built (sealed), OP1 creates underground meeting_area
+        # h2: nor once the stair hatch is built. Idle dwarves gathered below never walk up to the hatch, and a fort
+        # whose path index was rebuilt during a lockdown then stays below after the release (openplay.reconnect)
         o["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 152}]}
         ov.load(r)
         ov.furnish()
-        self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"],
-                         [{"kind": "meeting_area", "site": "A_ug"}])
+        self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"], [])
 
         # On MY1 (days=216), meeting_area MUST NOT activate underground (keeps grazing feast herd on surface grass)
         r_my = resp(200, 16, food=60, drink=120, cit=10)
