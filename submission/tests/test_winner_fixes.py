@@ -156,6 +156,15 @@ class OfficeAndHousingTests(unittest.TestCase):
 
 
 class GrazerAndReserveCullTests(unittest.TestCase):
+    def test_food_zero_can_use_the_reserve_after_an_empty_check(self):
+        herd = [{"id": 2, "race": "PIG", "tame": True, "adult": True}]
+        ov, g = overseer(resp(150, 186, food=2), herd=herd)
+        ov.provision()
+        self.assertEqual(g.tools("slaughter"), [])
+        ov.load(resp(148, 188, food=0))
+        ov.provision()
+        self.assertEqual(g.tools("slaughter"), [{"unit_id": 2}])
+
     def test_hunger_cull_keeps_non_grazers_and_culls_grazers_first(self):
         herd = [
             {"id": 1, "race": "COW", "tame": True, "adult": True, "pet_owner_id": -1},          # grazer (60)
@@ -394,7 +403,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov.furnish()
         self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"], [])
 
-        # Once stair hatch is built (sealed), OP1 creates underground meeting_area
+        # Once stair hatch is built (sealed), OP1 creates underground meeting_area (h5: main's rule again)
         o["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 152}]}
         ov.load(r)
         ov.furnish()

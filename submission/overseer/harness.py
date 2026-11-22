@@ -144,6 +144,9 @@ class Overseer(OpenPlayRules):
         self.wild_off = False    # a lockdown could not protect once: no more of them this game
         self.own_locks = set()   # door ids of hatches this layer sent a lock for and has not confirmed open again
         self.rest_until = 0      # tick before which a lockdown may not begin again
+        self.freed = None        # h2: the lockdown release being watched (openplay.reconnect)
+        self.freed_n = 0         # h2: releases so far
+        self.reindex_n = 0       # h2: workshops reconnect has ordered
         self.alert_pending = False   # an alert was asked for and the answer never came: it is still this layer's
         self.calm = None         # open play: True while nobody may fish or hunt (the labour plugin, no Fishery, a
                                  #   late Butchers); False where a Fishery or Butchers stood already; None unread
@@ -864,8 +867,13 @@ class Overseer(OpenPlayRules):
                       and (self.st.get("chairs") or 0) >= seats_need + 1)
         sealed, _ = self.surface_hatches()
         hatches_ok = (sealed or self.day >= 60) and not self.pending("make_hatch_cover")
+        # h2: nor while a released lockdown waits for its workshop (reconnect). The tool orders keep every dwarf with
+        # carpentry at a Carpenters, and the workshops that join a cut fort stand unbuilt beside them: in a local
+        # game with the path index rebuilt during a lockdown, six of seven dwarves were above ground for fifteen
+        # days, five of them making tools in every look, and none of three ordered workshops was built
+        joined = self.freed is None
         in_window = WEALTH_FROM_DAY <= self.day <= WEALTH_STOP_DAY and not self.caravan_out and w_cr < WEALTH_TARGET
-        if self.wealth_ids and (not in_window or not housing_ok or not hatches_ok):
+        if self.wealth_ids and (not in_window or not housing_ok or not hatches_ok or not joined):
             for oid in sorted(self.wealth_ids):
                 self.act("wealth_stop_%s" % oid, "cancel_order", {"order_id": oid}, retry=1, limit=4)
         # Scale Carpenters early once core shops are up, reserving W sites for Butchers
@@ -882,7 +890,7 @@ class Overseer(OpenPlayRules):
             if carp < target and self.built_n.get("Carpenters", 0) < 9 and free_w > keep_w:
                 self.build("Carpenters", retry=1, key="ws_carp_extra")
         if in_window:
-            if not core_up or not housing_ok or not hatches_ok:
+            if not core_up or not housing_ok or not hatches_ok or not joined:
                 return
             carp = sum(1 for w in lst(self.o.get("workshops"))
                        if isinstance(w, dict) and w.get("type") == "Carpenters")
@@ -1291,7 +1299,16 @@ class Overseer(OpenPlayRules):
         dwarves off the surface wagon (#171). On OP1, wait until every surface stair has a built hatch cover so idle
         dwarves are never herded into an unsealed dead-end underground pit before lockdowns can seal the stairs.
         Excluded on mid-year handed-over forts (MY1), where an underground meeting_area pulls the unpastured grazing
-        herd indoors off surface grass and starves the feast herd before FEAST_DAYS."""
+        herd indoors off surface grass and starves the feast herd before FEAST_DAYS.
+
+        h5: main's rule for OP1 is back. h2 had dropped the OP1 zone because a fort whose path index is rebuilt during
+        a lockdown stays below after the release when everybody idles below (two local games with the rebuild forced
+        in every lockdown: all died of thirst). In ordinary games that rebuild is rare (none in 44 watched
+        releases), and without the zone idle dwarves stand at the wagon, where wildlife gets them: in ordinary local
+        OP1 games on the harpy fort a dwarf died in 8 of 30 games without the zone and in 1 of 17 with it. The zone
+        has a cost of its own where a troop of small animals harasses the surface (public fort 1002: a death in 4
+        games of 5 with it, in 1 of 7 without). The release guard (reconnect) stays, for whoever is above after a
+        release."""
         if not (self.full_year() or self.no_fish_lab) or self.zone("meeting") or self.surface_seen is None:
             return
         if self.full_year() and not self.surface_hatches()[0]:
@@ -1449,6 +1466,8 @@ class Overseer(OpenPlayRules):
             alert = self.wildlife(alert, open_play)   # first, while the day's actions are unspent
         if open_play or self.thaw_alert:
             alert = self.thaw(alert, bur)
+        if open_play:
+            self.reconnect(alert)        # h2: a released fort gets its path index rebuilt
         squads = lst(mil.get("squads"))
         squad = d(squads[0]) if squads else None
         if not squad and self.cit >= 14:
@@ -1478,14 +1497,18 @@ class Overseer(OpenPlayRules):
                 self.act("attack", "squad_order", {"order": "attack"}, retry=1, limit=99)
             if (not hostile or holding) and orders and not fisher_stationed:
                 self.act("stand_down", "squad_order", {"order": "stand_down"}, retry=1, limit=99)
-        near = (th.get("nearest_hostile_dist_to_wagon") or 10 ** 6) <= 45
+        distance = th.get("nearest_hostile_dist_to_wagon")      # h5: a distance of 0 is a hostile on the wagon's tile,
+        near = type(distance) in (int, float) and distance <= 45  #   not a missing reading
         # a fort that is being let out, or was just let out after a full lockdown or an invader alert, stays out:
         # the inherited invader alert does not sound over a release or over the day above ground that follows
         owed = self.lock is not None or self.now < self.rest_until   # (a lab task has neither)
         if invaders and near and not alert and not owed \
                 and any(d(b).get("civ_alert_burrow") for b in lst(bur.get("list"))):
-            if self.act("alert_on", "civilian_alert", {"on": True}, retry=20, limit=99):
+            r = self.act("alert_on", "civilian_alert", {"on": True}, retry=20, limit=99)
+            if r and r.get("ok"):
                 self.alert_since = self.now
+            elif r is not None:
+                self.last["alert_on"] -= 19 * DAY  # h5: a refused warning may be retried tomorrow
         # civilians can't reach drink or food under a long alert: never hold it more than 10 days
         too_long = self.alert_since is not None and self.now - self.alert_since > 10 * DAY
         if alert and not ours and (not invaders or too_long):
@@ -1504,9 +1527,9 @@ class Overseer(OpenPlayRules):
 
     def step(self, resp):
         """One pass of the deterministic layer for the plain loop. Returns the number of actions it ran."""
-        self.load(resp)
         self.count = 0
         try:
+            self.load(resp)              # h2: inside the guard: an observation that can't be read costs one pass
             self.plan()
         except (HandsOff, GameOver):
             raise

@@ -86,6 +86,13 @@ BLIND_TRIES = 3         # passes in a row without a readable observation, before
 RELEASE_ROUNDS = 3      # tries at each call when the harness lets go of a lockdown on its way out
 BURROW_SIDE = 40        # create_burrow refuses a box wider or taller than this, so a dug level that large is
                         #   left out of the shelter: each call for one was refused, every six days, to the end
+REINDEX_SHOPS = ("Carpenters", "Masons", "Farmers")   # h2: the workshops ordered on the surface when a lockdown is released (reconnect)
+REINDEX_DAYS = 12           # h2: a release is watched for this many days at most
+REINDEX_MAX = 18            # h2: such workshops ordered in one game at most
+CUT_DAYS = 1                # h2: days after a release with nobody above ground and no drink taken that are logged as cut off
+# h2: refusals of a build_workshop that are about the material: asked again on the same site. Any other refusal
+# sends the next request to another site, and one about the arguments ends that kind for the release
+NO_MATERIAL = ("no_material", "needs_stone")
 FOREVER = 10 ** 9       # a failure limit for actions that must be retried for as long as they are needed
 BEAST_BUDGET = 60       # days a game may spend shut for large wild predators alone (overseer/beasts.py), counted
                         #   from the first sight of one in a lockdown to the opening of the fort. A visit of the
@@ -208,7 +215,7 @@ class OpenPlayRules:
                 break
             r = self.act("cull_%s" % a["id"], "slaughter", {"unit_id": a["id"]}, retry=1, limit=2)
             marked += bool(r and r.get("ok"))
-        if marked or not pick:
+        if marked:                    # h5: an empty check starts no cooldown (the reserve is released when food is gone)
             self.culled[key] = self.now
         log("cull", key=key, day=self.day, days_left=self.days_left, herd=len(herd), marked=marked,
             food=self.st.get("food_edible"), drink=self.st.get("drink"), cit=self.cit)
@@ -695,7 +702,114 @@ class OpenPlayRules:
                 self.beast_spent += self.now - lock["beast"]     # from the first sight of one to the opening
             self.lock = None
             log("lockdown", event="off", day=self.day)
+            self.freed_n += 1            # h2: this release is watched, and a workshop is ordered above (reconnect)
+            self.freed = {"at": self.now, "n": self.freed_n, "drink": self.st.get("drink"), "open": set(),
+                          "known": None, "tried": set(), "bad": set(), "calm": None}
         return alert
+
+    def reconnect(self, alert):
+        """h2: after a lockdown's release, have DF rebuild its path index.
+
+        The API's lock_door sets the hatch's flag and nothing else. If DF rebuilds its path index while a hatch is
+        locked (on the public wildlife fort it does in the middle of winter, when deep water appears near the wagon),
+        the shelter and the surface become separate walk groups, and the API's unlock leaves them separate: citizens
+        below find no drink, food or job above although the hatches are open (challenge issue #238). In local games
+        the two sides stayed apart for 20 days (until a rebuild was forced) and for 52 (until DF rebuilt the index in
+        mid-winter), digging and a farm plot below changed nothing, and a Farmers or a Masons workshop finished on
+        the surface joined them at once: a finished building makes DF rebuild the index.
+
+        So a release orders workshops on free surface sites and is watched until a workshop of one of the kinds in
+        REINDEX_SHOPS is seen finished after the unlock, whoever ordered it: one that the game's own list showed
+        unbuilt at or after the release, or one that was not on the list at the release at all. A workshop waits
+        for a dwarf who is free and has its labour: in one local game four Farmers workshops stood unbuilt for 26
+        days with four dwarves above ground and were built two days after migrants came, and in two others a
+        Carpenters waited four days while a Masons ordered later was built in two. So one of each kind is ordered
+        at once, for whoever comes up first: each kind once a release, and not while a copy of it stands unbuilt
+        and unsuspended. The kinds are this controller's choice. Nothing is ordered on a pass whose workshop list
+        can't be read. A release with nobody seen above ground and no drink taken for CUT_DAYS is logged."""
+        f = self.freed
+        if not f or self.lock is not None:
+            return
+        age = self.now - f["at"]
+        rows = self.o.get("workshops")
+        waiting = None                   # these kinds stand unbuilt on this pass's list; None when it can't be read
+        if isinstance(rows, list):
+            shops = {x.get("id"): x for x in (d(w) for w in rows) if whole(x.get("id"))}
+            if f["known"] is None:
+                f["known"] = set(shops)  # what stood, built or not, when the hatch was unlocked
+            mine = {i: x for i, x in shops.items() if x.get("type") in REINDEX_SHOPS}
+            # the game does not move between this observation and the unlock, so what is unbuilt on a list read at
+            # or after the release is finished after the unlock; one finished during the lockdown is never in here
+            f["open"] |= {i for i, x in mine.items() if x.get("built") is False}
+            done = [i for i, x in mine.items() if x.get("built") is True and (i in f["open"] or i not in f["known"])]
+            if done:
+                log("reconnect", event="built", day=self.day, shop=mine[done[0]].get("type"),
+                    days=round(age / DAY, 1))
+                self.freed = None
+                return
+            waiting = {x.get("type") for x in mine.values() if x.get("built") is False and not any(
+                d(j).get("job") == "ConstructBuilding" and d(j).get("suspended") for j in lst(x.get("job_details")))}
+        if age > REINDEX_DAYS * DAY:
+            self.freed = None
+            return
+        placed = [p for p in self.people if whole(p.get("z"))] if whole(self.surface) else []
+        up = [p for p in placed if p["z"] >= self.surface]
+        if waiting is not None:
+            spent = 0                    # building material taken by this pass's orders (the stock is a pass old)
+            for kind in REINDEX_SHOPS:
+                if kind in waiting or kind in f["tried"]:
+                    continue             # a copy stands unbuilt, or this release has ordered its own
+                site = self.reindex_site(f["bad"])
+                if self.reindex_n >= REINDEX_MAX and (waiting or f["tried"]):
+                    break                # h5: past the allowance, one workshop a release, and only when none waits
+                if site is None or self.material() - spent < 1:
+                    break
+                r = self.act("reindex_%d_%s_%s" % (f["n"], kind, site["id"]), "build_workshop",
+                             {"type": kind, "site": site["id"]}, retry=1, limit=REINDEX_DAYS)
+                if r is None:
+                    continue             # asked on an earlier pass today
+                if r.get("ok"):
+                    spent += 1
+                    self.reindex_n += 1
+                    self.full_sites.add((site["id"], kind))
+                    self.built_n[kind] = self.built_n.get(kind, 0) + 1
+                    if isinstance(getattr(self, "w_used_now", None), set):
+                        self.w_used_now.add(site["id"])
+                    if whole(d(r.get("result")).get("id")):
+                        f["open"].add(r["result"]["id"])
+                    f["tried"].add(kind)
+                    log("reconnect", event="build", day=self.day, site=site["id"], shop=kind)
+                elif r.get("error_code") == "bad_arguments":
+                    f["tried"].add(kind)             # not a workshop this fort can build
+                elif r.get("error_code") in NO_MATERIAL:
+                    break                # asked again tomorrow, on the same site
+                else:
+                    f["bad"].add(site["id"])
+        # the log of a fort that stays below: only from what can be read in full, over days known to be without
+        # an alert
+        drink = self.st.get("drink")
+        if alert is not False or not placed or len(placed) != len(self.people) \
+                or not whole(drink) or not whole(f["drink"]):
+            f["calm"] = None
+        elif up or drink < f["drink"]:
+            f["out"] = True              # somebody is out, or a drink was taken
+        elif not f.get("out") and not f.get("cut"):
+            f["calm"] = self.now if f["calm"] is None else f["calm"]
+            if self.now - f["calm"] >= CUT_DAYS * DAY:
+                f["cut"] = True
+                log("reconnect", event="cut_off", day=self.day, days=round(age / DAY, 1), cit=self.cit, drink=drink)
+
+    def reindex_site(self, bad=()):
+        """h2: the free W site reconnect may take: one with an id, that no build of this controller has used and
+        none of this release's requests was refused on, and not the last one while the Butchers is still to be
+        built (the feast needs it)."""
+        used = {sid for sid, _ in self.full_sites} | set(bad)
+        if isinstance(getattr(self, "w_used_now", None), set):
+            used |= self.w_used_now
+        free = [x for x in self.kind("W") if isinstance(x.get("id"), str) and x["id"] and x.get("free", True)
+                and not lst(x.get("used_by")) and x["id"] not in used]
+        spare = 0 if "Butchers" in self.shops() else 1
+        return free[0] if len(free) > spare else None
 
     def thaw_window(self, lead=0):
         """True from THAW_BEFORE (plus `lead`) days before a spring to THAW_AFTER days into it, or (on full-year
