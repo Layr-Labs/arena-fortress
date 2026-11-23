@@ -36,8 +36,9 @@ BREW_KEEP = 6           # full-year embarks: plants left unbrewed as food. Their
                         #   rotten plant gives no seed back, and the seeds in the plots fell from 25 to 7-9 by
                         #   midsummer, so the farms ran a quarter planted into the scored winter
 MEAL_CAP = 200
-ENDGAME_DAYS = 64       # closer: the scored final stretch is the last quarter of a long run, clipped to 28 days;
-                        #   the supply slope over it must be >= 0, so production is raised a month before it starts
+ENDGAME_DAYS = 90       # closer: the scored final stretch is the last quarter of a long run (84 days on OP1,
+                        #   54 on MY1); the aggressive supply opens there so a decline cannot build unseen in the
+                        #   days before the old 64-day endgame began.
 WINDOW_PREP_DAYS = 14   # closer: days before a lab task's hands-off window when its orders and beds are secured
 REPORT_KEEP = 24        # action report lines kept for the model loop
 MOOD_WORKSHOP = {
@@ -931,7 +932,10 @@ class Overseer(OpenPlayRules):
         that protects the food count, since plants are food too), and cooking keeps meals rising from surplus food.
         Meat is added when edible food is short of a few days per citizen."""
         cap = max(600, 30 * self.cit)
-        reserve = max(12, self.cit)
+        # the reserve protects the food count (plants are food); it stays large while the food is thin and shrinks
+        # once the feast's meat and the culls stand behind it, so a lean fort can actually brew (measured: drink
+        # 330 to 300 over the quarter where the reserve never let the order fire, supply 0.889).
+        reserve = max(12, self.cit) if (self.st.get("food_edible") or 0) < 3 * self.cit else max(4, self.cit // 4)
         if not self.brew_stopped:
             self.act("o_brew_end", "add_order", {"recipe": "brew_drink", "amount": 4, "repeat": "daily", "when": [
                 {"stock": "drink", "below": cap}, {"stock": "plants_brewable", "at_least": reserve},
@@ -1500,6 +1504,8 @@ class Overseer(OpenPlayRules):
                 or self.beast_seen or self.thaw_alert or self.thaw_window(lead=2) \
                 or isinstance(self.fisher_hold, dict):
             return 1
+        if isinstance(self.days_left, int) and 0 <= self.days_left <= ENDGAME_DAYS:
+            return 1                        # the scored stretch is read day by day
         return 2
 
     def step(self, resp):

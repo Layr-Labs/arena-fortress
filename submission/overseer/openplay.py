@@ -32,7 +32,11 @@ FEAST_BATCH = 3         # animals marked per pass during the feast
 FEAST_KEEP = 3          # the largest non-grazing animals a hunger cull leaves alone, so a feast is left to have
 GRAZERS = frozenset(("WATER_BUFFALO", "YAK", "COW", "HORSE", "CAMEL_1_HUMP", "CAMEL_2_HUMP",
                      "MULE", "DONKEY", "REINDEER", "LLAMA", "ALPACA", "SHEEP", "GOAT", "RABBIT", "CAVY"))
-HUNGER = 0.25           # edible food per citizen (at least 3) below which one small animal is slaughtered: a week or
+HUNGER = 1.0            # edible food per citizen (at least 8) below which one small animal is slaughtered: a
+                        #   week or two of eating. Raised from 0.25 after two full local TEMPERATE_SOIL years (the
+                        #   private pool's site class) held 3-10 edible food all year with a herd kept back, and one
+                        #   dwarf starved (a silent death at day 230, O 65.8): at 1.0 the same forts eat at a median
+                        #   26-30 and nobody starves. The cull still never takes the feast's kept animals.
                         #   two of eating. A higher trigger empties the herd long before the feast on a food-poor fort
 HUNGER_FINAL = 1.0      # ... (at least 8) from FINAL_STRETCH days out, where a day at zero costs coverage: an
                         #   earlier cull's meat rots all at once, and a game went from 14 food to none in three days
@@ -121,7 +125,27 @@ ANIMAL_RANK = {"WATER_BUFFALO": 100, "YAK": 70, "COW": 60, "HORSE": 50, "CAMEL_1
                         #   cow gives 20-40 food, a turkey 10, a cat 7, a rabbit or cavy next to nothing
 
 
+NOT_RAW_EDIBLE = frozenset(("cave wheat", "pig tail", "sweet pod", "dimple cup", "quarry bush"))
+
+
 class OpenPlayRules:
+    def real_food(self):
+        """The counted food a dwarf can eat today: food_edible less the five brewed-or-milled crops (meal ingredients
+        only; a fort reading the counted stock as fed has nothing to eat - issue #140)."""
+        st = self.st
+        food = st.get("food_edible")
+        if not isinstance(food, (int, float)) or isinstance(food, bool):
+            return food or 0
+        kinds = st.get("plants_by_kind")
+        if isinstance(kinds, dict):
+            for name, v in kinds.items():
+                v = d(v)
+                n = v.get("n")
+                if isinstance(n, (int, float)) and not isinstance(n, bool) \
+                        and str(name).strip().lower() in NOT_RAW_EDIBLE:
+                    food -= n
+        return max(0, food)
+
     # ---- when the animals are slaughtered
     def provision(self):
         """The supply sub-score reads the food count's trend over the final stretch (the last quarter of the run, at
@@ -130,7 +154,7 @@ class OpenPlayRules:
         animals are therefore kept for the last FEAST_DAYS days, when nothing slaughtered can rot before the horizon,
         and slaughtered then, a few per pass, with cooking alongside (it turns tallow into counted meals). Before
         that, one small animal goes only when the fort is nearly out of food."""
-        food = self.st.get("food_edible") or 0
+        food = self.real_food()
         if self.days_left <= FEAST_DAYS:
             self.feast()
         elif self.days_left <= FINAL_STRETCH:
@@ -198,7 +222,7 @@ class OpenPlayRules:
             grz = [a for a in herd if str(a.get("race")) in GRAZERS]
             keep_ids = {a["id"] for a in (non_g + grz)[:FEAST_KEEP]}
             spare = [a for a in herd if a["id"] not in keep_ids]
-            if not spare and (self.st.get("food_edible") or 0) <= 0:
+            if not spare and self.real_food() <= 0:
                 spare = herd
             pick = sorted(spare, key=lambda a: (size(a) < 1, str(a.get("race")) not in GRAZERS,
                                                 size(a), str(a.get("id"))))
