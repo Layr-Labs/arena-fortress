@@ -193,7 +193,7 @@ class WealthEngineTests(unittest.TestCase):
                          ["ITEM_TOOL_WHEELBARROW", "ITEM_TOOL_MINECART", "ITEM_TOOL_STEPLADDER"])
         self.assertEqual(len(ov.wealth_ids), 3)
 
-        # Pause if chairs fall short after migrants arrive
+        # On migrant wave arrival (chairs short), keep standing wealth orders running (no Wave-1 churn cancel)
         oids = sorted(ov.wealth_ids)
         r_short = resp(200, 136, food=40, drink=200, cit=14, workshops=("Carpenters", "Carpenters", "Carpenters", "Still", "Kitchen"),
                        orders=[{"id": i, "job": "MakeTool", "repeat": "daily"} for i in oids])
@@ -205,11 +205,11 @@ class WealthEngineTests(unittest.TestCase):
         r_short["observation"]["wealth"] = {"created": 12000}
         ov.load(r_short)
         ov.progression_push()
-        self.assertEqual([a["order_id"] for a in g.tools("cancel_order")], oids)
+        self.assertEqual(g.tools("cancel_order"), [])
 
-        # Real DF 53.16 caravan departure message ("from <Civ>") -> stays cancelled
+        # Real DF 53.16 caravan departure message ("from <Civ>") -> cancels all standing wealth orders
         r2 = resp(140, 196, food=40, drink=200, cit=14, workshops=("Carpenters", "Carpenters", "Carpenters", "Still", "Kitchen"),
-                  orders=[])
+                  orders=[{"id": i, "job": "MakeTool", "repeat": "daily"} for i in oids])
         r2["observation"]["map"]["sites"] = [{"id": "E1", "kind": "E", "x": 92, "y": 100, "z": 153}]
         r2["observation"]["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 153}]}
         r2["observation"]["stocks"]["beds"] = 14
@@ -220,6 +220,7 @@ class WealthEngineTests(unittest.TestCase):
         ov.load(r2)
         ov.progression_push()
         self.assertTrue(ov.caravan_out)
+        self.assertEqual(sorted(a["order_id"] for a in g.tools("cancel_order")), oids)
         self.assertEqual(len(g.tools("add_manager_order")), 3)  # no new wealth orders after caravan leaves
 
     def test_extra_carpenters_reserve_w_sites_for_butchers_and_cap_at_five(self):
@@ -348,7 +349,7 @@ class WealthEngineTests(unittest.TestCase):
             self.assertEqual(p.guard.brew_in_window, label == "LT01", label)
 
     def test_lt01_brew_in_window_brews_at_one_plant_plus_fruit_and_avoids_early_butcher(self):
-        r = resp(35, 25, food=40, drink=350, cit=19, hands_off=14)
+        r = resp(27, 33, food=40, drink=350, cit=19, hands_off=6)
         r["observation"]["stocks"]["logs_usable"] = 30
         ov, g = overseer(r)
         ov.days = 60
@@ -401,7 +402,8 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertEqual([a for a in g.tools("make_zone") if a.get("kind") == "meeting_area"],
                          [{"kind": "meeting_area", "site": "A_ug"}])
 
-        # On MY1 (days=216), meeting_area MUST NOT activate underground (keeps grazing feast herd on surface grass)
+        # On MY1 (days=216), meeting_area stays OFF while days_left > 45 (keeps grazing feast herd on grass)
+        # AND requires built stair hatches at days_left <= 45 so unsealed handed-over forts never trap dwarves
         r_my = resp(200, 16, food=60, drink=120, cit=10)
         r_my["observation"]["map"]["surface_z"] = 152
         r_my["observation"]["map"]["sites"] = o["map"]["sites"]
@@ -411,6 +413,23 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov_my.days = 216
         ov_my.furnish()
         self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"], [])
+        r_my_late_unsealed = resp(45, 171, food=60, drink=120, cit=10)
+        r_my_late_unsealed["observation"]["map"]["surface_z"] = 152
+        r_my_late_unsealed["observation"]["map"]["sites"] = o["map"]["sites"]
+        r_my_late_unsealed["observation"]["doors"] = {"list": []}
+        r_my_late_unsealed["observation"]["zones"] = o["zones"]
+        ov_my.load(r_my_late_unsealed)
+        ov_my.furnish()
+        self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"], [])
+        r_my_late_sealed = resp(44, 172, food=60, drink=120, cit=10)
+        r_my_late_sealed["observation"]["map"]["surface_z"] = 152
+        r_my_late_sealed["observation"]["map"]["sites"] = o["map"]["sites"]
+        r_my_late_sealed["observation"]["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 152}]}
+        r_my_late_sealed["observation"]["zones"] = o["zones"]
+        ov_my.load(r_my_late_sealed)
+        ov_my.furnish()
+        self.assertEqual([a for a in g_my.tools("make_zone") if a.get("kind") == "meeting_area"],
+                         [{"kind": "meeting_area", "site": "A_ug"}])
 
         # On LT01/LT02 (no_fish_lab=True), meeting_area activates underground immediately
         r_lab = resp(50, 10, food=60, drink=120, cit=7, hands_off=29)
@@ -455,7 +474,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertFalse(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [])
 
-        # Caravan departs, MY1 drink=300 (30/cit >= DRINK_SAFE=28): stops brewing to protect food plants!
+        # Caravan departs, MY1 low food=15 (< 6*cit) and drink=300 (30/cit >= DRINK_SAFE=28): stops brewing!
         r2 = resp(10, 206, food=15, drink=300, cit=10, orders=[order])
         r2["observation"]["recent_events"] = [
             "The merchants from TestCiv have embarked on their journey.",
@@ -467,6 +486,12 @@ class Win7BreakthroughTests(unittest.TestCase):
         ov.feast()
         self.assertTrue(ov.brew_stopped)
         self.assertEqual(g.tools("cancel_order"), [{"order_id": 7}])
+
+        # Once MY1 feast meat lifts food >= 6*cit (e.g. food=80) and drink < 42*cit, reopens brewing to protect drink slope!
+        r3 = resp(8, 208, food=80, drink=300, cit=10, orders=[])
+        ov.load(r3)
+        ov.feast()
+        self.assertFalse(ov.brew_stopped)
 
     def test_lt02_enables_no_fishing_and_fisher_hold(self):
         cits = [
@@ -494,7 +519,7 @@ class Win7BreakthroughTests(unittest.TestCase):
         self.assertEqual(g.tools("create_squad"), [{"dwarf_ids": [83]}])
         self.assertEqual(g.tools("squad_order"), [{"order": "station", "x": 95, "y": 95, "z": 151}])
 
-    def test_lt01_brew_in_window_skips_furniture_orders(self):
+    def test_lt01_brew_in_window_skips_furniture_and_uses_uncapped_brew_plus_window_boost(self):
         r = resp(35, 25, food=80, drink=100, cit=15, hands_off=14)
         r["observation"]["stocks"]["logs_usable"] = 30
         r["observation"]["stocks"]["beds"] = 0
@@ -506,29 +531,43 @@ class Win7BreakthroughTests(unittest.TestCase):
                      "goal": "Keep drink in stock, brew at least one batch of drink inside it."})
         ov.supply()
         ov.housing_check()
+        ov.window_supply()
         recipes = [o.get("recipe") for o in g.tools("add_order")]
         for f in ("make_bed", "make_table", "make_chair"):
             self.assertNotIn(f, recipes)
+        # Uncapped o_brew_growth (plants_brewable >= 2) + immediate o_brew_win (hands_off <= 14) + o_fruit_win
+        brews = [o for o in g.tools("add_order") if o.get("recipe") == "brew_drink"]
+        self.assertEqual(len(brews), 2)
+        self.assertEqual(brews[0]["when"][0], {"stock": "plants_brewable", "at_least": 2})
+        self.assertEqual(brews[1]["when"][0], {"stock": "drink", "below": 2000})
+        self.assertIn({"stock": "plants_brewable", "at_least": 1}, brews[1]["when"])
+        self.assertIn("brew_drink_from_fruit", recipes)
 
-    def test_three_slot_amount15_maketool_wealth_engine_cancels_on_caravan_out(self):
-        r = resp(300, 36, food=60, drink=200, cit=10,
-                 workshops=("Carpenters",) * 6 + ("Still", "Kitchen"))
-        r["observation"]["stocks"].update({"logs_usable": 80, "beds": 12, "tables": 7, "chairs": 8})
+    def test_six_slot_amount30_maketool_wealth_engine_burst_and_cancels_on_caravan_out(self):
+        r = resp(300, 36, food=60, drink=200, cit=15,
+                 workshops=("Carpenters",) * 10 + ("Still", "Kitchen"))
+        r["observation"]["stocks"].update({"logs_usable": 120, "beds": 18, "tables": 9, "chairs": 10})
         r["observation"]["wealth"] = {"created": 4000}
-        r["observation"]["map"]["sites"] = [{"id": "E1", "kind": "E", "x": 92, "y": 100, "z": 153}]
+        r["observation"]["map"]["sites"] = [
+            {"id": "E1", "kind": "E", "x": 92, "y": 100, "z": 153},
+            {"id": "W1", "kind": "W"}, {"id": "W2", "kind": "W"}, {"id": "W3", "kind": "W"},
+            {"id": "W4", "kind": "W"}, {"id": "W5", "kind": "W"}, {"id": "W6", "kind": "W"},
+        ]
         r["observation"]["doors"] = {"list": [{"id": 14, "kind": "hatch", "built": True, "locked": False, "x": 92, "y": 100, "z": 153}]}
         ov, g = overseer(r)
         ov.progression_push()
+        # Burst-builds up to 4 extra Carpenters while reserving 2 W sites for Butchers (6 free -> 4 built)
+        self.assertEqual(len(g.tools("build_workshop")), 4)
         orders = g.tools("add_manager_order")
-        self.assertEqual(len(orders), 3)
-        self.assertTrue(all(o.get("job") == "MakeTool" and o.get("amount") == 15 for o in orders))
-        self.assertEqual([o["when"][0]["at_least"] for o in orders], [60, 65, 70])
+        self.assertEqual(len(orders), 6)
+        self.assertTrue(all(o.get("job") == "MakeTool" and o.get("amount") == 30 for o in orders))
+        self.assertEqual([o["when"][0]["at_least"] for o in orders], [35, 40, 45, 55, 65, 75])
         all_ids = sorted(ov.wealth_ids)
-        self.assertEqual(len(all_ids), 3)
+        self.assertEqual(len(all_ids), 6)
 
-        # Caravan departs -> all 3 wealth orders cancelled
-        r2 = resp(140, 196, food=60, drink=200, cit=10,
-                  workshops=("Carpenters",) * 6 + ("Still", "Kitchen"),
+        # Caravan departs -> all 6 wealth orders cancelled
+        r2 = resp(140, 196, food=60, drink=200, cit=15,
+                  workshops=("Carpenters",) * 10 + ("Still", "Kitchen"),
                   orders=[{"id": i, "job": "MakeTool", "repeat": "daily"} for i in all_ids])
         r2["observation"]["recent_events"] = ["The merchants from TestCiv have embarked on their journey."]
         ov.load(r2)

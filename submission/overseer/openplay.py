@@ -162,11 +162,16 @@ class OpenPlayRules:
         if getattr(self, "caravan_in", False):
             return
         drink = self.st.get("drink") or 0
-        if drink >= DRINK_SAFE * self.cit:
+        food = self.st.get("food_edible") or 0
+        # On MY1 with a healthy food buffer (restored grazing feast herd), never stop brewing at DRINK_SAFE=28
+        # because 15 unbrewed days at 28/cit can produce a borderline negative drink slope (T < 336d -> T=1).
+        safe = 42 if (not self.full_year() and food >= 6 * self.cit) else DRINK_SAFE
+        if drink >= safe * self.cit:
             self.brew_stopped = True
         elif stretch and not self.stretch_rest and drink >= DRINK_REOPEN * self.cit:
             self.brew_stopped = self.stretch_rest = True
-        elif self.brew_stopped and drink < DRINK_REOPEN * self.cit:
+        elif self.brew_stopped and (drink < DRINK_REOPEN * self.cit
+                                    or (not self.full_year() and food >= 6 * self.cit and drink < safe * self.cit)):
             self.brew_stopped = False        # the regular supply step adds its brew order again
         if self.brew_stopped:                # every pass: a refused or cut-short cancellation is tried again
             for oid in sorted(self.brew_own):
